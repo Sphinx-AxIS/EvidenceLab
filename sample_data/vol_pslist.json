@@ -1,0 +1,56 @@
+[
+  {
+    "PID": 4,
+    "PPID": 0,
+    "ImageFileName": "System",
+    "Threads": 120,
+    "Handles": 2500,
+    "CreateTime": "2026-03-10T08:00:00.000Z",
+    "ExitTime": null
+  },
+  {
+    "PID": 612,
+    "PPID": 4,
+    "ImageFileName": "smss.exe",
+    "Threads": 2,
+    "Handles": 50,
+    "CreateTime": "2026-03-10T08:00:01.000Z",
+    "ExitTime": null
+  },
+  {
+    "PID": 2840,
+    "PPID": 1200,
+    "ImageFileName": "powershell.exe",
+    "Threads": 15,
+    "Handles": 450,
+    "CreateTime": "2026-03-10T14:24:30.000Z",
+    "ExitTime": null
+  },
+  {
+    "PID": 3104,
+    "PPID": 2840,
+    "ImageFileName": "rundll32.exe",
+    "Threads": 5,
+    "Handles": 180,
+    "CreateTime": "2026-03-10T14:24:45.000Z",
+    "ExitTime": null
+  },
+  {
+    "PID": 3200,
+    "PPID": 3104,
+    "ImageFileName": "cmd.exe",
+    "Threads": 1,
+    "Handles": 30,
+    "CreateTime": "2026-03-10T14:25:00.000Z",
+    "ExitTime": null
+  },
+  {
+    "PID": 5600,
+    "PPID": 800,
+    "ImageFileName": "svchost.exe",
+    "Threads": 12,
+    "Handles": 300,
+    "CreateTime": "2026-03-10T08:00:15.000Z",
+    "ExitTime": null
+  }
+]

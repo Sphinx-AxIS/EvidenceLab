@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Report{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Investigation Report</h2>
+  <div class="flex gap-1">
+    <a href="/ui/cases/{{ case_id }}/report/download" class="btn btn-primary">Download JSON</a>
+  </div>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% else %}
+
+<!-- Executive Summary -->
+{% if report.executive_summary %}
+<div class="card mb-2">
+  <h3>Executive Summary</h3>
+  <div style="white-space:pre-wrap; font-size:0.85rem;">{{ report.executive_summary }}</div>
+</div>
+{% endif %}
+
+<!-- Case Info -->
+<div class="card-grid mb-2">
+  <div class="card">
+    <h3>Case</h3>
+    <div style="font-size:0.9rem; font-weight:600;">{{ report.case.name }}</div>
+    <div class="text-muted mt-1" style="font-size:0.78rem;">{{ report.case.description or 'No description' }}</div>
+  </div>
+  <div class="card">
+    <h3>Generated</h3>
+    <div class="text-mono" style="font-size:0.85rem;">{{ report.generated_at[:19] }}</div>
+  </div>
+  <div class="card">
+    <h3>Status</h3>
+    <div>
+      <span class="badge badge-success">{{ report.case.status }}</span>
+    </div>
+  </div>
+</div>
+
+<!-- Evidence Summary -->
+{% if report.evidence_summary %}
+<div class="table-wrap mb-2">
+  <div class="table-title">Evidence Summary</div>
+  <table>
+    <thead><tr><th>Type</th><th style="text-align:right;">Count</th></tr></thead>
+    <tbody>
+      {% for item in report.evidence_summary %}
+      <tr>
+        <td><span class="record-type">{{ item.record_type }}</span></td>
+        <td style="text-align:right;" class="text-mono">{{ item.count }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Tasks -->
+{% if report.tasks %}
+<div class="table-wrap mb-2">
+  <div class="table-title">Investigation Tasks</div>
+  <table>
+    <thead><tr><th>Title</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for t in report.tasks %}
+      <tr>
+        <td>{{ t.title }}</td>
+        <td>
+          {% if t.status == 'done' %}
+          <span class="badge badge-success">done</span>
+          {% else %}
+          <span class="badge badge-muted">{{ t.status }}</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Findings -->
+{% if report.findings %}
+<h3 class="mb-1" style="font-size:0.9rem; font-weight:600;">Findings</h3>
+{% for f in report.findings %}
+<div class="card mb-1">
+  <div class="flex-between">
+    <strong>{{ f.title }}</strong>
+    {% if f.severity %}
+    <span class="badge {% if f.severity in ('high','critical') %}badge-danger{% elif f.severity == 'medium' %}badge-warning{% else %}badge-info{% endif %}">{{ f.severity }}</span>
+    {% endif %}
+  </div>
+  {% if f.body %}
+  <div style="white-space:pre-wrap; font-size:0.83rem; margin-top:0.5rem;">{{ f.body }}</div>
+  {% endif %}
+  {% if f.evidence_ids %}
+  <div class="text-muted mt-1" style="font-size:0.75rem;">Evidence: {{ f.evidence_ids|join(', ') }}</div>
+  {% endif %}
+  {% if f.mitre_ids %}
+  <div class="mt-1">{% for m in f.mitre_ids %}<span class="badge badge-purple">{{ m }}</span> {% endfor %}</div>
+  {% endif %}
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- IOCs -->
+{% if report.iocs %}
+<div class="table-wrap mb-2">
+  <div class="table-title">Indicators of Compromise</div>
+  <table>
+    <thead><tr><th>Type</th><th>Value</th><th>References</th></tr></thead>
+    <tbody>
+      {% for ioc in report.iocs[:30] %}
+      <tr>
+        <td><span class="badge badge-info">{{ ioc.entity_type }}</span></td>
+        <td class="text-mono" style="word-break:break-all;">{{ ioc.value }}</td>
+        <td class="text-mono">{{ ioc.count }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}

