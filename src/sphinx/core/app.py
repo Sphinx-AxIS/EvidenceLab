@@ -20,6 +20,10 @@ async def lifespan(app: FastAPI):
     settings = app.state.settings
     init_pool(settings)
     _ensure_admin(settings)
+
+    from sphinx.core.plugin_loader import load_bundled_plugins
+    load_bundled_plugins()
+
     log.info("Sphinx API started")
     yield
     close_pool()
@@ -59,9 +63,11 @@ def create_app() -> FastAPI:
     # ── Routes ─────────────────────────────────────
     from sphinx.core.auth_routes import router as auth_router
     from sphinx.core.case_manager import router as case_router
+    from sphinx.core.dashboard import router as dashboard_router
 
     app.include_router(auth_router)
     app.include_router(case_router)
+    app.include_router(dashboard_router)
 
     @app.get("/")
     async def root():
