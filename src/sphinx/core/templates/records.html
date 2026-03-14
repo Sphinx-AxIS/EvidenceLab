@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Records{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Records{% if type_filter %} &mdash; <span class="record-type">{{ type_filter }}</span>{% endif %}</h2>
+  <div class="flex gap-1">
+    <form method="get" action="/ui/cases/{{ case_id }}/records">
+      <select name="type" onchange="this.form.submit()">
+        <option value="">All types</option>
+        {% for rt in record_types %}
+        <option value="{{ rt }}" {% if rt == type_filter %}selected{% endif %}>{{ rt }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+</div>
+
+{% if records|length == 0 %}
+<div class="empty-state">
+  <div class="icon">&#9654;</div>
+  <p>No records found{% if type_filter %} for type "{{ type_filter }}"{% endif %}. Ingest evidence to populate.</p>
+</div>
+{% else %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Type</th><th>Timestamp</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for r in records %}
+      <tr>
+        <td class="text-mono" style="font-size:0.75rem;">{{ r.id }}</td>
+        <td><span class="record-type">{{ r.record_type }}</span></td>
+        <td class="text-muted text-mono" style="font-size:0.78rem;">{{ r.ts if r.ts else '—' }}</td>
+        <td><a href="/ui/cases/{{ case_id }}/records/{{ r.id }}" class="btn btn-sm">Detail</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="flex-between text-muted" style="font-size:0.8rem;">
+  <div>Showing {{ records|length }} of {{ total }} records</div>
+  <div class="flex gap-1">
+    {% if offset > 0 %}
+    <a href="/ui/cases/{{ case_id }}/records?type={{ type_filter|default('') }}&offset={{ offset - limit }}" class="btn btn-sm">&laquo; Prev</a>
+    {% endif %}
+    {% if offset + limit < total %}
+    <a href="/ui/cases/{{ case_id }}/records?type={{ type_filter|default('') }}&offset={{ offset + limit }}" class="btn btn-sm">Next &raquo;</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Dashboard</h2>
+  <div class="flex gap-1">
+    {% if cases|length > 0 %}
+    <form method="get" action="/ui/">
+      <select name="case_id" onchange="this.form.submit()" style="min-width:200px;">
+        <option value="">Select case...</option>
+        {% for c in cases %}
+        <option value="{{ c.id }}" {% if c.id == case_id %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    {% endif %}
+    <a href="/ui/cases/new" class="btn btn-primary">+ New Case</a>
+  </div>
+</div>
+
+{% if not case_id %}
+<div class="empty-state">
+  <div class="icon">&#9632;</div>
+  <p>Select a case above or create a new one to begin.</p>
+</div>
+{% else %}
+
+<!-- Summary cards -->
+<div class="card-grid">
+  <div class="card">
+    <h3>Total Records</h3>
+    <div class="value">{{ summary.total_records }}</div>
+    <div class="label">evidence items ingested</div>
+  </div>
+  <div class="card">
+    <h3>Tasks</h3>
+    <div class="value">{{ summary.tasks_done }} / {{ summary.tasks_total }}</div>
+    <div class="label">completed</div>
+  </div>
+  <div class="card">
+    <h3>Findings</h3>
+    <div class="value text-success">{{ summary.findings_count }}</div>
+    <div class="label">investigation results</div>
+  </div>
+  <div class="card">
+    <h3>Entities</h3>
+    <div class="value" style="color:var(--purple);">{{ summary.entity_count }}</div>
+    <div class="label">extracted indicators</div>
+  </div>
+</div>
+
+<!-- Records by type -->
+{% if summary.record_counts %}
+<div class="table-wrap">
+  <div class="table-title">Records by Type</div>
+  <table>
+    <thead>
+      <tr><th>Type</th><th style="text-align:right;">Count</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for rt in summary.record_counts %}
+      <tr>
+        <td><span class="record-type">{{ rt.record_type }}</span></td>
+        <td style="text-align:right;" class="text-mono">{{ rt.count }}</td>
+        <td><a href="/ui/cases/{{ case_id }}/records?type={{ rt.record_type }}" class="btn btn-sm">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Plugin status -->
+{% if summary.plugins %}
+<div class="table-wrap">
+  <div class="table-title">Loaded Plugins</div>
+  <table>
+    <thead>
+      <tr><th>Plugin</th><th>Version</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      {% for p in summary.plugins %}
+      <tr>
+        <td>{{ p.name }}</td>
+        <td class="text-mono">{{ p.version }}</td>
+        <td><span class="badge badge-success">active</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}

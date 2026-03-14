@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Tasks{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Tasks</h2>
+  <a href="/ui/cases/{{ case_id }}/tasks/new" class="btn btn-primary">+ New Task</a>
+</div>
+
+{% if tasks|length == 0 %}
+<div class="empty-state">
+  <div class="icon">&#9881;</div>
+  <p>No tasks yet. Create one to start an LLM investigation.</p>
+</div>
+{% else %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Title</th><th>Status</th><th>Steps</th><th>Created</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for t in tasks %}
+      <tr>
+        <td style="max-width:400px;">{{ t.title[:120] }}{% if t.title|length > 120 %}...{% endif %}</td>
+        <td>
+          {% if t.status == 'done' %}
+          <span class="badge badge-success">done</span>
+          {% elif t.status == 'running' %}
+          <span class="badge badge-warning">running</span>
+          {% elif t.status == 'error' %}
+          <span class="badge badge-danger">error</span>
+          {% else %}
+          <span class="badge badge-muted">{{ t.status }}</span>
+          {% endif %}
+        </td>
+        <td class="text-mono">{{ t.step_count|default(0) }}</td>
+        <td class="text-muted" style="font-size:0.78rem;">{{ t.created_at[:19] if t.created_at else '' }}</td>
+        <td><a href="/ui/cases/{{ case_id }}/tasks/{{ t.id }}" class="btn btn-sm">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

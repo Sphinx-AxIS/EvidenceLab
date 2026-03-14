@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Ingest Evidence{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Ingest Evidence</h2>
+</div>
+
+{% if message %}
+<div class="alert alert-success">{{ message }}</div>
+{% endif %}
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+<div class="card" style="max-width:600px;">
+  <form method="post" action="/ui/cases/{{ case_id }}/ingest" enctype="multipart/form-data">
+    <div class="form-group">
+      <label for="record_type">Record Type</label>
+      <select id="record_type" name="record_type" required>
+        <option value="">Select handler...</option>
+        {% for h in handlers %}
+        <option value="{{ h }}">{{ h }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="file">JSON File</label>
+      <input type="file" id="file" name="file" accept=".json,.jsonl" required
+        style="padding:0.4rem; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); width:100%;">
+      <div class="text-muted mt-1" style="font-size:0.75rem;">
+        Upload a JSON array or JSONL file containing evidence records.
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary">Upload &amp; Ingest</button>
+  </form>
+</div>
+
+{% if handlers|length > 0 %}
+<div class="table-wrap mt-2" style="max-width:600px;">
+  <div class="table-title">Available Handlers</div>
+  <table>
+    <tbody>
+      {% for h in handlers %}
+      <tr><td class="text-mono">{{ h }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

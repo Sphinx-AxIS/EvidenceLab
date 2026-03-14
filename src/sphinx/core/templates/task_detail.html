@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Task Detail{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Task Detail</h2>
+  <a href="/ui/cases/{{ case_id }}/tasks" class="btn btn-sm">&laquo; Back to tasks</a>
+</div>
+
+<!-- Task info -->
+<div class="card mb-2">
+  <div class="flex-between mb-1">
+    <h3 style="text-transform:none; font-size:0.9rem; color:var(--text-primary);">{{ task.title }}</h3>
+    {% if task.status == 'done' %}
+    <span class="badge badge-success">done</span>
+    {% elif task.status == 'running' %}
+    <span class="badge badge-warning">running</span>
+    {% elif task.status == 'error' %}
+    <span class="badge badge-danger">error</span>
+    {% else %}
+    <span class="badge badge-muted">{{ task.status }}</span>
+    {% endif %}
+  </div>
+  <div class="text-muted" style="font-size:0.78rem;">
+    Created: {{ task.created_at[:19] if task.created_at else '—' }}
+    &middot; Steps: {{ steps|length }}
+  </div>
+</div>
+
+<!-- Description -->
+{% if task.description %}
+<div class="card mb-2">
+  <h3>Description</h3>
+  <div style="white-space:pre-wrap; font-size:0.85rem;">{{ task.description }}</div>
+</div>
+{% endif %}
+
+<!-- Worklog steps -->
+<h3 class="mb-1" style="font-size:0.9rem; font-weight:600;">Worklog Steps</h3>
+
+{% if steps|length == 0 %}
+<div class="empty-state" style="padding:1.5rem;">
+  <p>No worklog steps recorded yet.</p>
+</div>
+{% else %}
+{% for step in steps %}
+<div class="worklog-step">
+  <div class="step-header">
+    <div>
+      <strong>Step {{ step.step_number }}</strong>
+      {% if step.error %}
+      <span class="badge badge-danger" style="margin-left:0.5rem;">error</span>
+      {% endif %}
+    </div>
+    <div class="text-muted">
+      {% if step.elapsed_ms %}{{ step.elapsed_ms }}ms{% endif %}
+    </div>
+  </div>
+
+  {% if step.intent %}
+  <div class="step-body" style="border-bottom:1px solid var(--border);">
+    <div class="text-muted" style="font-size:0.72rem; text-transform:uppercase; margin-bottom:0.3rem;">Intent</div>
+    <div style="font-size:0.83rem;">{{ step.intent }}</div>
+  </div>
+  {% endif %}
+
+  {% if step.code %}
+  <div class="step-body" style="border-bottom:1px solid var(--border);">
+    <div class="text-muted" style="font-size:0.72rem; text-transform:uppercase; margin-bottom:0.3rem;">Code</div>
+    <pre><code>{{ step.code }}</code></pre>
+  </div>
+  {% endif %}
+
+  {% if step.stdout %}
+  <div class="step-body" {% if step.stderr or step.error %}style="border-bottom:1px solid var(--border);"{% endif %}>
+    <div class="text-muted" style="font-size:0.72rem; text-transform:uppercase; margin-bottom:0.3rem;">Output</div>
+    <pre><code>{{ step.stdout[:5000] }}{% if step.stdout|length > 5000 %}... (truncated){% endif %}</code></pre>
+  </div>
+  {% endif %}
+  {% if step.stderr %}
+  <div class="step-body">
+    <div class="text-muted text-danger" style="font-size:0.72rem; text-transform:uppercase; margin-bottom:0.3rem;">Stderr</div>
+    <pre><code>{{ step.stderr[:3000] }}</code></pre>
+  </div>
+  {% endif %}
+  {% if step.error %}
+  <div class="step-body">
+    <div class="text-muted text-danger" style="font-size:0.72rem; text-transform:uppercase; margin-bottom:0.3rem;">Error</div>
+    <pre><code>{{ step.error }}</code></pre>
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}

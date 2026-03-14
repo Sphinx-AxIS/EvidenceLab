@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Record Detail{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Record Detail</h2>
+  <a href="/ui/cases/{{ case_id }}/records?type={{ record.record_type }}" class="btn btn-sm">&laquo; Back to list</a>
+</div>
+
+<div class="card-grid" style="grid-template-columns: repeat(3, 1fr);">
+  <div class="card">
+    <h3>Record ID</h3>
+    <div class="text-mono" style="font-size:0.78rem; word-break:break-all;">{{ record.id }}</div>
+  </div>
+  <div class="card">
+    <h3>Type</h3>
+    <div><span class="record-type">{{ record.record_type }}</span></div>
+  </div>
+  <div class="card">
+    <h3>Timestamp</h3>
+    <div class="text-mono" style="font-size:0.85rem;">{{ record.ts if record.ts else '—' }}</div>
+  </div>
+</div>
+
+{% if entities %}
+<div class="table-wrap">
+  <div class="table-title">Extracted Entities</div>
+  <table>
+    <thead><tr><th>Type</th><th>Value</th></tr></thead>
+    <tbody>
+      {% for e in entities %}
+      <tr>
+        <td><span class="badge badge-info">{{ e.entity_type }}</span></td>
+        <td class="text-mono">{{ e.value }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<div class="table-wrap">
+  <div class="table-title">Raw Data (JSON)</div>
+  <div class="json-viewer" style="padding:1rem;">
+    <pre><code>{{ raw_json }}</code></pre>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Findings{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Findings</h2>
+</div>
+
+{% if findings|length == 0 %}
+<div class="empty-state">
+  <div class="icon">&#10004;</div>
+  <p>No findings yet. Run a task to generate investigation results.</p>
+</div>
+{% else %}
+{% for f in findings %}
+<div class="card mb-2">
+  <div class="flex-between mb-1">
+    <div>
+      <strong>{{ f.title }}</strong>
+      {% if f.severity == 'critical' %}
+      <span class="badge badge-danger" style="margin-left:0.5rem;">critical</span>
+      {% elif f.severity == 'high' %}
+      <span class="badge badge-danger" style="margin-left:0.5rem;">high</span>
+      {% elif f.severity == 'medium' %}
+      <span class="badge badge-warning" style="margin-left:0.5rem;">medium</span>
+      {% elif f.severity == 'low' %}
+      <span class="badge badge-info" style="margin-left:0.5rem;">low</span>
+      {% else %}
+      <span class="badge badge-muted" style="margin-left:0.5rem;">info</span>
+      {% endif %}
+    </div>
+    <span class="text-muted" style="font-size:0.75rem;">{{ f.created_at[:19] if f.created_at else '' }}</span>
+  </div>
+  {% if f.summary %}
+  <div style="font-size:0.85rem; white-space:pre-wrap;">{{ f.summary }}</div>
+  {% endif %}
+  {% if f.evidence_ids %}
+  <div class="mt-1 text-muted" style="font-size:0.75rem;">
+    Evidence IDs: {{ f.evidence_ids|join(', ') }}
+  </div>
+  {% endif %}
+  {% if f.mitre_ids %}
+  <div class="mt-1" style="font-size:0.75rem;">
+    {% for m in f.mitre_ids %}<span class="badge badge-purple">{{ m }}</span> {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}

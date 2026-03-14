@@ -5,8 +5,11 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from sphinx.core.config import load_settings
 from sphinx.core.db import close_pool, init_pool
@@ -72,6 +75,11 @@ def create_app() -> FastAPI:
     app.include_router(dashboard_router)
     app.include_router(task_router)
     app.include_router(ingest_router)
+
+    # ── Frontend (server-rendered UI) ─────────────
+    from sphinx.core.frontend import router as ui_router
+    app.include_router(ui_router)
+    app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 
     # ── Report endpoint ────────────────────────────
     from sphinx.core.auth import CurrentUser, check_case_access
