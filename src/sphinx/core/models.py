@@ -63,6 +63,19 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+# ── Case Assignments ───────────────────────────────────
+
+class CaseAssignment(BaseModel):
+    user_id: str
+    case_id: str
+
+
+class CaseAssignmentOut(BaseModel):
+    user_id: str
+    case_id: str
+    assigned_at: datetime
+
+
 # ── Records ────────────────────────────────────────────
 
 class RecordOut(BaseModel):

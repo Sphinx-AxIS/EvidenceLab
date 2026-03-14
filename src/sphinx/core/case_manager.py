@@ -8,7 +8,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from sphinx.core.auth import CurrentUser, check_case_access
 from sphinx.core.db import get_cursor
-from sphinx.core.models import CaseCreate, CaseOut, CaseUpdate
+from sphinx.core.models import (
+    CaseAssignment,
+    CaseAssignmentOut,
+    CaseCreate,
+    CaseOut,
+    CaseUpdate,
+)
 
 router = APIRouter(prefix="/cases", tags=["cases"])
 
@@ -95,4 +101,69 @@ async def delete_case(case_id: str, user=Depends(CurrentUser(required_role="admi
         cur.execute("DELETE FROM cases WHERE id = %s", (case_id,))
         if cur.rowcount == 0:
             raise HTTPException(status_code=404, detail="Case not found")
+        cur.connection.commit()
+
+
+# ── Case Assignments ───────────────────────────────────
+
+@router.post(
+    "/{case_id}/assign",
+    response_model=CaseAssignmentOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def assign_user_to_case(
+    case_id: str, body: CaseAssignment, user=Depends(_require_manager)
+):
+    """Assign a user to a case (case_manager+ only)."""
+    with get_cursor() as cur:
+        # Verify case exists
+        cur.execute("SELECT id FROM cases WHERE id = %s", (case_id,))
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="Case not found")
+
+        # Verify user exists
+        cur.execute("SELECT id FROM users WHERE id = %s", (body.user_id,))
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="User not found")
+
+        try:
+            cur.execute(
+                """INSERT INTO case_assignments (user_id, case_id)
+                   VALUES (%s, %s)
+                   RETURNING *""",
+                (body.user_id, case_id),
+            )
+            row = cur.fetchone()
+            cur.connection.commit()
+            return row
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="User already assigned to this case",
+            )
+
+
+@router.get("/{case_id}/assignments", response_model=list[CaseAssignmentOut])
+async def list_case_assignments(case_id: str, user=Depends(_require_manager)):
+    """List all users assigned to a case."""
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT * FROM case_assignments WHERE case_id = %s ORDER BY assigned_at",
+            (case_id,),
+        )
+        return cur.fetchall()
+
+
+@router.delete("/{case_id}/assign/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def unassign_user_from_case(
+    case_id: str, user_id: str, user=Depends(_require_manager)
+):
+    """Remove a user's assignment from a case."""
+    with get_cursor() as cur:
+        cur.execute(
+            "DELETE FROM case_assignments WHERE user_id = %s AND case_id = %s",
+            (user_id, case_id),
+        )
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Assignment not found")
         cur.connection.commit()
