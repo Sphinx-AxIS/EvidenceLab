@@ -26,6 +26,8 @@ run_bootstrap() {
     fi
 }
 
+export PYTHONPATH="/app/src:${PYTHONPATH:-}"
+
 case "${1:-}" in
     --api)
         wait_for_db
@@ -37,8 +39,8 @@ case "${1:-}" in
     --repl)
         wait_for_db
         echo "[sphinx] REPL sandbox ready — waiting for tasks"
-        # Stay alive; the API dispatches work to this container
-        exec python -m sphinx.core.sandbox
+        # Stay alive until the API dispatches work
+        exec tail -f /dev/null
         ;;
     *)
         echo "Usage: entrypoint.sh [--api | --repl]"
