@@ -100,20 +100,20 @@ def extract_from_record(raw: dict[str, Any]) -> list[dict[str, str]]:
     return extract_from_text(text)
 
 
-def extract_and_store(case_id: str, record_id: int, raw: dict[str, Any]) -> int:
+def extract_and_store(case_id: str, record_id: int, raw: dict[str, Any], cur=None) -> int:
     """Extract entities from a record and store them in the entities table.
 
-    Returns the number of new entities inserted.
+    If *cur* is provided, uses that cursor (same transaction as caller).
+    Otherwise opens its own connection.  Returns the number of new entities inserted.
     """
     entities = extract_from_record(raw)
     if not entities:
         return 0
 
-    inserted = 0
-    with get_cursor() as cur:
+    def _insert(c):
+        n = 0
         for entity in entities:
-            # Upsert-style: skip if this exact entity already linked to this record
-            cur.execute(
+            c.execute(
                 """INSERT INTO entities (case_id, record_id, entity_type, value)
                    SELECT %s, %s, %s, %s
                    WHERE NOT EXISTS (
@@ -126,9 +126,15 @@ def extract_and_store(case_id: str, record_id: int, raw: dict[str, Any]) -> int:
                     case_id, record_id, entity["type"], entity["value"],
                 ),
             )
-            inserted += cur.rowcount
-        cur.connection.commit()
+            n += c.rowcount
+        return n
 
+    if cur is not None:
+        return _insert(cur)
+
+    with get_cursor() as c:
+        inserted = _insert(c)
+        c.connection.commit()
     return inserted
 
 

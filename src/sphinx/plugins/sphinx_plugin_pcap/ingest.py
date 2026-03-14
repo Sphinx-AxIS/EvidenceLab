@@ -52,7 +52,7 @@ def ingest_suricata(case_id: str, records: list[dict]) -> int:
                 (case_id, json.dumps(raw), ts),
             )
             record_id = cur.fetchone()["id"]
-            extract_and_store(case_id, record_id, raw)
+            extract_and_store(case_id, record_id, raw, cur=cur)
             inserted += 1
         cur.connection.commit()
 
@@ -76,7 +76,7 @@ def ingest_zeek_conn(case_id: str, records: list[dict]) -> int:
                 (case_id, json.dumps(raw), ts),
             )
             record_id = cur.fetchone()["id"]
-            extract_and_store(case_id, record_id, raw)
+            extract_and_store(case_id, record_id, raw, cur=cur)
             inserted += 1
         cur.connection.commit()
 
@@ -97,7 +97,7 @@ def ingest_zeek_dns(case_id: str, records: list[dict]) -> int:
                 (case_id, json.dumps(raw), ts),
             )
             record_id = cur.fetchone()["id"]
-            extract_and_store(case_id, record_id, raw)
+            extract_and_store(case_id, record_id, raw, cur=cur)
             inserted += 1
         cur.connection.commit()
 
@@ -118,7 +118,7 @@ def ingest_tshark(case_id: str, records: list[dict]) -> int:
                 (case_id, json.dumps(raw), ts),
             )
             record_id = cur.fetchone()["id"]
-            extract_and_store(case_id, record_id, raw)
+            extract_and_store(case_id, record_id, raw, cur=cur)
             inserted += 1
         cur.connection.commit()
 

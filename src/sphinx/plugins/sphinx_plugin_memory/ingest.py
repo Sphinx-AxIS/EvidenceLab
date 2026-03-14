@@ -24,7 +24,7 @@ def _ingest_vol(case_id: str, record_type: str, records: list[dict]) -> int:
                 (case_id, record_type, json.dumps(raw)),
             )
             record_id = cur.fetchone()["id"]
-            extract_and_store(case_id, record_id, raw)
+            extract_and_store(case_id, record_id, raw, cur=cur)
             inserted += 1
         cur.connection.commit()
 
