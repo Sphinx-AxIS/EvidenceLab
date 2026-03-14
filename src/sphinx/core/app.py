@@ -64,10 +64,34 @@ def create_app() -> FastAPI:
     from sphinx.core.auth_routes import router as auth_router
     from sphinx.core.case_manager import router as case_router
     from sphinx.core.dashboard import router as dashboard_router
+    from sphinx.core.task_runner import router as task_router
 
     app.include_router(auth_router)
     app.include_router(case_router)
     app.include_router(dashboard_router)
+    app.include_router(task_router)
+
+    # ── Report endpoint ────────────────────────────
+    from sphinx.core.auth import CurrentUser, check_case_access
+    from fastapi import Depends, Request
+
+    @app.get("/cases/{case_id}/report")
+    async def get_report(
+        case_id: str,
+        request: Request,
+        user=Depends(CurrentUser(required_role="analyst")),
+    ):
+        check_case_access(user, case_id)
+        from sphinx.core.report import generate_report
+        return generate_report(request.app.state.settings, case_id)
+
+    # ── Query learning endpoint (admin) ────────────
+    @app.post("/admin/query-learning")
+    async def run_query_learning(
+        user=Depends(CurrentUser(required_role="admin")),
+    ):
+        from sphinx.core.query_learner import mine_worklog
+        return mine_worklog()
 
     @app.get("/")
     async def root():
