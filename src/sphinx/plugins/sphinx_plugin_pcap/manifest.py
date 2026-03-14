@@ -29,7 +29,7 @@ MANIFEST = {
     ],
 
     "migrations": [
-        "sphinx_plugin_pcap/sql/001_pcap_views.sql",
+        "sql/001_pcap_views.sql",
     ],
 
     "dashboard_widgets": [],

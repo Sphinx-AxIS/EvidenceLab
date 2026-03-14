@@ -38,9 +38,11 @@ case "${1:-}" in
         ;;
     --repl)
         wait_for_db
-        echo "[sphinx] REPL sandbox ready — waiting for tasks"
-        # Stay alive until the API dispatches work
-        exec tail -f /dev/null
+        REPL_SOCK="${REPL_SOCKET:-/tmp/repl/sphinx_repl.sock}"
+        echo "[sphinx] Starting REPL server on ${REPL_SOCK}"
+        exec python -m sphinx.core.repl_server \
+            --socket "${REPL_SOCK}" \
+            --db-url "${DATABASE_URL:-postgresql://sphinx:changeme@db:5432/sphinx}"
         ;;
     *)
         echo "Usage: entrypoint.sh [--api | --repl]"

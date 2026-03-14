@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Entities{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Entity Search</h2>
+</div>
+
+<!-- Search form -->
+<div class="card mb-2">
+  <form method="get" action="/ui/cases/{{ case_id }}/entities" class="flex gap-1" style="flex-wrap:wrap; align-items:flex-end;">
+    <div class="form-group" style="margin-bottom:0; flex:1; min-width:200px;">
+      <label for="q">Search value</label>
+      <input type="text" id="q" name="q" value="{{ q }}" placeholder="IP, domain, hash, email...">
+    </div>
+    <div class="form-group" style="margin-bottom:0; min-width:140px;">
+      <label for="entity_type">Type</label>
+      <select id="entity_type" name="entity_type">
+        <option value="">All types</option>
+        {% for t in entity_types %}
+        <option value="{{ t }}" {% if t == entity_type %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary" style="height:34px;">Search</button>
+  </form>
+</div>
+
+<!-- Entity type summary -->
+{% if not q and not entity_type %}
+<div class="card-grid mb-2">
+  {% for s in type_summary %}
+  <div class="card" style="cursor:pointer;" onclick="window.location='/ui/cases/{{ case_id }}/entities?entity_type={{ s.entity_type }}'">
+    <h3>{{ s.entity_type }}</h3>
+    <div class="value">{{ s.unique_count }}</div>
+    <div class="label">unique values ({{ s.total_refs }} references)</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Results -->
+{% if entities|length > 0 %}
+<div class="table-wrap">
+  <div class="table-title">
+    {% if q %}Search: "{{ q }}"{% elif entity_type %}Type: {{ entity_type }}{% else %}All Entities{% endif %}
+    ({{ total }} results)
+  </div>
+  <table>
+    <thead>
+      <tr><th>Type</th><th>Value</th><th>Records</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for e in entities %}
+      <tr>
+        <td><span class="badge badge-info">{{ e.entity_type }}</span></td>
+        <td class="text-mono" style="word-break:break-all;">{{ e.value }}</td>
+        <td class="text-mono">{{ e.ref_count }}</td>
+        <td>
+          <a href="/ui/cases/{{ case_id }}/entities/pivot?value={{ e.value }}&type={{ e.entity_type }}" class="btn btn-sm">Pivot</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="flex-between text-muted" style="font-size:0.8rem;">
+  <div>Showing {{ entities|length }} of {{ total }}</div>
+  <div class="flex gap-1">
+    {% if offset > 0 %}
+    <a href="/ui/cases/{{ case_id }}/entities?q={{ q }}&entity_type={{ entity_type }}&offset={{ offset - limit }}" class="btn btn-sm">&laquo; Prev</a>
+    {% endif %}
+    {% if offset + limit < total %}
+    <a href="/ui/cases/{{ case_id }}/entities?q={{ q }}&entity_type={{ entity_type }}&offset={{ offset + limit }}" class="btn btn-sm">Next &raquo;</a>
+    {% endif %}
+  </div>
+</div>
+{% elif q or entity_type %}
+<div class="empty-state">
+  <p>No entities found matching your search.</p>
+</div>
+{% endif %}
+{% endblock %}

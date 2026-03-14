@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Entity Pivot{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>
+    <span class="badge badge-info">{{ entity_type }}</span>
+    <span class="text-mono" style="margin-left:0.5rem;">{{ value }}</span>
+  </h2>
+  <a href="/ui/cases/{{ case_id }}/entities?entity_type={{ entity_type }}" class="btn btn-sm">&laquo; Back</a>
+</div>
+
+<!-- Summary -->
+<div class="card-grid mb-2">
+  <div class="card">
+    <h3>Total References</h3>
+    <div class="value">{{ records|length }}</div>
+  </div>
+  <div class="card">
+    <h3>Record Types</h3>
+    <div>
+      {% for rt in record_types %}
+      <span class="record-type" style="margin-right:0.3rem;">{{ rt }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="card">
+    <h3>Co-occurring Entities</h3>
+    <div class="value" style="font-size:1.2rem;">{{ related_entities|length }}</div>
+    <div class="label">entities in same records</div>
+  </div>
+</div>
+
+<!-- Records containing this entity -->
+<div class="table-wrap mb-2">
+  <div class="table-title">Records containing this entity</div>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Type</th><th>Timestamp</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for r in records %}
+      <tr>
+        <td class="text-mono" style="font-size:0.75rem;">{{ r.id }}</td>
+        <td><span class="record-type">{{ r.record_type }}</span></td>
+        <td class="text-muted text-mono" style="font-size:0.78rem;">{{ r.ts if r.ts else '—' }}</td>
+        <td><a href="/ui/cases/{{ case_id }}/records/{{ r.id }}" class="btn btn-sm">Detail</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Co-occurring entities -->
+{% if related_entities|length > 0 %}
+<div class="table-wrap">
+  <div class="table-title">Co-occurring Entities (appear in same records)</div>
+  <table>
+    <thead>
+      <tr><th>Type</th><th>Value</th><th>Shared Records</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for re in related_entities[:50] %}
+      <tr>
+        <td><span class="badge badge-info">{{ re.entity_type }}</span></td>
+        <td class="text-mono" style="word-break:break-all;">{{ re.value }}</td>
+        <td class="text-mono">{{ re.shared_count }}</td>
+        <td>
+          <a href="/ui/cases/{{ case_id }}/entities/pivot?value={{ re.value }}&type={{ re.entity_type }}" class="btn btn-sm">Pivot</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

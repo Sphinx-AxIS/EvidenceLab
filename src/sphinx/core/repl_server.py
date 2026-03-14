@@ -1,0 +1,241 @@
+"""REPL server — runs inside the Docker REPL container.
+
+Listens for code blocks on a Unix socket, executes them in a persistent
+namespace, and returns JSON results. The API container connects via
+docker exec or socket mount.
+
+Usage (inside REPL container):
+    python -m sphinx.core.repl_server --socket /tmp/sphinx_repl.sock --db-url postgresql://...
+"""
+
+from __future__ import annotations
+
+import io
+import json
+import os
+import signal
+import socketserver
+import struct
+import sys
+import time
+import traceback
+from typing import Any
+
+# Database URL injected via environment
+DB_URL = os.environ.get("DATABASE_URL", "")
+
+# Persistent namespace across steps
+_namespace: dict[str, Any] = {}
+
+
+def _init_namespace(case_id: str, task_id: int) -> None:
+    """Reset and initialize the REPL namespace with tools."""
+    import collections
+    import datetime
+    import hashlib
+    import itertools
+    import math
+    import re as re_mod
+    import statistics
+    import uuid
+
+    import psycopg
+
+    # Build tool functions
+    def sql(query: str, params: tuple = ()) -> list[dict]:
+        with psycopg.connect(DB_URL, row_factory=psycopg.rows.dict_row) as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, params)
+                return cur.fetchall()
+
+    def describe(record_type: str | None = None) -> str:
+        with psycopg.connect(DB_URL, row_factory=psycopg.rows.dict_row) as conn:
+            with conn.cursor() as cur:
+                if record_type is None:
+                    cur.execute(
+                        "SELECT record_type, count(*) AS cnt FROM records WHERE case_id = %s GROUP BY record_type ORDER BY cnt DESC",
+                        (case_id,),
+                    )
+                    rows = cur.fetchall()
+                    return "\n".join(f"  {r['record_type']}: {r['cnt']}" for r in rows) if rows else "No records."
+                else:
+                    cur.execute(
+                        "SELECT raw FROM records WHERE case_id = %s AND record_type = %s LIMIT 1",
+                        (case_id, record_type),
+                    )
+                    row = cur.fetchone()
+                    if not row:
+                        return f"No records of type '{record_type}'."
+                    keys = sorted(row["raw"].keys()) if isinstance(row["raw"], dict) else []
+                    return f"Fields: {', '.join(keys)}"
+
+    def get_precomputed(name: str) -> Any:
+        with psycopg.connect(DB_URL, row_factory=psycopg.rows.dict_row) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT data FROM scratch_precomputed WHERE case_id = %s AND name = %s ORDER BY created_at DESC LIMIT 1",
+                    (case_id, name),
+                )
+                row = cur.fetchone()
+                return row["data"] if row else None
+
+    def get_docs(topic: str) -> str:
+        with psycopg.connect(DB_URL, row_factory=psycopg.rows.dict_row) as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT content FROM rlm_docs WHERE topic = %s", (topic,))
+                row = cur.fetchone()
+                return row["content"] if row else f"No docs for '{topic}'."
+
+    def search(query: str, limit: int = 20) -> list[dict]:
+        with psycopg.connect(DB_URL, row_factory=psycopg.rows.dict_row) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT id, record_type, ts, raw::text AS raw_text FROM records WHERE case_id = %s AND raw::text ILIKE %s LIMIT %s",
+                    (case_id, f"%{query}%", limit),
+                )
+                return cur.fetchall()
+
+    _namespace.clear()
+    _namespace.update({
+        "__builtins__": __builtins__,
+        "json": json,
+        "re": re_mod,
+        "collections": collections,
+        "datetime": datetime,
+        "math": math,
+        "hashlib": hashlib,
+        "itertools": itertools,
+        "statistics": statistics,
+        "uuid": uuid,
+        "CASE_ID": case_id,
+        "TASK_ID": task_id,
+        "sql": sql,
+        "describe": describe,
+        "get_precomputed": get_precomputed,
+        "get_docs": get_docs,
+        "search": search,
+        "result": None,
+    })
+
+
+def execute_code(code: str, timeout: int = 120) -> dict[str, Any]:
+    """Execute a code block in the persistent namespace."""
+    old_stdout, old_stderr = sys.stdout, sys.stderr
+    sys.stdout = cap_out = io.StringIO()
+    sys.stderr = cap_err = io.StringIO()
+
+    error = None
+    t0 = time.monotonic()
+
+    def _alarm(signum, frame):
+        raise TimeoutError(f"Exceeded {timeout}s timeout")
+
+    old_handler = signal.signal(signal.SIGALRM, _alarm)
+    signal.alarm(timeout)
+
+    try:
+        exec(compile(code, "<repl>", "exec"), _namespace)
+    except TimeoutError as e:
+        error = str(e)
+    except Exception:
+        error = traceback.format_exc()
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old_handler)
+        sys.stdout, sys.stderr = old_stdout, old_stderr
+
+    elapsed = time.monotonic() - t0
+    stdout = cap_out.getvalue()[:64_000]
+    stderr = cap_err.getvalue()[:16_000]
+    result_val = _namespace.get("result")
+
+    return {
+        "status": "error" if error else "ok",
+        "stdout": stdout,
+        "stderr": stderr,
+        "error": error,
+        "result": result_val,
+        "elapsed_s": round(elapsed, 3),
+    }
+
+
+class ReplHandler(socketserver.StreamRequestHandler):
+    """Handle a single REPL session over a Unix socket."""
+
+    def handle(self):
+        """Read length-prefixed JSON messages, execute, return results."""
+        while True:
+            try:
+                # Read 4-byte length prefix
+                header = self.rfile.read(4)
+                if not header or len(header) < 4:
+                    break
+                msg_len = struct.unpack("!I", header)[0]
+                raw = self.rfile.read(msg_len)
+                if len(raw) < msg_len:
+                    break
+
+                msg = json.loads(raw.decode("utf-8"))
+                cmd = msg.get("cmd", "exec")
+
+                if cmd == "init":
+                    _init_namespace(msg["case_id"], msg["task_id"])
+                    resp = {"status": "ok"}
+                elif cmd == "exec":
+                    resp = execute_code(msg["code"], msg.get("timeout", 120))
+                    # Serialize result safely
+                    if resp.get("result") is not None:
+                        try:
+                            json.dumps(resp["result"])
+                        except (TypeError, ValueError):
+                            resp["result"] = str(resp["result"])
+                elif cmd == "ping":
+                    resp = {"status": "ok", "pong": True}
+                else:
+                    resp = {"status": "error", "error": f"Unknown command: {cmd}"}
+
+                # Send response
+                payload = json.dumps(resp, default=str).encode("utf-8")
+                self.wfile.write(struct.pack("!I", len(payload)))
+                self.wfile.write(payload)
+                self.wfile.flush()
+
+            except (ConnectionResetError, BrokenPipeError):
+                break
+            except Exception as e:
+                try:
+                    err = json.dumps({"status": "error", "error": str(e)}).encode()
+                    self.wfile.write(struct.pack("!I", len(err)))
+                    self.wfile.write(err)
+                    self.wfile.flush()
+                except Exception:
+                    break
+
+
+def main():
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Sphinx REPL server")
+    parser.add_argument("--socket", default="/tmp/sphinx_repl.sock")
+    parser.add_argument("--db-url", default="")
+    args = parser.parse_args()
+
+    global DB_URL
+    if args.db_url:
+        DB_URL = args.db_url
+    elif not DB_URL:
+        DB_URL = "postgresql://sphinx:changeme@sphinx-db:5432/sphinx"
+
+    # Clean up old socket
+    import pathlib
+    sock_path = pathlib.Path(args.socket)
+    if sock_path.exists():
+        sock_path.unlink()
+
+    server = socketserver.UnixStreamServer(args.socket, ReplHandler)
+    print(f"REPL server listening on {args.socket}", flush=True)
+    server.serve_forever()
+
+
+if __name__ == "__main__":
+    main()

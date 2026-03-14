@@ -32,8 +32,14 @@
         <a href="/ui/cases/{{ case_id }}/ingest" class="{% if active_page == 'ingest' %}active{% endif %}">
           <span class="icon">&#8679;</span> Ingest
         </a>
+        <a href="/ui/cases/{{ case_id }}/entities" class="{% if active_page == 'entities' %}active{% endif %}">
+          <span class="icon">&#9733;</span> Entities
+        </a>
         <a href="/ui/cases/{{ case_id }}/findings" class="{% if active_page == 'findings' %}active{% endif %}">
           <span class="icon">&#10004;</span> Findings
+        </a>
+        <a href="/ui/cases/{{ case_id }}/notes" class="{% if active_page == 'notes' %}active{% endif %}">
+          <span class="icon">&#9998;</span> Notes
         </a>
         {% endif %}
       </nav>

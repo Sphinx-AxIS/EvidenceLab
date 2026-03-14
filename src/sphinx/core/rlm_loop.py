@@ -18,6 +18,7 @@ from sphinx.core.planner import (
     extract_code,
 )
 from sphinx.core.plugin_loader import get_registry
+from sphinx.core.repl_client import ReplClient
 from sphinx.core.sandbox import ReplRunner
 
 log = logging.getLogger(__name__)
@@ -117,8 +118,17 @@ def run_task(settings: Settings, case_id: str, task_id: int) -> dict[str, Any]:
         {"role": "user", "content": build_first_step_message(task_text)},
     ]
 
-    # Initialize REPL
-    repl = ReplRunner(case_id, task_id, timeout=timeout)
+    # Initialize REPL — try Docker socket first, fall back to in-process
+    repl_client = ReplClient()
+    use_docker_repl = repl_client.connect()
+    repl = None
+
+    if use_docker_repl:
+        repl_client.init_session(case_id, task_id)
+        log.info("Using Docker REPL container for task %d", task_id)
+    else:
+        repl = ReplRunner(case_id, task_id, timeout=timeout)
+        log.info("Using in-process REPL for task %d (Docker REPL unavailable)", task_id)
 
     _update_task_status(task_id, "running")
     log.info("Starting RLM loop for task %d (max %d steps)", task_id, max_steps)
@@ -158,7 +168,10 @@ def run_task(settings: Settings, case_id: str, task_id: int) -> dict[str, Any]:
             continue
 
         # Execute code
-        step_result = repl.execute(code)
+        if use_docker_repl:
+            step_result = repl_client.execute(code, timeout=timeout)
+        else:
+            step_result = repl.execute(code)
 
         # Log the step
         _log_step(
@@ -190,6 +203,10 @@ def run_task(settings: Settings, case_id: str, task_id: int) -> dict[str, Any]:
         )
         messages.append({"role": "user", "content": next_msg})
 
+    # Clean up REPL client
+    if use_docker_repl:
+        repl_client.close()
+
     # Finalize
     if final_result:
         _update_task_status(task_id, "done")
@@ -213,6 +230,29 @@ def run_task(settings: Settings, case_id: str, task_id: int) -> dict[str, Any]:
             "steps": max_steps,
             "summary": synthesis,
         }
+
+
+def run_task_async(settings: Settings, case_id: str, task_id: int) -> None:
+    """Run a task in a background thread (precompute + RLM loop)."""
+    import threading
+
+    def _run():
+        try:
+            from sphinx.core.precompute import run_precompute
+            log.info("Pre-computing for case %s, task %d", case_id, task_id)
+            run_precompute(case_id, task_id)
+        except Exception as e:
+            log.warning("Precompute failed: %s", e)
+
+        try:
+            result = run_task(settings, case_id, task_id)
+            log.info("Task %d result: %s", task_id, result.get("status"))
+        except Exception as e:
+            log.error("Task %d failed: %s", task_id, e)
+            _update_task_status(task_id, "failed")
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
 
 
 def _synthesize_answer(settings: Settings, messages: list[dict]) -> str:

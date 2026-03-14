@@ -11,19 +11,21 @@
 <div class="card mb-2">
   <div class="flex-between mb-1">
     <h3 style="text-transform:none; font-size:0.9rem; color:var(--text-primary);">{{ task.title }}</h3>
+    <span id="task-status-badge">
     {% if task.status == 'done' %}
     <span class="badge badge-success">done</span>
     {% elif task.status == 'running' %}
     <span class="badge badge-warning">running</span>
-    {% elif task.status == 'error' %}
-    <span class="badge badge-danger">error</span>
+    {% elif task.status == 'error' or task.status == 'failed' %}
+    <span class="badge badge-danger">{{ task.status }}</span>
     {% else %}
     <span class="badge badge-muted">{{ task.status }}</span>
     {% endif %}
+    </span>
   </div>
   <div class="text-muted" style="font-size:0.78rem;">
     Created: {{ task.created_at[:19] if task.created_at else '—' }}
-    &middot; Steps: {{ steps|length }}
+    &middot; Steps: <span id="step-count">{{ steps|length }}</span>
   </div>
 </div>
 
@@ -35,11 +37,18 @@
 </div>
 {% endif %}
 
+<!-- Live progress indicator (shown when streaming) -->
+<div id="live-indicator" style="display:none;" class="alert alert-info mb-2">
+  <span class="status-dot active" style="animation:pulse 1.5s infinite;"></span>
+  Live — streaming worklog steps...
+</div>
+
 <!-- Worklog steps -->
 <h3 class="mb-1" style="font-size:0.9rem; font-weight:600;">Worklog Steps</h3>
 
+<div id="worklog-container">
 {% if steps|length == 0 %}
-<div class="empty-state" style="padding:1.5rem;">
+<div id="empty-state" class="empty-state" style="padding:1.5rem;">
   <p>No worklog steps recorded yet.</p>
 </div>
 {% else %}
@@ -92,4 +101,103 @@
 </div>
 {% endfor %}
 {% endif %}
+</div>
+
+<!-- Finding result (shown when done via SSE) -->
+<div id="finding-card" style="display:none;" class="card mb-2 mt-2">
+  <h3>Finding</h3>
+  <div id="finding-body" style="white-space:pre-wrap; font-size:0.85rem;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+</style>
+<script>
+(function() {
+  var taskStatus = '{{ task.status }}';
+  if (taskStatus !== 'running' && taskStatus !== 'pending') return;
+
+  var container = document.getElementById('worklog-container');
+  var indicator = document.getElementById('live-indicator');
+  var stepCount = document.getElementById('step-count');
+  var statusBadge = document.getElementById('task-status-badge');
+  var emptyState = document.getElementById('empty-state');
+  var findingCard = document.getElementById('finding-card');
+  var findingBody = document.getElementById('finding-body');
+
+  indicator.style.display = 'block';
+
+  var source = new EventSource('/cases/{{ case_id }}/tasks/{{ task.id }}/stream');
+
+  source.addEventListener('step', function(e) {
+    var step = JSON.parse(e.data);
+    if (emptyState) { emptyState.remove(); emptyState = null; }
+
+    var el = document.createElement('div');
+    el.className = 'worklog-step';
+    var html = '<div class="step-header"><div><strong>Step ' + step.step_number + '</strong>';
+    if (step.error) html += ' <span class="badge badge-danger" style="margin-left:0.5rem;">error</span>';
+    html += '</div><div class="text-muted">';
+    if (step.elapsed_s) html += Math.round(step.elapsed_s * 1000) + 'ms';
+    html += '</div></div>';
+
+    if (step.intent) {
+      html += '<div class="step-body" style="border-bottom:1px solid var(--border);">';
+      html += '<div class="text-muted" style="font-size:0.72rem;text-transform:uppercase;margin-bottom:0.3rem;">Intent</div>';
+      html += '<div style="font-size:0.83rem;">' + esc(step.intent) + '</div></div>';
+    }
+    if (step.code) {
+      html += '<div class="step-body" style="border-bottom:1px solid var(--border);">';
+      html += '<div class="text-muted" style="font-size:0.72rem;text-transform:uppercase;margin-bottom:0.3rem;">Code</div>';
+      html += '<pre><code>' + esc(step.code) + '</code></pre></div>';
+    }
+    if (step.stdout) {
+      html += '<div class="step-body">';
+      html += '<div class="text-muted" style="font-size:0.72rem;text-transform:uppercase;margin-bottom:0.3rem;">Output</div>';
+      html += '<pre><code>' + esc(step.stdout) + '</code></pre></div>';
+    }
+    if (step.error) {
+      html += '<div class="step-body">';
+      html += '<div class="text-muted text-danger" style="font-size:0.72rem;text-transform:uppercase;margin-bottom:0.3rem;">Error</div>';
+      html += '<pre><code>' + esc(step.error) + '</code></pre></div>';
+    }
+
+    el.innerHTML = html;
+    container.appendChild(el);
+    stepCount.textContent = step.step_number;
+    el.scrollIntoView({behavior: 'smooth', block: 'end'});
+  });
+
+  source.addEventListener('status', function(e) {
+    var d = JSON.parse(e.data);
+    var cls = d.status === 'done' ? 'badge-success' : d.status === 'running' ? 'badge-warning' : 'badge-danger';
+    statusBadge.innerHTML = '<span class="badge ' + cls + '">' + d.status + '</span>';
+  });
+
+  source.addEventListener('done', function(e) {
+    var d = JSON.parse(e.data);
+    indicator.style.display = 'none';
+    source.close();
+    if (d.finding) {
+      findingCard.style.display = 'block';
+      findingBody.textContent = d.finding;
+    }
+  });
+
+  source.addEventListener('error', function(e) {
+    indicator.style.display = 'none';
+    source.close();
+  });
+
+  function esc(s) {
+    if (!s) return '';
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+})();
+</script>
 {% endblock %}

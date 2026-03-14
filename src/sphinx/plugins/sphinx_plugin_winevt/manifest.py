@@ -30,7 +30,7 @@ MANIFEST = {
     ],
 
     "migrations": [
-        "sphinx_plugin_winevt/sql/001_winevt_views.sql",
+        "sql/001_winevt_views.sql",
     ],
 
     "dashboard_widgets": [],

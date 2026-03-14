@@ -76,6 +76,10 @@ def create_app() -> FastAPI:
     app.include_router(task_router)
     app.include_router(ingest_router)
 
+    # ── SSE streaming ─────────────────────────────
+    from sphinx.core.sse import router as sse_router
+    app.include_router(sse_router)
+
     # ── Frontend (server-rendered UI) ─────────────
     from sphinx.core.frontend import router as ui_router
     app.include_router(ui_router)

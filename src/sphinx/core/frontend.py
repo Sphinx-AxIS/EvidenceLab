@@ -468,3 +468,196 @@ async def ingest_submit(
             url=f"/ui/cases/{case_id}/ingest?error=Ingest+failed:+{e}",
             status_code=303,
         )
+
+
+# ── Entities ────────────────────────────────────────
+
+@router.get("/cases/{case_id}/entities", response_class=HTMLResponse)
+async def entities_search(
+    request: Request, case_id: str,
+    q: str = "", entity_type: str = "", offset: int = 0,
+):
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    limit = 50
+    with get_cursor() as cur:
+        # Available entity types
+        cur.execute(
+            "SELECT DISTINCT entity_type FROM entities WHERE case_id = %s ORDER BY entity_type",
+            (case_id,),
+        )
+        entity_types = [r["entity_type"] for r in cur.fetchall()]
+
+        # Type summary (shown on default page)
+        cur.execute(
+            """SELECT entity_type,
+                      count(DISTINCT value) AS unique_count,
+                      count(*) AS total_refs
+               FROM entities WHERE case_id = %s
+               GROUP BY entity_type ORDER BY total_refs DESC""",
+            (case_id,),
+        )
+        type_summary = cur.fetchall()
+
+        # Build query
+        where = "e.case_id = %s"
+        params: list = [case_id]
+        if q:
+            where += " AND e.value ILIKE %s"
+            params.append(f"%{q}%")
+        if entity_type:
+            where += " AND e.entity_type = %s"
+            params.append(entity_type)
+
+        # Count
+        cur.execute(
+            f"""SELECT count(DISTINCT (e.entity_type, e.value)) AS n
+                FROM entities e WHERE {where}""",
+            params,
+        )
+        total = cur.fetchone()["n"]
+
+        # Results (grouped by value)
+        cur.execute(
+            f"""SELECT e.entity_type, e.value, count(*) AS ref_count
+                FROM entities e WHERE {where}
+                GROUP BY e.entity_type, e.value
+                ORDER BY ref_count DESC
+                LIMIT %s OFFSET %s""",
+            params + [limit, offset],
+        )
+        entities = cur.fetchall()
+
+    return templates.TemplateResponse("entities.html", _ctx(
+        request, user, "entities", case_id=case_id,
+        entities=entities, entity_types=entity_types, type_summary=type_summary,
+        q=q, entity_type=entity_type, total=total, offset=offset, limit=limit,
+    ))
+
+
+@router.get("/cases/{case_id}/entities/pivot", response_class=HTMLResponse)
+async def entity_pivot(
+    request: Request, case_id: str,
+    value: str = "", type: str = "",
+):
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        # Records containing this entity
+        cur.execute(
+            """SELECT DISTINCT r.id, r.record_type, r.ts::text AS ts
+               FROM entities e
+               JOIN records r ON r.id = e.record_id
+               WHERE e.case_id = %s AND e.value = %s AND e.entity_type = %s
+               ORDER BY r.ts DESC NULLS LAST""",
+            (case_id, value, type),
+        )
+        records = cur.fetchall()
+
+        # Record types
+        record_types = sorted({r["record_type"] for r in records})
+
+        # Co-occurring entities (other entities in the same records)
+        record_ids = [r["id"] for r in records]
+        related_entities = []
+        if record_ids:
+            cur.execute(
+                """SELECT entity_type, value, count(*) AS shared_count
+                   FROM entities
+                   WHERE record_id = ANY(%s)
+                     AND NOT (entity_type = %s AND value = %s)
+                   GROUP BY entity_type, value
+                   ORDER BY shared_count DESC
+                   LIMIT 50""",
+                (record_ids, type, value),
+            )
+            related_entities = cur.fetchall()
+
+    return templates.TemplateResponse("entity_pivot.html", _ctx(
+        request, user, "entities", case_id=case_id,
+        value=value, entity_type=type,
+        records=records, record_types=record_types,
+        related_entities=related_entities,
+    ))
+
+
+# ── Case Notes ──────────────────────────────────────
+
+@router.get("/cases/{case_id}/notes", response_class=HTMLResponse)
+async def notes_list(request: Request, case_id: str):
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        # Ensure table exists (migration may not have run yet)
+        cur.execute(
+            """SELECT EXISTS (
+                   SELECT FROM information_schema.tables
+                   WHERE table_name = 'case_notes'
+               ) AS exists"""
+        )
+        if not cur.fetchone()["exists"]:
+            # Auto-create if missing
+            cur.execute(
+                """CREATE TABLE IF NOT EXISTS case_notes (
+                       id SERIAL PRIMARY KEY,
+                       case_id TEXT NOT NULL REFERENCES cases(id),
+                       author_id TEXT REFERENCES users(id),
+                       content TEXT NOT NULL DEFAULT '',
+                       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                   )"""
+            )
+            cur.connection.commit()
+
+        cur.execute(
+            """SELECT n.id, n.content, n.created_at::text AS created_at,
+                      u.username AS author
+               FROM case_notes n
+               LEFT JOIN users u ON u.id = n.author_id
+               WHERE n.case_id = %s
+               ORDER BY n.created_at DESC""",
+            (case_id,),
+        )
+        notes = cur.fetchall()
+
+    return templates.TemplateResponse("notes.html", _ctx(
+        request, user, "notes", case_id=case_id, notes=notes,
+    ))
+
+
+@router.post("/cases/{case_id}/notes")
+async def note_create(request: Request, case_id: str, content: str = Form(...)):
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        cur.execute(
+            "INSERT INTO case_notes (case_id, author_id, content) VALUES (%s, %s, %s)",
+            (case_id, user.get("sub"), content),
+        )
+        cur.connection.commit()
+
+    return RedirectResponse(url=f"/ui/cases/{case_id}/notes", status_code=303)
+
+
+@router.post("/cases/{case_id}/notes/{note_id}/delete")
+async def note_delete(request: Request, case_id: str, note_id: int):
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        cur.execute(
+            "DELETE FROM case_notes WHERE id = %s AND case_id = %s",
+            (note_id, case_id),
+        )
+        cur.connection.commit()
+
+    return RedirectResponse(url=f"/ui/cases/{case_id}/notes", status_code=303)

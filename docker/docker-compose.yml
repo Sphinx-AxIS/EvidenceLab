@@ -45,8 +45,10 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD:-changeme}
       SPHINX_RUN_BOOTSTRAP: "1"
       PYTHONUNBUFFERED: "1"
+      REPL_SOCKET: /tmp/repl/sphinx_repl.sock
     volumes:
       - ..:/app
+      - repl_socket:/tmp/repl
     networks:
       - sphinx_internal
       - sphinx_external
@@ -65,19 +67,20 @@ services:
       DATABASE_URL: postgresql://sphinx:${POSTGRES_PASSWORD:-changeme}@db:5432/sphinx
       PGPASSWORD: ${POSTGRES_PASSWORD:-changeme}
       PYTHONUNBUFFERED: "1"
+      REPL_SOCKET: /tmp/repl/sphinx_repl.sock
       # LM Studio on host machine
       LM_STUDIO_URL: http://host.docker.internal:1234/v1
     volumes:
       - ..:/app
+      - repl_socket:/tmp/repl
     networks:
       - sphinx_internal
-    # No ports exposed — API communicates with REPL over internal network
-    stdin_open: true
-    tty: true
+    # No ports exposed — API communicates with REPL over shared socket
     restart: unless-stopped
 
 volumes:
   sphinx_pgdata:
+  repl_socket:
 
 networks:
   sphinx_internal:

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Case Notes{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Case Notes</h2>
+</div>
+
+<!-- Add note form -->
+<div class="card mb-2">
+  <form method="post" action="/ui/cases/{{ case_id }}/notes">
+    <div class="form-group">
+      <label for="content">Add a note</label>
+      <textarea id="content" name="content" rows="3" required
+        placeholder="Analyst observations, hypotheses, IOC context..."></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">Save Note</button>
+  </form>
+</div>
+
+<!-- Notes list -->
+{% if notes|length == 0 %}
+<div class="empty-state">
+  <div class="icon">&#9998;</div>
+  <p>No notes yet. Add observations and annotations above.</p>
+</div>
+{% else %}
+{% for n in notes %}
+<div class="card mb-1">
+  <div class="flex-between mb-1">
+    <span class="text-muted" style="font-size:0.75rem;">
+      {{ n.author or 'unknown' }} &middot; {{ n.created_at[:19] if n.created_at else '' }}
+    </span>
+    <form method="post" action="/ui/cases/{{ case_id }}/notes/{{ n.id }}/delete" style="margin:0;">
+      <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete this note?')">Delete</button>
+    </form>
+  </div>
+  <div style="white-space:pre-wrap; font-size:0.85rem;">{{ n.content }}</div>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}

@@ -42,8 +42,12 @@ def _resolve(dotted_path: str) -> Any:
     return getattr(module, attr_name)
 
 
-def _run_plugin_migrations(plugin_name: str, migrations: list[str]) -> None:
+def _run_plugin_migrations(
+    plugin_name: str, migrations: list[str], plugin_dir: str | None = None,
+) -> None:
     """Run plugin SQL migrations that haven't been applied yet."""
+    import pathlib
+
     with get_cursor() as cur:
         for migration_path in migrations:
             basename = migration_path.rsplit("/", 1)[-1]
@@ -59,15 +63,30 @@ def _run_plugin_migrations(plugin_name: str, migrations: list[str]) -> None:
 
             # Read and execute the migration
             try:
-                # Try loading from package resources first
-                module_base = plugin_name.replace("-", "_")
-                sql_module = importlib.import_module(module_base)
-                import pathlib
-                pkg_dir = pathlib.Path(sql_module.__file__).parent
-                sql_file = pkg_dir / migration_path.split("/", 1)[-1] if "/" in migration_path else pkg_dir / migration_path
-                if not sql_file.exists():
-                    # Fall back to relative path from app root
+                sql_file = None
+
+                # Try plugin_dir hint first (bundled plugins)
+                if plugin_dir:
+                    candidate = pathlib.Path(plugin_dir) / migration_path
+                    if candidate.exists():
+                        sql_file = candidate
+
+                # Try loading from installed package
+                if not sql_file:
+                    try:
+                        module_base = plugin_name.replace("-", "_")
+                        sql_module = importlib.import_module(module_base)
+                        pkg_dir = pathlib.Path(sql_module.__file__).parent
+                        candidate = pkg_dir / migration_path
+                        if candidate.exists():
+                            sql_file = candidate
+                    except ImportError:
+                        pass
+
+                # Fall back to relative path
+                if not sql_file:
                     sql_file = pathlib.Path(migration_path)
+
                 sql = sql_file.read_text()
                 cur.execute(sql)
                 cur.execute(
@@ -82,7 +101,7 @@ def _run_plugin_migrations(plugin_name: str, migrations: list[str]) -> None:
                 cur.connection.rollback()
 
 
-def load_plugin(manifest: dict) -> None:
+def load_plugin(manifest: dict, plugin_dir: str | None = None) -> None:
     """Validate and register a single plugin from its manifest dict."""
     name = manifest.get("name", "unknown")
     version = manifest.get("version", "0.0.0")
@@ -137,7 +156,7 @@ def load_plugin(manifest: dict) -> None:
     # Run migrations
     migrations = manifest.get("migrations", [])
     if migrations:
-        _run_plugin_migrations(name, migrations)
+        _run_plugin_migrations(name, migrations, plugin_dir=plugin_dir)
 
     _registry.plugins[name] = {
         "version": version,
@@ -187,6 +206,6 @@ def load_bundled_plugins() -> None:
             spec.loader.exec_module(mod)
             manifest = getattr(mod, "MANIFEST", None)
             if manifest:
-                load_plugin(manifest)
+                load_plugin(manifest, plugin_dir=str(plugin_dir))
         except Exception as e:
             log.warning("Error loading bundled plugin %s: %s", plugin_dir.name, e)
