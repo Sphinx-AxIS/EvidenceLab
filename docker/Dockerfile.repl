@@ -1,0 +1,41 @@
+# Sphinx REPL Sandbox — isolated Python execution environment
+# Contains forensic tools (Suricata, Zeek, tshark, Volatility deps).
+# No external network access at runtime (enforced by docker-compose network config).
+
+FROM python:3.12-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libpq-dev gcc postgresql-client ca-certificates curl bash \
+        gnupg software-properties-common \
+    && rm -rf /var/lib/apt/lists/*
+
+# Zeek (from upstream repo)
+RUN echo 'deb http://download.opensuse.org/repositories/security:/zeek/Debian_12/ /' \
+        > /etc/apt/sources.list.d/zeek.list \
+    && curl -fsSL https://download.opensuse.org/repositories/security:zeek/Debian_12/Release.key \
+        | gpg --dearmor -o /etc/apt/trusted.gpg.d/zeek.gpg \
+    && apt-get update && apt-get install -y --no-install-recommends zeek \
+    && rm -rf /var/lib/apt/lists/*
+
+# Suricata + tshark
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        suricata tshark \
+    && rm -rf /var/lib/apt/lists/*
+
+# Volatility 3 dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libyara-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY pyproject.toml ./
+RUN pip install --no-cache-dir ".[dev]"
+
+COPY . .
+
+# REPL does not expose any ports — it is called by the API container
+# over the internal network via an RPC mechanism or direct invocation.
+
+ENTRYPOINT ["./docker/entrypoint.sh"]
+CMD ["--repl"]
