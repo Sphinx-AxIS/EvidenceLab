@@ -65,11 +65,13 @@ def create_app() -> FastAPI:
     from sphinx.core.case_manager import router as case_router
     from sphinx.core.dashboard import router as dashboard_router
     from sphinx.core.task_runner import router as task_router
+    from sphinx.core.ingest_routes import router as ingest_router
 
     app.include_router(auth_router)
     app.include_router(case_router)
     app.include_router(dashboard_router)
     app.include_router(task_router)
+    app.include_router(ingest_router)
 
     # ── Report endpoint ────────────────────────────
     from sphinx.core.auth import CurrentUser, check_case_access
