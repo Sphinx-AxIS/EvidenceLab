@@ -166,48 +166,49 @@
     }
   }
 
-  /* SSE progress for running jobs */
+  /* Poll running jobs for progress */
   if (!caseId) return;
   {% for j in summary.background_jobs %}
   {% if j.status == 'running' %}
   (function(jobId) {
-    var src = new EventSource('/ui/cases/' + caseId + '/jobs/' + jobId + '/stream');
-    src.onmessage = function(e) {
-      var d = JSON.parse(e.data);
-      var bar = document.getElementById('job-bar-' + jobId);
-      var stage = document.getElementById('job-stage-' + jobId);
-      var statusEl = document.getElementById('job-status-' + jobId);
-      var detailsEl = document.getElementById('job-details-' + jobId);
+    var timer = setInterval(function() {
+      fetch('/ui/cases/' + caseId + '/jobs/' + jobId + '/status')
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          var bar = document.getElementById('job-bar-' + jobId);
+          var stage = document.getElementById('job-stage-' + jobId);
+          var statusEl = document.getElementById('job-status-' + jobId);
+          var detailsEl = document.getElementById('job-details-' + jobId);
 
-      if (bar) bar.style.width = d.pct + '%';
-      if (stage) stage.textContent = d.stage + ' (' + d.pct + '%) — ' + d.total_inserted + ' records, ' + d.elapsed_s + 's';
+          if (bar) bar.style.width = d.pct + '%';
+          if (stage) stage.textContent = d.stage + ' (' + d.pct + '%) \u2014 ' + d.total_inserted + ' records, ' + d.elapsed_s + 's';
 
-      /* Terminal state — update badge and details, close stream */
-      if (d.status === 'ok' || d.status === 'done' || d.status === 'partial' || d.status === 'failed') {
-        src.close();
-        if (bar) bar.style.width = '100%';
-        if (d.status === 'ok' || d.status === 'done') {
-          if (bar) bar.style.background = 'var(--green, #22c55e)';
-          if (statusEl) statusEl.innerHTML = '<span class="badge badge-success">done</span>';
-        } else if (d.status === 'partial') {
-          if (bar) bar.style.background = 'var(--yellow, #eab308)';
-          if (statusEl) statusEl.innerHTML = '<span class="badge" style="background:var(--yellow);color:#000;">partial</span>';
-        } else {
-          if (bar) bar.style.background = 'var(--red, #ef4444)';
-          if (statusEl) statusEl.innerHTML = '<span class="badge badge-danger">failed</span>';
-        }
-        /* Build final detail text */
-        var detail = d.total_inserted + ' records';
-        if (d.record_counts) {
-          var types = Object.keys(d.record_counts);
-          if (types.length) detail += ' (' + types.join(', ') + ')';
-        }
-        if (d.errors && d.errors.length) detail += ' <span style="color:var(--yellow);">' + d.errors.length + ' warning(s)</span>';
-        detail += ' in ' + d.elapsed_s + 's';
-        if (detailsEl) detailsEl.innerHTML = detail;
-      }
-    };
-    src.onerror = function() { src.close(); };
+          /* Terminal state */
+          if (d.status === 'ok' || d.status === 'done' || d.status === 'partial' || d.status === 'failed') {
+            clearInterval(timer);
+            if (bar) bar.style.width = '100%';
+            if (d.status === 'ok' || d.status === 'done') {
+              if (bar) bar.style.background = 'var(--green, #22c55e)';
+              if (statusEl) statusEl.innerHTML = '<span class="badge badge-success">done</span>';
+            } else if (d.status === 'partial') {
+              if (bar) bar.style.background = 'var(--yellow, #eab308)';
+              if (statusEl) statusEl.innerHTML = '<span class="badge" style="background:var(--yellow);color:#000;">partial</span>';
+            } else {
+              if (bar) bar.style.background = 'var(--red, #ef4444)';
+              if (statusEl) statusEl.innerHTML = '<span class="badge badge-danger">failed</span>';
+            }
+            var detail = d.total_inserted + ' records';
+            if (d.record_counts) {
+              var types = Object.keys(d.record_counts);
+              if (types.length) detail += ' (' + types.join(', ') + ')';
+            }
+            if (d.errors && d.errors.length) detail += ' <span style="color:var(--yellow);">' + d.errors.length + ' warning(s)</span>';
+            detail += ' in ' + d.elapsed_s + 's';
+            if (detailsEl) detailsEl.innerHTML = detail;
+          }
+        })
+        .catch(function() { clearInterval(timer); });
+    }, 2000);
   })({{ j.id }});
   {% endif %}
   {% endfor %}
