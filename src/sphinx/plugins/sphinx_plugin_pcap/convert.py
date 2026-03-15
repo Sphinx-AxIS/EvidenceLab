@@ -20,6 +20,7 @@ from typing import Any
 
 import psycopg
 import psycopg.rows
+from psycopg.types.json import Jsonb
 
 log = logging.getLogger(__name__)
 
@@ -350,19 +351,30 @@ ZEEK_TYPE_MAP = {
 }
 
 
-def _update_job_progress(db_conn, job_id: int | None, summary: dict) -> None:
-    """Write incremental progress to the background_jobs row."""
+def _update_job_progress(
+    db_conn, job_id: int | None, summary: dict, status: str | None = None,
+) -> None:
+    """Write incremental progress to the background_jobs row.
+
+    If *status* is provided the status column is also updated (for terminal states).
+    """
     if not job_id:
         return
     try:
         with db_conn.cursor() as cur:
-            cur.execute(
-                "UPDATE background_jobs SET summary = %s, updated_at = now() WHERE id = %s",
-                (psycopg.types.json.Jsonb(summary), job_id),
-            )
+            if status:
+                cur.execute(
+                    "UPDATE background_jobs SET status = %s, summary = %s, updated_at = now() WHERE id = %s",
+                    (status, Jsonb(summary), job_id),
+                )
+            else:
+                cur.execute(
+                    "UPDATE background_jobs SET summary = %s, updated_at = now() WHERE id = %s",
+                    (Jsonb(summary), job_id),
+                )
             db_conn.commit()
     except Exception as e:
-        log.warning("Could not update job %d progress: %s", job_id, e)
+        log.warning("Could not update job %s progress: %s", job_id, e)
 
 
 def convert_pcap(
@@ -539,11 +551,16 @@ def convert_pcap(
             log.error("tshark failed: %s", e)
         pct_base += tool_weight
 
-    # Final summary
+    # Final summary — write terminal status directly to DB so it doesn't
+    # depend on the socket response making it back to the API container.
+    elapsed = time.time() - t0
     summary["total_inserted"] = total_inserted
+    summary["elapsed_s"] = round(elapsed, 2)
     summary["stage"] = "complete"
     summary["pct"] = 100
-    _progress("complete", 100)
+    final_status = "ok" if not summary["errors"] else "partial"
+    summary["status"] = final_status
+    _update_job_progress(db_conn, job_id, summary, status=final_status)
 
     # Clean up DB connection
     try:
@@ -551,11 +568,6 @@ def convert_pcap(
         db_conn.close()
     except Exception:
         pass
-
-    elapsed = time.time() - t0
-    summary["elapsed_s"] = round(elapsed, 2)
-    summary["total_inserted"] = total_inserted
-    summary["status"] = "ok" if not summary["errors"] else "partial"
 
     log.info("PCAP conversion complete: %d records in %.1fs (tools: %s)",
              total_inserted, elapsed, ", ".join(summary["tools_run"]))
