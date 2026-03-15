@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Query Learning{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Query Learning</h2>
+  <div class="flex gap-1">
+    <form method="POST" action="/ui/admin/query-learning/mine" style="margin:0;">
+      <button type="submit" class="btn btn-primary">Mine Worklog</button>
+    </form>
+  </div>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+{% if success %}
+<div class="alert alert-success">{{ success }}</div>
+{% endif %}
+
+<!-- Filter tabs -->
+<div class="flex gap-1" style="margin-bottom:1rem;">
+  <a href="/ui/admin/query-learning" class="btn btn-sm {% if not filter %}btn-primary{% endif %}">All ({{ counts.all }})</a>
+  <a href="/ui/admin/query-learning?filter=candidates" class="btn btn-sm {% if filter == 'candidates' %}btn-primary{% endif %}">Candidates ({{ counts.candidates }})</a>
+  <a href="/ui/admin/query-learning?filter=promoted" class="btn btn-sm {% if filter == 'promoted' %}btn-primary{% endif %}">Promoted ({{ counts.promoted }})</a>
+  <a href="/ui/admin/query-learning?filter=dismissed" class="btn btn-sm {% if filter == 'dismissed' %}btn-primary{% endif %}">Dismissed ({{ counts.dismissed }})</a>
+</div>
+
+{% if patterns %}
+<div class="table-wrap">
+  <div class="table-title">Query Patterns ({{ patterns|length }})</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Pattern</th>
+        <th style="text-align:right;">Freq</th>
+        <th>Status</th>
+        <th>Last Seen</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in patterns %}
+      <tr>
+        <td style="max-width:400px;">
+          <details>
+            <summary style="cursor:pointer;font-size:0.85rem;" class="text-mono">{{ p.normalized[:80] }}{% if p.normalized|length > 80 %}...{% endif %}</summary>
+            <div style="margin-top:0.5rem;">
+              <div style="font-size:0.75rem;color:var(--muted);margin-bottom:0.25rem;">Normalized:</div>
+              <pre style="font-size:0.75rem;white-space:pre-wrap;max-height:200px;overflow:auto;background:var(--bg);padding:0.5rem;border:1px solid var(--border);border-radius:4px;">{{ p.normalized }}</pre>
+              {% if p.example %}
+              <div style="font-size:0.75rem;color:var(--muted);margin-top:0.5rem;margin-bottom:0.25rem;">Example:</div>
+              <pre style="font-size:0.75rem;white-space:pre-wrap;max-height:200px;overflow:auto;background:var(--bg);padding:0.5rem;border:1px solid var(--border);border-radius:4px;">{{ p.example }}</pre>
+              {% endif %}
+              {% if p.precompute_fn %}
+              <div style="font-size:0.75rem;color:var(--muted);margin-top:0.5rem;">Precompute fn: <code>{{ p.precompute_fn }}</code></div>
+              {% endif %}
+            </div>
+          </details>
+        </td>
+        <td style="text-align:right;" class="text-mono">{{ p.frequency }}</td>
+        <td>
+          {% if p.promoted %}
+          <span class="badge badge-success">promoted</span>
+          {% elif p.dismissed %}
+          <span class="badge badge-muted">dismissed</span>
+          {% else %}
+          <span class="badge badge-info">new</span>
+          {% endif %}
+        </td>
+        <td class="text-mono" style="font-size:0.78rem;">{{ p.last_seen[:19] if p.last_seen else '—' }}</td>
+        <td>
+          {% if not p.promoted and not p.dismissed %}
+          <div class="flex gap-1" style="flex-wrap:wrap;">
+            <form method="POST" action="/ui/admin/query-learning/{{ p.pattern_hash }}/promote" style="margin:0;" class="flex gap-1">
+              <input type="text" name="precompute_fn" placeholder="module.path:fn" class="form-control" style="width:180px;font-size:0.8rem;">
+              <button type="submit" class="btn btn-sm btn-primary">Promote</button>
+            </form>
+            <form method="POST" action="/ui/admin/query-learning/{{ p.pattern_hash }}/dismiss" style="margin:0;">
+              <button type="submit" class="btn btn-sm">Dismiss</button>
+            </form>
+          </div>
+          {% elif p.dismissed %}
+          <form method="POST" action="/ui/admin/query-learning/{{ p.pattern_hash }}/undismiss" style="margin:0;">
+            <button type="submit" class="btn btn-sm">Restore</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="icon">&#9636;</div>
+  <p>No query patterns found{% if filter %} for this filter{% endif %}. Click "Mine Worklog" to scan completed tasks for reusable patterns.</p>
+</div>
+{% endif %}
+{% endblock %}

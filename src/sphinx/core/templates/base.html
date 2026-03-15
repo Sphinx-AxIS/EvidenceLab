@@ -38,6 +38,9 @@
         <a href="/ui/cases/{{ case_id }}/findings" class="{% if active_page == 'findings' %}active{% endif %}">
           <span class="icon">&#10004;</span> Findings
         </a>
+        <a href="/ui/cases/{{ case_id }}/detection-rules" class="{% if active_page == 'detection_rules' %}active{% endif %}">
+          <span class="icon">&#9738;</span> Detection Rules
+        </a>
         <a href="/ui/cases/{{ case_id }}/analytics" class="{% if active_page == 'analytics' %}active{% endif %}">
           <span class="icon">&#9636;</span> Analytics
         </a>
@@ -55,6 +58,9 @@
           </a>
           <a href="/ui/admin/data" class="{% if active_page == 'admin_data' %}active{% endif %}">
             <span class="icon">&#9249;</span> Admin: Data
+          </a>
+          <a href="/ui/admin/query-learning" class="{% if active_page == 'admin_query_learning' %}active{% endif %}">
+            <span class="icon">&#9707;</span> Admin: Queries
           </a>
         </div>
         {% endif %}

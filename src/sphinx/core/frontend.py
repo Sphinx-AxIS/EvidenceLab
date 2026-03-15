@@ -1538,3 +1538,332 @@ async def admin_delete_case(request: Request, case_id: str = Form(...)):
     total = sum(counts.values())
     msg = f"Deleted case '{case['name']}' and {total - 1} related rows"
     return RedirectResponse(url=f"/ui/admin/data?success={msg.replace(' ', '+')}", status_code=303)
+
+
+# ── Admin: Query Learning ──────────────────────────
+
+@router.get("/admin/query-learning", response_class=HTMLResponse)
+async def admin_query_learning_page(request: Request, filter: str = "", success: str = "", error: str = ""):
+    user = _require_admin(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    from sphinx.core.query_learner import list_patterns
+
+    patterns = list_patterns(status_filter=filter or None, min_frequency=2)
+
+    # Counts for filter tabs
+    with get_cursor() as cur:
+        cur.execute("SELECT count(*) AS n FROM query_patterns")
+        count_all = cur.fetchone()["n"]
+        cur.execute("SELECT count(*) AS n FROM query_patterns WHERE NOT promoted AND NOT COALESCE(dismissed, false) AND frequency >= 2")
+        count_candidates = cur.fetchone()["n"]
+        cur.execute("SELECT count(*) AS n FROM query_patterns WHERE promoted")
+        count_promoted = cur.fetchone()["n"]
+        cur.execute("SELECT count(*) AS n FROM query_patterns WHERE COALESCE(dismissed, false)")
+        count_dismissed = cur.fetchone()["n"]
+
+    counts = {
+        "all": count_all,
+        "candidates": count_candidates,
+        "promoted": count_promoted,
+        "dismissed": count_dismissed,
+    }
+
+    return templates.TemplateResponse("admin_query_learning.html", _ctx(
+        request, user, "admin_query_learning",
+        patterns=patterns, filter=filter, counts=counts,
+        success=success, error=error,
+    ))
+
+
+@router.post("/admin/query-learning/mine")
+async def admin_query_learning_mine(request: Request):
+    user = _require_admin(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    from sphinx.core.query_learner import mine_worklog
+    result = mine_worklog(min_frequency=2)
+
+    msg = f"Mined {result['patterns_found']} patterns ({result['new']} new, {result['updated']} updated, {len(result.get('promotion_candidates', []))} candidates)"
+    return RedirectResponse(url=f"/ui/admin/query-learning?success={msg.replace(' ', '+')}", status_code=303)
+
+
+@router.post("/admin/query-learning/{pattern_hash}/promote")
+async def admin_query_learning_promote(request: Request, pattern_hash: str, precompute_fn: str = Form("")):
+    user = _require_admin(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    if not precompute_fn.strip():
+        return RedirectResponse(url="/ui/admin/query-learning?error=Precompute+function+path+is+required", status_code=303)
+
+    from sphinx.core.query_learner import promote_pattern
+    if promote_pattern(pattern_hash, precompute_fn.strip()):
+        return RedirectResponse(url="/ui/admin/query-learning?success=Pattern+promoted", status_code=303)
+    return RedirectResponse(url="/ui/admin/query-learning?error=Pattern+not+found", status_code=303)
+
+
+@router.post("/admin/query-learning/{pattern_hash}/dismiss")
+async def admin_query_learning_dismiss(request: Request, pattern_hash: str):
+    user = _require_admin(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    from sphinx.core.query_learner import dismiss_pattern
+    dismiss_pattern(pattern_hash, reviewed_by=user.get("sub", ""))
+    return RedirectResponse(url="/ui/admin/query-learning?success=Pattern+dismissed", status_code=303)
+
+
+@router.post("/admin/query-learning/{pattern_hash}/undismiss")
+async def admin_query_learning_undismiss(request: Request, pattern_hash: str):
+    user = _require_admin(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        cur.execute(
+            "UPDATE query_patterns SET dismissed = false WHERE pattern_hash = %s",
+            (pattern_hash,),
+        )
+        cur.connection.commit()
+    return RedirectResponse(url="/ui/admin/query-learning?success=Pattern+restored", status_code=303)
+
+
+# ── Detection Rules ────────────────────────────────
+
+@router.get("/cases/{case_id}/detection-rules", response_class=HTMLResponse)
+async def detection_rules_list(request: Request, case_id: str, filter: str = "", success: str = "", error: str = ""):
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        # Counts for filter tabs
+        cur.execute("SELECT count(*) AS n FROM detection_rules WHERE case_id = %s", (case_id,))
+        count_all = cur.fetchone()["n"]
+        cur.execute("SELECT count(*) AS n FROM detection_rules WHERE case_id = %s AND status = 'pending_review'", (case_id,))
+        count_pending = cur.fetchone()["n"]
+        cur.execute("SELECT count(*) AS n FROM detection_rules WHERE case_id = %s AND status = 'approved'", (case_id,))
+        count_approved = cur.fetchone()["n"]
+        cur.execute("SELECT count(*) AS n FROM detection_rules WHERE case_id = %s AND status = 'deployed'", (case_id,))
+        count_deployed = cur.fetchone()["n"]
+
+        where = "case_id = %s"
+        params = [case_id]
+        if filter:
+            where += " AND status = %s"
+            params.append(filter)
+
+        cur.execute(
+            f"""SELECT id, title, rule_type, status, mitre_ids,
+                       created_at::text AS created_at
+                FROM detection_rules WHERE {where}
+                ORDER BY created_at DESC""",
+            params,
+        )
+        rules = cur.fetchall()
+
+    counts = {"all": count_all, "pending_review": count_pending, "approved": count_approved, "deployed": count_deployed}
+
+    return templates.TemplateResponse("detection_rules.html", _ctx(
+        request, user, "detection_rules", case_id=case_id,
+        rules=rules, filter=filter, counts=counts,
+        success=success, error=error,
+    ))
+
+
+@router.post("/cases/{case_id}/findings/generate-rules")
+async def generate_rules_submit(request: Request, case_id: str):
+    """Generate detection rules from selected findings."""
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    form = await request.form()
+    finding_ids = [int(x) for x in form.getlist("finding_ids")]
+
+    if not finding_ids:
+        return RedirectResponse(
+            url=f"/ui/cases/{case_id}/findings",
+            status_code=303,
+        )
+
+    from sphinx.core.sig_generator import generate_rules_for_findings
+    settings = request.app.state.settings
+    created = generate_rules_for_findings(settings, finding_ids, case_id)
+
+    msg = f"Generated {len(created)} detection rule(s) from {len(finding_ids)} finding(s)"
+    return RedirectResponse(
+        url=f"/ui/cases/{case_id}/detection-rules?success={msg.replace(' ', '+')}",
+        status_code=303,
+    )
+
+
+@router.get("/cases/{case_id}/detection-rules/{rule_id}", response_class=HTMLResponse)
+async def detection_rule_detail(request: Request, case_id: str, rule_id: int, success: str = "", error: str = ""):
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        cur.execute(
+            """SELECT *, created_at::text AS created_at, updated_at::text AS updated_at
+               FROM detection_rules WHERE id = %s AND case_id = %s""",
+            (rule_id, case_id),
+        )
+        rule = cur.fetchone()
+        if not rule:
+            return RedirectResponse(url=f"/ui/cases/{case_id}/detection-rules?error=Rule+not+found", status_code=303)
+
+        # Fetch linked finding
+        finding = None
+        if rule.get("finding_id"):
+            cur.execute("SELECT * FROM findings WHERE id = %s", (rule["finding_id"],))
+            finding = cur.fetchone()
+
+    return templates.TemplateResponse("rule_review.html", _ctx(
+        request, user, "detection_rules", case_id=case_id,
+        rule=rule, finding=finding, success=success, error=error,
+    ))
+
+
+@router.post("/cases/{case_id}/detection-rules/{rule_id}/edit")
+async def detection_rule_edit(request: Request, case_id: str, rule_id: int, rule_content: str = Form(...)):
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        cur.execute(
+            "UPDATE detection_rules SET rule_content = %s, updated_at = now() WHERE id = %s AND case_id = %s",
+            (rule_content, rule_id, case_id),
+        )
+        cur.connection.commit()
+
+    return RedirectResponse(url=f"/ui/cases/{case_id}/detection-rules/{rule_id}?success=Rule+updated", status_code=303)
+
+
+@router.post("/cases/{case_id}/detection-rules/{rule_id}/approve")
+async def detection_rule_approve(request: Request, case_id: str, rule_id: int):
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        cur.execute(
+            "UPDATE detection_rules SET status = 'approved', reviewed_by = %s, updated_at = now() WHERE id = %s AND case_id = %s",
+            (user.get("sub", ""), rule_id, case_id),
+        )
+        cur.connection.commit()
+
+    return RedirectResponse(url=f"/ui/cases/{case_id}/detection-rules/{rule_id}?success=Rule+approved", status_code=303)
+
+
+@router.post("/cases/{case_id}/detection-rules/{rule_id}/reject")
+async def detection_rule_reject(request: Request, case_id: str, rule_id: int):
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        cur.execute(
+            "UPDATE detection_rules SET status = 'rejected', reviewed_by = %s, updated_at = now() WHERE id = %s AND case_id = %s",
+            (user.get("sub", ""), rule_id, case_id),
+        )
+        cur.connection.commit()
+
+    return RedirectResponse(url=f"/ui/cases/{case_id}/detection-rules/{rule_id}?success=Rule+rejected", status_code=303)
+
+
+@router.post("/cases/{case_id}/detection-rules/{rule_id}/deploy")
+async def detection_rule_deploy(request: Request, case_id: str, rule_id: int):
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        cur.execute("SELECT rule_type, status FROM detection_rules WHERE id = %s AND case_id = %s", (rule_id, case_id))
+        rule = cur.fetchone()
+        if not rule:
+            return RedirectResponse(url=f"/ui/cases/{case_id}/detection-rules?error=Rule+not+found", status_code=303)
+
+    if rule["rule_type"] == "suricata":
+        from sphinx.core.sig_generator import deploy_suricata_rule
+        if deploy_suricata_rule(rule_id):
+            return RedirectResponse(url=f"/ui/cases/{case_id}/detection-rules/{rule_id}?success=Suricata+rule+deployed", status_code=303)
+        return RedirectResponse(url=f"/ui/cases/{case_id}/detection-rules/{rule_id}?error=Deploy+failed", status_code=303)
+
+    elif rule["rule_type"] == "sigma":
+        # Compile Sigma to SQL and mark deployed
+        try:
+            from sphinx.core.sig_generator import compile_sigma_rule
+            compiled = compile_sigma_rule(rule_id)
+            msg = "Sigma+rule+compiled+and+deployed" if compiled else "Sigma+compile+failed"
+            status = "success" if compiled else "error"
+            return RedirectResponse(url=f"/ui/cases/{case_id}/detection-rules/{rule_id}?{status}={msg}", status_code=303)
+        except Exception as e:
+            return RedirectResponse(url=f"/ui/cases/{case_id}/detection-rules/{rule_id}?error=Sigma+deploy+failed:+{str(e)[:50]}", status_code=303)
+
+    return RedirectResponse(url=f"/ui/cases/{case_id}/detection-rules/{rule_id}?error=Unknown+rule+type", status_code=303)
+
+
+@router.post("/cases/{case_id}/detection-rules/{rule_id}/regenerate")
+async def detection_rule_regenerate(request: Request, case_id: str, rule_id: int):
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        cur.execute("SELECT finding_id, rule_type FROM detection_rules WHERE id = %s AND case_id = %s", (rule_id, case_id))
+        rule = cur.fetchone()
+        if not rule or not rule["finding_id"]:
+            return RedirectResponse(url=f"/ui/cases/{case_id}/detection-rules/{rule_id}?error=Cannot+regenerate", status_code=303)
+
+    from sphinx.core.sig_generator import fetch_evidence_for_finding, generate_sigma_rule, generate_suricata_rule
+    settings = request.app.state.settings
+    finding, evidence = fetch_evidence_for_finding(rule["finding_id"])
+
+    try:
+        if rule["rule_type"] == "sigma":
+            result = generate_sigma_rule(settings, finding, evidence)
+        else:
+            result = generate_suricata_rule(settings, finding, evidence)
+
+        with get_cursor() as cur:
+            cur.execute(
+                "UPDATE detection_rules SET rule_content = %s, status = 'pending_review', updated_at = now() WHERE id = %s",
+                (result["rule_content"], rule_id),
+            )
+            cur.connection.commit()
+
+        return RedirectResponse(url=f"/ui/cases/{case_id}/detection-rules/{rule_id}?success=Rule+regenerated", status_code=303)
+    except Exception as e:
+        return RedirectResponse(url=f"/ui/cases/{case_id}/detection-rules/{rule_id}?error=Regeneration+failed", status_code=303)
+
+
+@router.get("/cases/{case_id}/detection-rules/{rule_id}/export")
+async def detection_rule_export(request: Request, case_id: str, rule_id: int):
+    """Download a detection rule as a file."""
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT title, rule_type, rule_content FROM detection_rules WHERE id = %s AND case_id = %s",
+            (rule_id, case_id),
+        )
+        rule = cur.fetchone()
+        if not rule:
+            return HTMLResponse("Rule not found", status_code=404)
+
+    ext = "yml" if rule["rule_type"] == "sigma" else "rules"
+    filename = f"sphinx-rule-{rule_id}.{ext}"
+    from fastapi.responses import Response
+    return Response(
+        content=rule["rule_content"],
+        media_type="text/plain",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Rule Review{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>
+    <span class="badge {% if rule.rule_type == 'sigma' %}badge-info{% else %}badge-warning{% endif %}" style="font-size:0.7em;">{{ rule.rule_type }}</span>
+    {{ rule.title }}
+  </h2>
+  <div>
+    {% if rule.status == 'pending_review' %}
+    <span class="badge" style="background:var(--blue);">pending review</span>
+    {% elif rule.status == 'approved' %}
+    <span class="badge badge-success">approved</span>
+    {% elif rule.status == 'deployed' %}
+    <span class="badge badge-success" style="background:var(--green);">deployed</span>
+    {% elif rule.status == 'rejected' %}
+    <span class="badge badge-muted">rejected</span>
+    {% endif %}
+  </div>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+{% if success %}
+<div class="alert alert-success">{{ success }}</div>
+{% endif %}
+
+<!-- Finding context -->
+{% if finding %}
+<div class="card mb-2">
+  <h3>Source Finding</h3>
+  <div style="font-size:0.85rem;">
+    <strong>{{ finding.title }}</strong>
+    <span class="badge {% if finding.severity == 'high' or finding.severity == 'critical' %}badge-danger{% elif finding.severity == 'medium' %}badge-warning{% else %}badge-info{% endif %}">{{ finding.severity }}</span>
+  </div>
+  {% if finding.body %}
+  <div style="font-size:0.8rem;color:var(--muted);margin-top:0.25rem;max-height:150px;overflow:auto;">{{ finding.body[:500] }}</div>
+  {% endif %}
+  {% if finding.evidence_ids %}
+  <div style="font-size:0.75rem;color:var(--muted);margin-top:0.25rem;">Evidence IDs: {{ finding.evidence_ids|join(', ') }}</div>
+  {% endif %}
+  {% if rule.mitre_ids %}
+  <div style="margin-top:0.25rem;">
+    {% for m in rule.mitre_ids %}<span class="badge badge-purple">{{ m }}</span> {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Rule content (editable) -->
+<div class="card mb-2">
+  <h3>Rule Content</h3>
+  <form method="POST" action="/ui/cases/{{ case_id }}/detection-rules/{{ rule.id }}/edit">
+    <textarea name="rule_content" class="form-control text-mono"
+              style="width:100%;min-height:300px;font-size:0.8rem;white-space:pre;font-family:monospace;"
+    >{{ rule.rule_content }}</textarea>
+    <div class="flex gap-1" style="margin-top:0.5rem;">
+      <button type="submit" class="btn btn-sm">Save Changes</button>
+    </div>
+  </form>
+</div>
+
+<!-- Actions -->
+<div class="card mb-2">
+  <h3>Review Actions</h3>
+  <div class="flex gap-1" style="flex-wrap:wrap;">
+    {% if rule.status in ('pending_review', 'draft', 'rejected') %}
+    <form method="POST" action="/ui/cases/{{ case_id }}/detection-rules/{{ rule.id }}/approve" style="margin:0;">
+      <button type="submit" class="btn btn-primary">Approve</button>
+    </form>
+    {% endif %}
+
+    {% if rule.status in ('pending_review', 'draft', 'approved') %}
+    <form method="POST" action="/ui/cases/{{ case_id }}/detection-rules/{{ rule.id }}/reject" style="margin:0;">
+      <button type="submit" class="btn btn-danger">Reject</button>
+    </form>
+    {% endif %}
+
+    {% if rule.status == 'approved' and rule.rule_type == 'suricata' %}
+    <form method="POST" action="/ui/cases/{{ case_id }}/detection-rules/{{ rule.id }}/deploy" style="margin:0;">
+      <button type="submit" class="btn btn-primary">Deploy to Suricata</button>
+    </form>
+    {% endif %}
+
+    {% if rule.status == 'approved' and rule.rule_type == 'sigma' %}
+    <form method="POST" action="/ui/cases/{{ case_id }}/detection-rules/{{ rule.id }}/deploy" style="margin:0;">
+      <button type="submit" class="btn btn-primary">Deploy (Compile to SQL)</button>
+    </form>
+    {% endif %}
+
+    <form method="POST" action="/ui/cases/{{ case_id }}/detection-rules/{{ rule.id }}/regenerate" style="margin:0;"
+          onsubmit="return confirm('Re-generate this rule? The current content will be replaced.');">
+      <button type="submit" class="btn btn-sm">Re-generate</button>
+    </form>
+
+    <a href="/ui/cases/{{ case_id }}/detection-rules/{{ rule.id }}/export" class="btn btn-sm">Export / Download</a>
+  </div>
+</div>
+
+{% if rule.compiled_sql %}
+<div class="card mb-2">
+  <h3>Compiled SQL (Sigma)</h3>
+  <pre style="font-size:0.8rem;white-space:pre-wrap;background:var(--bg);padding:0.5rem;border:1px solid var(--border);border-radius:4px;">{{ rule.compiled_sql }}</pre>
+</div>
+{% endif %}
+
+<div style="margin-top:1rem;">
+  <a href="/ui/cases/{{ case_id }}/detection-rules" class="btn btn-sm">Back to Detection Rules</a>
+</div>
+{% endblock %}

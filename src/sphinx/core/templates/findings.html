@@ -12,39 +12,60 @@
   <p>No findings yet. Run a task to generate investigation results.</p>
 </div>
 {% else %}
-{% for f in findings %}
-<div class="card mb-2">
-  <div class="flex-between mb-1">
-    <div>
-      <strong>{{ f.title }}</strong>
-      {% if f.severity == 'critical' %}
-      <span class="badge badge-danger" style="margin-left:0.5rem;">critical</span>
-      {% elif f.severity == 'high' %}
-      <span class="badge badge-danger" style="margin-left:0.5rem;">high</span>
-      {% elif f.severity == 'medium' %}
-      <span class="badge badge-warning" style="margin-left:0.5rem;">medium</span>
-      {% elif f.severity == 'low' %}
-      <span class="badge badge-info" style="margin-left:0.5rem;">low</span>
-      {% else %}
-      <span class="badge badge-muted" style="margin-left:0.5rem;">info</span>
-      {% endif %}
+<form method="POST" action="/ui/cases/{{ case_id }}/findings/generate-rules">
+  <div style="margin-bottom:1rem;" class="flex gap-1">
+    <button type="submit" class="btn btn-primary">Generate Detection Rules from Selected</button>
+    <span style="color:var(--muted);font-size:0.8rem;align-self:center;" id="selection-count"></span>
+  </div>
+
+  {% for f in findings %}
+  <div class="card mb-2">
+    <div class="flex-between mb-1">
+      <div class="flex gap-1" style="align-items:center;">
+        <input type="checkbox" name="finding_ids" value="{{ f.id }}" class="finding-checkbox"
+               style="width:18px;height:18px;cursor:pointer;">
+        <strong>{{ f.title }}</strong>
+        {% if f.severity == 'critical' %}
+        <span class="badge badge-danger">critical</span>
+        {% elif f.severity == 'high' %}
+        <span class="badge badge-danger">high</span>
+        {% elif f.severity == 'medium' %}
+        <span class="badge badge-warning">medium</span>
+        {% elif f.severity == 'low' %}
+        <span class="badge badge-info">low</span>
+        {% else %}
+        <span class="badge badge-muted">info</span>
+        {% endif %}
+      </div>
+      <span class="text-muted" style="font-size:0.75rem;">{{ f.created_at[:19] if f.created_at else '' }}</span>
     </div>
-    <span class="text-muted" style="font-size:0.75rem;">{{ f.created_at[:19] if f.created_at else '' }}</span>
+    {% if f.summary %}
+    <div style="font-size:0.85rem; white-space:pre-wrap;">{{ f.summary }}</div>
+    {% endif %}
+    {% if f.evidence_ids %}
+    <div class="mt-1 text-muted" style="font-size:0.75rem;">
+      Evidence IDs: {{ f.evidence_ids|join(', ') }}
+    </div>
+    {% endif %}
+    {% if f.mitre_ids %}
+    <div class="mt-1" style="font-size:0.75rem;">
+      {% for m in f.mitre_ids %}<span class="badge badge-purple">{{ m }}</span> {% endfor %}
+    </div>
+    {% endif %}
   </div>
-  {% if f.summary %}
-  <div style="font-size:0.85rem; white-space:pre-wrap;">{{ f.summary }}</div>
-  {% endif %}
-  {% if f.evidence_ids %}
-  <div class="mt-1 text-muted" style="font-size:0.75rem;">
-    Evidence IDs: {{ f.evidence_ids|join(', ') }}
-  </div>
-  {% endif %}
-  {% if f.mitre_ids %}
-  <div class="mt-1" style="font-size:0.75rem;">
-    {% for m in f.mitre_ids %}<span class="badge badge-purple">{{ m }}</span> {% endfor %}
-  </div>
-  {% endif %}
-</div>
-{% endfor %}
+  {% endfor %}
+</form>
 {% endif %}
+
+<script>
+(function() {
+  var checkboxes = document.querySelectorAll('.finding-checkbox');
+  var counter = document.getElementById('selection-count');
+  function updateCount() {
+    var n = document.querySelectorAll('.finding-checkbox:checked').length;
+    counter.textContent = n > 0 ? n + ' finding(s) selected' : '';
+  }
+  checkboxes.forEach(function(cb) { cb.addEventListener('change', updateCount); });
+})();
+</script>
 {% endblock %}

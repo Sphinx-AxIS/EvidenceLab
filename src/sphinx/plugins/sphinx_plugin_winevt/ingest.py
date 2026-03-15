@@ -54,6 +54,17 @@ def _ingest_channel(case_id: str, record_type: str, records: list[dict]) -> int:
         cur.connection.commit()
 
     log.info("Ingested %d %s records for case %s", inserted, record_type, case_id)
+
+    # Run deployed Sigma rules against newly ingested records
+    try:
+        from sphinx.core.sig_generator import run_sigma_rules_on_case
+        matches = run_sigma_rules_on_case(case_id)
+        if matches:
+            log.info("Sigma detection: %d matches across %d rules for case %s",
+                     len(matches), len({m["rule_id"] for m in matches}), case_id)
+    except Exception as e:
+        log.warning("Sigma rule execution skipped: %s", e)
+
     return inserted
 
 

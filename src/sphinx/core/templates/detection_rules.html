@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Detection Rules{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Detection Rules</h2>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+{% if success %}
+<div class="alert alert-success">{{ success }}</div>
+{% endif %}
+
+<!-- Filter tabs -->
+<div class="flex gap-1" style="margin-bottom:1rem;">
+  <a href="/ui/cases/{{ case_id }}/detection-rules" class="btn btn-sm {% if not filter %}btn-primary{% endif %}">All ({{ counts.all }})</a>
+  <a href="/ui/cases/{{ case_id }}/detection-rules?filter=pending_review" class="btn btn-sm {% if filter == 'pending_review' %}btn-primary{% endif %}">Pending Review ({{ counts.pending_review }})</a>
+  <a href="/ui/cases/{{ case_id }}/detection-rules?filter=approved" class="btn btn-sm {% if filter == 'approved' %}btn-primary{% endif %}">Approved ({{ counts.approved }})</a>
+  <a href="/ui/cases/{{ case_id }}/detection-rules?filter=deployed" class="btn btn-sm {% if filter == 'deployed' %}btn-primary{% endif %}">Deployed ({{ counts.deployed }})</a>
+</div>
+
+{% if rules|length == 0 %}
+<div class="empty-state">
+  <div class="icon">&#9738;</div>
+  <p>No detection rules yet. Select findings and click "Generate Detection Rules" from the Findings page.</p>
+</div>
+{% else %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Type</th>
+        <th>Status</th>
+        <th>MITRE</th>
+        <th>Created</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rules %}
+      <tr>
+        <td style="max-width:300px;">
+          <a href="/ui/cases/{{ case_id }}/detection-rules/{{ r.id }}">{{ r.title[:60] }}{% if r.title|length > 60 %}...{% endif %}</a>
+        </td>
+        <td>
+          <span class="badge {% if r.rule_type == 'sigma' %}badge-info{% else %}badge-warning{% endif %}">{{ r.rule_type }}</span>
+        </td>
+        <td>
+          {% if r.status == 'pending_review' %}
+          <span class="badge" style="background:var(--blue);">review</span>
+          {% elif r.status == 'approved' %}
+          <span class="badge badge-success">approved</span>
+          {% elif r.status == 'deployed' %}
+          <span class="badge badge-success" style="background:var(--green);">deployed</span>
+          {% elif r.status == 'rejected' %}
+          <span class="badge badge-muted">rejected</span>
+          {% else %}
+          <span class="badge">{{ r.status }}</span>
+          {% endif %}
+        </td>
+        <td style="font-size:0.75rem;">
+          {% for m in (r.mitre_ids or []) %}<span class="badge badge-purple">{{ m }}</span> {% endfor %}
+        </td>
+        <td class="text-mono" style="font-size:0.78rem;">{{ r.created_at[:19] if r.created_at else '—' }}</td>
+        <td class="flex gap-1">
+          <a href="/ui/cases/{{ case_id }}/detection-rules/{{ r.id }}" class="btn btn-sm">Review</a>
+          {% if r.status == 'approved' and r.rule_type == 'suricata' %}
+          <form method="POST" action="/ui/cases/{{ case_id }}/detection-rules/{{ r.id }}/deploy" style="margin:0;">
+            <button type="submit" class="btn btn-sm btn-primary">Deploy</button>
+          </form>
+          {% endif %}
+          <a href="/ui/cases/{{ case_id }}/detection-rules/{{ r.id }}/export" class="btn btn-sm">Export</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

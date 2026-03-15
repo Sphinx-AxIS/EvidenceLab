@@ -155,6 +155,60 @@ def mine_worklog(min_frequency: int = 3) -> dict[str, Any]:
     }
 
 
+def list_patterns(
+    status_filter: str | None = None,
+    min_frequency: int = 1,
+) -> list[dict]:
+    """List query patterns for admin review.
+
+    Args:
+        status_filter: 'candidates' (unpromoted, undismissed, freq >= min),
+                       'promoted', 'dismissed', or None (all).
+        min_frequency: Minimum frequency threshold for candidates.
+    """
+    with get_cursor() as cur:
+        if status_filter == "candidates":
+            cur.execute(
+                """SELECT * FROM query_patterns
+                   WHERE NOT promoted AND NOT COALESCE(dismissed, false)
+                     AND frequency >= %s
+                   ORDER BY frequency DESC""",
+                (min_frequency,),
+            )
+        elif status_filter == "promoted":
+            cur.execute(
+                "SELECT * FROM query_patterns WHERE promoted ORDER BY frequency DESC"
+            )
+        elif status_filter == "dismissed":
+            cur.execute(
+                "SELECT * FROM query_patterns WHERE COALESCE(dismissed, false) ORDER BY frequency DESC"
+            )
+        else:
+            cur.execute(
+                "SELECT * FROM query_patterns ORDER BY frequency DESC"
+            )
+        rows = cur.fetchall()
+        # Convert timestamps to strings
+        for r in rows:
+            for k in ("first_seen", "last_seen"):
+                if r.get(k):
+                    r[k] = str(r[k])
+        return rows
+
+
+def dismiss_pattern(pattern_hash: str, reviewed_by: str = "", notes: str = "") -> bool:
+    """Dismiss a query pattern so it no longer appears as a candidate."""
+    with get_cursor() as cur:
+        cur.execute(
+            """UPDATE query_patterns
+               SET dismissed = true, reviewed_by = %s, review_notes = %s
+               WHERE pattern_hash = %s""",
+            (reviewed_by, notes, pattern_hash),
+        )
+        cur.connection.commit()
+        return cur.rowcount > 0
+
+
 def promote_pattern(pattern_hash: str, precompute_fn: str) -> bool:
     """Promote a query pattern to a pre-computed function.
 
