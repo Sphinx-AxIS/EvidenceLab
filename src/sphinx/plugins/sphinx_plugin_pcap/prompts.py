@@ -29,7 +29,6 @@ Key fields in raw JSONB:
 - Use `raw->>'field_name'` for JSONB text extraction
 - Use `(raw->>'field_name')::int` for numeric casting
 - Use `raw->'nested'->'field'` for nested JSONB access
-- The net_events OCSF view provides flat columns if available
 - Check `get_precomputed('top_talkers')` before writing your own aggregation
 """
 
