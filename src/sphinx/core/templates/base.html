@@ -45,6 +45,13 @@
           <span class="icon">&#9776;</span> Report
         </a>
         {% endif %}
+        {% if user and user.role == 'admin' %}
+        <div style="border-top:1px solid var(--border); margin-top:0.5rem; padding-top:0.5rem;">
+          <a href="/ui/admin/users" class="{% if active_page == 'admin_users' %}active{% endif %}">
+            <span class="icon">&#9881;</span> Admin: Users
+          </a>
+        </div>
+        {% endif %}
       </nav>
       <div class="sidebar-footer">
         {% if user %}

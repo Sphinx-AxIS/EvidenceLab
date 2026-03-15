@@ -700,3 +700,187 @@ async def report_download(request: Request, case_id: str):
         content=report,
         headers={"Content-Disposition": f"attachment; filename=sphinx-report-{case_id[:8]}.json"},
     )
+
+
+# ── Admin: User Management ───────────────────────────
+
+def _require_admin(request: Request):
+    """Return user dict if admin, else redirect."""
+    user = _get_user(request)
+    if not user or user.get("role") != "admin":
+        return None
+    return user
+
+
+@router.get("/admin/users", response_class=HTMLResponse)
+async def admin_users_page(request: Request, success: str = "", error: str = ""):
+    user = _require_admin(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        cur.execute("""
+            SELECT u.*, count(ca.case_id) AS case_count
+            FROM users u
+            LEFT JOIN case_assignments ca ON ca.user_id = u.id
+            GROUP BY u.id
+            ORDER BY u.created_at DESC
+        """)
+        users = [
+            {**row, "created_at": str(row["created_at"]) if row["created_at"] else None}
+            for row in cur.fetchall()
+        ]
+
+    return templates.TemplateResponse("admin_users.html", _ctx(
+        request, user, "admin_users", users=users, success=success, error=error,
+    ))
+
+
+@router.post("/admin/users")
+async def admin_create_user(
+    request: Request, username: str = Form(...), password: str = Form(...), role: str = Form("analyst"),
+):
+    user = _require_admin(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    if len(password) < 8:
+        return RedirectResponse(url="/ui/admin/users?error=Password+must+be+at+least+8+characters", status_code=303)
+
+    from sphinx.core.auth import hash_password
+    import uuid
+    user_id = str(uuid.uuid4())
+    pw_hash = hash_password(password)
+
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                "INSERT INTO users (id, username, password_hash, role) VALUES (%s, %s, %s, %s)",
+                (user_id, username, pw_hash, role),
+            )
+            cur.connection.commit()
+        return RedirectResponse(url=f"/ui/admin/users?success=User+'{username}'+created", status_code=303)
+    except Exception:
+        return RedirectResponse(url=f"/ui/admin/users?error=Username+'{username}'+already+exists", status_code=303)
+
+
+@router.post("/admin/users/{user_id}/toggle")
+async def admin_toggle_user(request: Request, user_id: str):
+    user = _require_admin(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        cur.execute(
+            "UPDATE users SET active = NOT active WHERE id = %s AND role != 'admin' RETURNING active",
+            (user_id,),
+        )
+        row = cur.fetchone()
+        cur.connection.commit()
+
+    status_text = "activated" if row and row["active"] else "deactivated"
+    return RedirectResponse(url=f"/ui/admin/users?success=User+{status_text}", status_code=303)
+
+
+@router.get("/admin/users/{user_id}", response_class=HTMLResponse)
+async def admin_user_detail(request: Request, user_id: str, success: str = "", error: str = ""):
+    user = _require_admin(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+        target_user = cur.fetchone()
+        if not target_user:
+            return RedirectResponse(url="/ui/admin/users?error=User+not+found", status_code=303)
+        target_user = {**target_user, "created_at": str(target_user["created_at"]) if target_user["created_at"] else None}
+
+        # Case assignments
+        cur.execute("""
+            SELECT ca.*, c.name AS case_name
+            FROM case_assignments ca
+            JOIN cases c ON c.id = ca.case_id
+            WHERE ca.user_id = %s
+            ORDER BY ca.assigned_at
+        """, (user_id,))
+        assignments = [
+            {**row, "assigned_at": str(row["assigned_at"]) if row["assigned_at"] else None}
+            for row in cur.fetchall()
+        ]
+
+        # Available cases (not already assigned)
+        assigned_ids = [a["case_id"] for a in assignments]
+        cur.execute("SELECT id, name FROM cases ORDER BY name")
+        all_cases = cur.fetchall()
+        available_cases = [c for c in all_cases if c["id"] not in assigned_ids]
+
+    return templates.TemplateResponse("admin_user_detail.html", _ctx(
+        request, user, "admin_users",
+        target_user=target_user, assignments=assignments,
+        available_cases=available_cases, success=success, error=error,
+    ))
+
+
+@router.post("/admin/users/{user_id}/role")
+async def admin_change_role(request: Request, user_id: str, role: str = Form(...)):
+    user = _require_admin(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        cur.execute("UPDATE users SET role = %s WHERE id = %s", (role, user_id))
+        cur.connection.commit()
+
+    return RedirectResponse(url=f"/ui/admin/users/{user_id}?success=Role+updated+to+{role}", status_code=303)
+
+
+@router.post("/admin/users/{user_id}/password")
+async def admin_reset_password(request: Request, user_id: str, password: str = Form(...)):
+    user = _require_admin(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    if len(password) < 8:
+        return RedirectResponse(url=f"/ui/admin/users/{user_id}?error=Password+must+be+at+least+8+characters", status_code=303)
+
+    from sphinx.core.auth import hash_password
+    pw_hash = hash_password(password)
+    with get_cursor() as cur:
+        cur.execute("UPDATE users SET password_hash = %s WHERE id = %s", (pw_hash, user_id))
+        cur.connection.commit()
+
+    return RedirectResponse(url=f"/ui/admin/users/{user_id}?success=Password+reset", status_code=303)
+
+
+@router.post("/admin/users/{user_id}/assign")
+async def admin_assign_case(request: Request, user_id: str, case_id: str = Form(...)):
+    user = _require_admin(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                "INSERT INTO case_assignments (user_id, case_id) VALUES (%s, %s)",
+                (user_id, case_id),
+            )
+            cur.connection.commit()
+        return RedirectResponse(url=f"/ui/admin/users/{user_id}?success=Case+assigned", status_code=303)
+    except Exception:
+        return RedirectResponse(url=f"/ui/admin/users/{user_id}?error=Already+assigned", status_code=303)
+
+
+@router.post("/admin/users/{user_id}/unassign")
+async def admin_unassign_case(request: Request, user_id: str, case_id: str = Form(...)):
+    user = _require_admin(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        cur.execute(
+            "DELETE FROM case_assignments WHERE user_id = %s AND case_id = %s",
+            (user_id, case_id),
+        )
+        cur.connection.commit()
+
+    return RedirectResponse(url=f"/ui/admin/users/{user_id}?success=Case+unassigned", status_code=303)
