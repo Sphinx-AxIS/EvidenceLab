@@ -179,10 +179,10 @@ def run_task(settings: Settings, case_id: str, task_id: int) -> dict[str, Any]:
             step,
             f"step_{step}",
             code,
-            step_result["stdout"],
+            step_result.get("stdout", ""),
             step_result.get("error"),
             step_result.get("result"),
-            step_result["elapsed_s"],
+            step_result.get("elapsed_s", 0),
         )
 
         # Add to conversation
@@ -198,7 +198,7 @@ def run_task(settings: Settings, case_id: str, task_id: int) -> dict[str, Any]:
         # Build next step message
         next_msg = build_step_message(
             step + 1,
-            step_result["stdout"],
+            step_result.get("stdout", ""),
             step_result.get("error"),
         )
         messages.append({"role": "user", "content": next_msg})

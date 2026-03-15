@@ -89,15 +89,22 @@ async def run_task_endpoint(
     # Run in background thread
     def _run():
         from sphinx.core.precompute import run_precompute
-        from sphinx.core.rlm_loop import run_task
+        from sphinx.core.rlm_loop import run_task, _update_task_status
 
-        log.info("Pre-computing for case %s, task %d", case_id, task_id)
-        precompute_result = run_precompute(case_id, task_id)
-        log.info("Precompute: %s", precompute_result)
+        try:
+            log.info("Pre-computing for case %s, task %d", case_id, task_id)
+            precompute_result = run_precompute(case_id, task_id)
+            log.info("Precompute: %s", precompute_result)
 
-        log.info("Starting RLM loop for task %d", task_id)
-        result = run_task(settings, case_id, task_id)
-        log.info("Task %d result: %s", task_id, result.get("status"))
+            log.info("Starting RLM loop for task %d", task_id)
+            result = run_task(settings, case_id, task_id)
+            log.info("Task %d result: %s", task_id, result.get("status"))
+        except Exception as e:
+            log.error("Task %d failed: %s", task_id, e, exc_info=True)
+            try:
+                _update_task_status(task_id, "failed")
+            except Exception:
+                log.error("Failed to update task %d status to failed", task_id)
 
     thread = threading.Thread(target=_run, daemon=True)
     thread.start()

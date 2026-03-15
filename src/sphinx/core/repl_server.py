@@ -216,7 +216,14 @@ class ReplHandler(socketserver.StreamRequestHandler):
                 break
             except Exception as e:
                 try:
-                    err = json.dumps({"status": "error", "error": str(e)}).encode()
+                    err = json.dumps({
+                        "status": "error",
+                        "error": str(e),
+                        "stdout": "",
+                        "stderr": "",
+                        "result": None,
+                        "elapsed_s": 0,
+                    }).encode()
                     self.wfile.write(struct.pack("!I", len(err)))
                     self.wfile.write(err)
                     self.wfile.flush()
