@@ -1202,3 +1202,201 @@ async def admin_unassign_case(request: Request, user_id: str, case_id: str = For
         cur.connection.commit()
 
     return RedirectResponse(url=f"/ui/admin/users/{user_id}?success=Case+unassigned", status_code=303)
+
+
+# ── Admin: Data Management ─────────────────────────
+
+def _delete_case_evidence(cur, case_id: str) -> dict:
+    """Delete all evidence for a case (records, entities, precomputed, etc).
+
+    Respects FK ordering. Returns counts of deleted rows per table.
+    """
+    counts = {}
+
+    # Entities reference records, so delete first
+    cur.execute("DELETE FROM entities WHERE case_id = %s", (case_id,))
+    counts["entities"] = cur.rowcount
+
+    # Scratch precomputed references both tasks and cases
+    cur.execute("DELETE FROM scratch_precomputed WHERE case_id = %s", (case_id,))
+    counts["scratch_precomputed"] = cur.rowcount
+
+    # Records (the main evidence)
+    cur.execute("DELETE FROM records WHERE case_id = %s", (case_id,))
+    counts["records"] = cur.rowcount
+
+    # Findings reference cases (evidence_ids are just an int array, not FK)
+    cur.execute("DELETE FROM findings WHERE case_id = %s", (case_id,))
+    counts["findings"] = cur.rowcount
+
+    return counts
+
+
+def _delete_case_tasks(cur, case_id: str) -> dict:
+    """Delete tasks and worklog for a case. Returns counts."""
+    counts = {}
+
+    # Worklog steps reference tasks
+    cur.execute(
+        "DELETE FROM worklog_steps WHERE task_id IN (SELECT id FROM tasks WHERE case_id = %s)",
+        (case_id,),
+    )
+    counts["worklog_steps"] = cur.rowcount
+
+    cur.execute("DELETE FROM tasks WHERE case_id = %s", (case_id,))
+    counts["tasks"] = cur.rowcount
+
+    return counts
+
+
+def _delete_case_all(cur, case_id: str) -> dict:
+    """Delete a case and everything tied to it. Returns counts."""
+    counts = {}
+
+    # Evidence + derived data
+    counts.update(_delete_case_evidence(cur, case_id))
+
+    # Tasks + worklog
+    counts.update(_delete_case_tasks(cur, case_id))
+
+    # Notes
+    cur.execute("DELETE FROM case_notes WHERE case_id = %s", (case_id,))
+    counts["case_notes"] = cur.rowcount
+
+    # Background jobs
+    cur.execute("DELETE FROM background_jobs WHERE case_id = %s", (case_id,))
+    counts["background_jobs"] = cur.rowcount
+
+    # Case assignments
+    cur.execute("DELETE FROM case_assignments WHERE case_id = %s", (case_id,))
+    counts["case_assignments"] = cur.rowcount
+
+    # The case itself
+    cur.execute("DELETE FROM cases WHERE id = %s", (case_id,))
+    counts["cases"] = cur.rowcount
+
+    return counts
+
+
+@router.get("/admin/data", response_class=HTMLResponse)
+async def admin_data_page(request: Request, success: str = "", error: str = ""):
+    user = _require_admin(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        # All cases with record counts
+        cur.execute("""
+            SELECT c.id, c.name, c.status,
+                   count(r.id) AS record_count
+            FROM cases c
+            LEFT JOIN records r ON r.case_id = c.id
+            GROUP BY c.id ORDER BY c.created_at DESC
+        """)
+        cases = cur.fetchall()
+
+        # Background jobs with ingest types + linked record counts
+        cur.execute("""
+            SELECT j.id, j.case_id, j.job_type, j.status, j.input_name,
+                   j.created_at::text AS created_at,
+                   c.name AS case_name,
+                   count(r.id) AS record_count
+            FROM background_jobs j
+            JOIN cases c ON c.id = j.case_id
+            LEFT JOIN records r ON r.job_id = j.id
+            WHERE j.job_type LIKE '%ingest%'
+            GROUP BY j.id, c.name
+            ORDER BY j.created_at DESC
+            LIMIT 50
+        """)
+        jobs = cur.fetchall()
+
+    return templates.TemplateResponse("admin_data.html", _ctx(
+        request, user, "admin_data",
+        cases=cases, jobs=jobs, success=success, error=error,
+    ))
+
+
+@router.post("/admin/data/delete-job-records")
+async def admin_delete_job_records(request: Request, job_id: int = Form(...)):
+    """Delete all records linked to a specific ingest job."""
+    user = _require_admin(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        # Get job info for message
+        cur.execute("SELECT id, job_type, input_name, case_id FROM background_jobs WHERE id = %s", (job_id,))
+        job = cur.fetchone()
+        if not job:
+            return RedirectResponse(url="/ui/admin/data?error=Job+not+found", status_code=303)
+
+        # Delete entities that reference these records
+        cur.execute(
+            "DELETE FROM entities WHERE record_id IN (SELECT id FROM records WHERE job_id = %s)",
+            (job_id,),
+        )
+        entities_deleted = cur.rowcount
+
+        # Delete the records
+        cur.execute("DELETE FROM records WHERE job_id = %s", (job_id,))
+        records_deleted = cur.rowcount
+
+        # Update job status to reflect deletion
+        from psycopg.types.json import Jsonb
+        cur.execute(
+            "UPDATE background_jobs SET status = 'deleted', summary = summary || %s, updated_at = now() WHERE id = %s",
+            (Jsonb({"deleted_records": records_deleted, "deleted_entities": entities_deleted}), job_id),
+        )
+        cur.connection.commit()
+
+    msg = f"Deleted {records_deleted} records and {entities_deleted} entities from job #{job_id} ({job['input_name'] or job['job_type']})"
+    return RedirectResponse(url=f"/ui/admin/data?success={msg.replace(' ', '+')}", status_code=303)
+
+
+@router.post("/admin/data/delete-case-evidence")
+async def admin_delete_case_evidence(request: Request, case_id: str = Form(...)):
+    """Delete all evidence for a case but keep the case itself."""
+    user = _require_admin(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        cur.execute("SELECT name FROM cases WHERE id = %s", (case_id,))
+        case = cur.fetchone()
+        if not case:
+            return RedirectResponse(url="/ui/admin/data?error=Case+not+found", status_code=303)
+
+        counts = _delete_case_evidence(cur, case_id)
+        counts.update(_delete_case_tasks(cur, case_id))
+
+        # Also clear background jobs
+        cur.execute("DELETE FROM background_jobs WHERE case_id = %s", (case_id,))
+        counts["background_jobs"] = cur.rowcount
+
+        cur.connection.commit()
+
+    total = sum(counts.values())
+    msg = f"Deleted {total} rows of evidence from case '{case['name']}' (records: {counts.get('records', 0)}, entities: {counts.get('entities', 0)}, tasks: {counts.get('tasks', 0)})"
+    return RedirectResponse(url=f"/ui/admin/data?success={msg.replace(' ', '+')}", status_code=303)
+
+
+@router.post("/admin/data/delete-case")
+async def admin_delete_case(request: Request, case_id: str = Form(...)):
+    """Delete a case and everything tied to it."""
+    user = _require_admin(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        cur.execute("SELECT name FROM cases WHERE id = %s", (case_id,))
+        case = cur.fetchone()
+        if not case:
+            return RedirectResponse(url="/ui/admin/data?error=Case+not+found", status_code=303)
+
+        counts = _delete_case_all(cur, case_id)
+        cur.connection.commit()
+
+    total = sum(counts.values())
+    msg = f"Deleted case '{case['name']}' and {total - 1} related rows"
+    return RedirectResponse(url=f"/ui/admin/data?success={msg.replace(' ', '+')}", status_code=303)

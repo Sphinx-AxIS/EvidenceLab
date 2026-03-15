@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Data Management{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Data Management</h2>
+  <p style="color:var(--muted);margin:0;">Delete evidence records, case data, or entire cases. These actions are irreversible.</p>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+{% if success %}
+<div class="alert alert-success">{{ success }}</div>
+{% endif %}
+
+<!-- Section 1: Delete by Ingest Job -->
+<div class="card mb-2">
+  <h3>Delete Records by Ingest Job</h3>
+  <p style="color:var(--muted);font-size:0.85rem;margin-top:0;">
+    Remove all records that were created by a specific ingest job. Only jobs with linked records can be deleted this way.
+  </p>
+
+  {% if jobs %}
+  <div class="table-wrap" style="margin-top:0.75rem;">
+    <table>
+      <thead>
+        <tr>
+          <th>Job ID</th>
+          <th>Case</th>
+          <th>Type</th>
+          <th>Input</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th>Records</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for j in jobs %}
+        <tr>
+          <td class="text-mono">{{ j.id }}</td>
+          <td>{{ j.case_name }}</td>
+          <td class="text-mono" style="font-size:0.8rem;">{{ j.job_type }}</td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ j.input_name or '—' }}</td>
+          <td>
+            <span class="badge {% if j.status == 'done' %}badge-success{% elif j.status == 'failed' %}badge-danger{% elif j.status == 'running' %}badge-warning{% elif j.status == 'deleted' %}badge-muted{% else %}badge-info{% endif %}">{{ j.status }}</span>
+          </td>
+          <td class="text-mono" style="font-size:0.78rem;">{{ j.created_at[:19] if j.created_at else '—' }}</td>
+          <td class="text-mono">{{ j.record_count }}</td>
+          <td>
+            {% if j.record_count > 0 and j.status != 'deleted' %}
+            <form method="POST" action="/ui/admin/data/delete-job-records" style="margin:0;"
+                  onsubmit="return confirm('Delete {{ j.record_count }} records from job #{{ j.id }} ({{ j.input_name or j.job_type }})? This cannot be undone.');">
+              <input type="hidden" name="job_id" value="{{ j.id }}">
+              <button type="submit" class="btn btn-sm btn-danger">Delete Records</button>
+            </form>
+            {% elif j.status == 'deleted' %}
+            <span class="badge badge-muted">deleted</span>
+            {% else %}
+            <span style="color:var(--muted);font-size:0.8rem;">no linked records</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p style="color:var(--muted);">No ingest jobs found.</p>
+  {% endif %}
+</div>
+
+<!-- Section 2: Delete Case Evidence -->
+<div class="card mb-2">
+  <h3>Delete Case Evidence</h3>
+  <p style="color:var(--muted);font-size:0.85rem;margin-top:0;">
+    Remove all evidence (records, entities, findings, tasks, worklog, jobs) from a case while keeping the case itself.
+  </p>
+
+  {% if cases %}
+  <div class="table-wrap" style="margin-top:0.75rem;">
+    <table>
+      <thead>
+        <tr>
+          <th>Case</th>
+          <th>Status</th>
+          <th>Records</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in cases %}
+        <tr>
+          <td>{{ c.name }}</td>
+          <td><span class="badge {% if c.status == 'open' %}badge-success{% elif c.status == 'closed' %}badge-muted{% else %}badge-info{% endif %}">{{ c.status }}</span></td>
+          <td class="text-mono">{{ c.record_count }}</td>
+          <td>
+            {% if c.record_count > 0 %}
+            <form method="POST" action="/ui/admin/data/delete-case-evidence" style="margin:0;"
+                  onsubmit="return confirm('Delete ALL evidence from case \'{{ c.name }}\'? This removes records, entities, findings, tasks, and jobs. The case itself will remain. This cannot be undone.');">
+              <input type="hidden" name="case_id" value="{{ c.id }}">
+              <button type="submit" class="btn btn-sm btn-danger">Purge Evidence</button>
+            </form>
+            {% else %}
+            <span style="color:var(--muted);font-size:0.8rem;">no records</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p style="color:var(--muted);">No cases found.</p>
+  {% endif %}
+</div>
+
+<!-- Section 3: Delete Entire Case -->
+<div class="card mb-2">
+  <h3>Delete Entire Case</h3>
+  <p style="color:var(--muted);font-size:0.85rem;margin-top:0;">
+    Permanently delete a case and everything tied to it: evidence, tasks, findings, notes, assignments, and the case record itself.
+  </p>
+
+  {% if cases %}
+  <div class="table-wrap" style="margin-top:0.75rem;">
+    <table>
+      <thead>
+        <tr>
+          <th>Case</th>
+          <th>Status</th>
+          <th>Records</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in cases %}
+        <tr>
+          <td>{{ c.name }}</td>
+          <td><span class="badge {% if c.status == 'open' %}badge-success{% elif c.status == 'closed' %}badge-muted{% else %}badge-info{% endif %}">{{ c.status }}</span></td>
+          <td class="text-mono">{{ c.record_count }}</td>
+          <td>
+            <form method="POST" action="/ui/admin/data/delete-case" style="margin:0;"
+                  onsubmit="return confirm('PERMANENTLY DELETE case \'{{ c.name }}\' and ALL associated data? This cannot be undone.');">
+              <input type="hidden" name="case_id" value="{{ c.id }}">
+              <button type="submit" class="btn btn-sm btn-danger">Delete Case</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p style="color:var(--muted);">No cases found.</p>
+  {% endif %}
+</div>
+
+{% endblock %}

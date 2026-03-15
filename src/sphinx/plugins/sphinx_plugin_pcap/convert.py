@@ -495,7 +495,7 @@ def convert_pcap(
                 if not record_type:
                     continue
                 try:
-                    count = ingest_suricata_records(case_id, records, record_type, cur=db_cur)
+                    count = ingest_suricata_records(case_id, records, record_type, cur=db_cur, job_id=job_id)
                     summary["record_counts"][record_type] = count
                     total_inserted += count
                 except Exception as e:
@@ -525,7 +525,7 @@ def convert_pcap(
                 if not record_type:
                     continue
                 try:
-                    count = ingest_zeek_records(case_id, records, record_type, cur=db_cur)
+                    count = ingest_zeek_records(case_id, records, record_type, cur=db_cur, job_id=job_id)
                     summary["record_counts"][record_type] = count
                     total_inserted += count
                 except Exception as e:
@@ -548,7 +548,7 @@ def convert_pcap(
             if stream_records:
                 _progress("ingesting tshark streams", pct_base + tool_weight // 2)
                 try:
-                    count = ingest_tshark(case_id, stream_records, cur=db_cur)
+                    count = ingest_tshark(case_id, stream_records, cur=db_cur, job_id=job_id)
                     summary["record_counts"]["tshark_stream"] = count
                     total_inserted += count
                 except Exception as e:

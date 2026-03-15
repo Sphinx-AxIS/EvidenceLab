@@ -121,17 +121,17 @@ def ingest_zeek_dns(case_id: str, records: list[dict]) -> int:
     return inserted
 
 
-def ingest_tshark(case_id: str, records: list[dict], *, cur=None) -> int:
+def ingest_tshark(case_id: str, records: list[dict], *, cur=None, job_id: int | None = None) -> int:
     """Ingest tshark TCP stream reconstruction output."""
     inserted = 0
     with _use_cursor(cur) as c:
         for raw in records:
             ts = _parse_timestamp(raw, "timestamp", "ts", "first_ts")
             c.execute(
-                """INSERT INTO records (case_id, record_type, source_plugin, raw, ts)
-                   VALUES (%s, 'tshark_stream', 'sphinx-plugin-pcap', %s, %s)
+                """INSERT INTO records (case_id, record_type, source_plugin, raw, ts, job_id)
+                   VALUES (%s, 'tshark_stream', 'sphinx-plugin-pcap', %s, %s, %s)
                    RETURNING id""",
-                (case_id, json.dumps(raw), ts),
+                (case_id, json.dumps(raw), ts, job_id),
             )
             record_id = c.fetchone()["id"]
             # Strip payload_printable before entity extraction — its escaped
@@ -149,7 +149,7 @@ def ingest_tshark(case_id: str, records: list[dict], *, cur=None) -> int:
 # Generic handlers — used by convert.py for all Suricata/Zeek types
 # ---------------------------------------------------------------------------
 
-def ingest_suricata_records(case_id: str, records: list[dict], record_type: str, *, cur=None) -> int:
+def ingest_suricata_records(case_id: str, records: list[dict], record_type: str, *, cur=None, job_id: int | None = None) -> int:
     """Ingest Suricata EVE JSON records of any event type.
 
     Args:
@@ -157,16 +157,17 @@ def ingest_suricata_records(case_id: str, records: list[dict], record_type: str,
         records: List of EVE JSON dicts.
         record_type: e.g. 'suricata_alert', 'suricata_http', 'suricata_dns'.
         cur: Optional DB cursor (for REPL-side direct connections).
+        job_id: Optional background_jobs row ID to link records.
     """
     inserted = 0
     with _use_cursor(cur) as c:
         for raw in records:
             ts = _parse_timestamp(raw, "timestamp")
             c.execute(
-                """INSERT INTO records (case_id, record_type, source_plugin, raw, ts)
-                   VALUES (%s, %s, 'sphinx-plugin-pcap', %s, %s)
+                """INSERT INTO records (case_id, record_type, source_plugin, raw, ts, job_id)
+                   VALUES (%s, %s, 'sphinx-plugin-pcap', %s, %s, %s)
                    RETURNING id""",
-                (case_id, record_type, json.dumps(raw), ts),
+                (case_id, record_type, json.dumps(raw), ts, job_id),
             )
             record_id = c.fetchone()["id"]
             extract_and_store(case_id, record_id, raw, cur=c)
@@ -177,7 +178,7 @@ def ingest_suricata_records(case_id: str, records: list[dict], record_type: str,
     return inserted
 
 
-def ingest_zeek_records(case_id: str, records: list[dict], record_type: str, *, cur=None) -> int:
+def ingest_zeek_records(case_id: str, records: list[dict], record_type: str, *, cur=None, job_id: int | None = None) -> int:
     """Ingest Zeek log records of any type.
 
     Args:
@@ -185,16 +186,17 @@ def ingest_zeek_records(case_id: str, records: list[dict], record_type: str, *, 
         records: List of parsed Zeek JSON log entries.
         record_type: e.g. 'zeek_conn', 'zeek_dns', 'zeek_http'.
         cur: Optional DB cursor (for REPL-side direct connections).
+        job_id: Optional background_jobs row ID to link records.
     """
     inserted = 0
     with _use_cursor(cur) as c:
         for raw in records:
             ts = _parse_timestamp(raw, "ts")
             c.execute(
-                """INSERT INTO records (case_id, record_type, source_plugin, raw, ts)
-                   VALUES (%s, %s, 'sphinx-plugin-pcap', %s, %s)
+                """INSERT INTO records (case_id, record_type, source_plugin, raw, ts, job_id)
+                   VALUES (%s, %s, 'sphinx-plugin-pcap', %s, %s, %s)
                    RETURNING id""",
-                (case_id, record_type, json.dumps(raw), ts),
+                (case_id, record_type, json.dumps(raw), ts, job_id),
             )
             record_id = c.fetchone()["id"]
             extract_and_store(case_id, record_id, raw, cur=c)
