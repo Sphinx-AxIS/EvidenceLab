@@ -313,11 +313,48 @@ def generate_rules_for_findings(
     return created_rules
 
 
-def deploy_suricata_rule(rule_id: int, rules_dir: str = "/app/data/suricata-rules") -> bool:
-    """Deploy an approved Suricata rule to the rules directory.
+def _rebuild_suricata_rules_file(rules_dir: str = "/app/data/suricata-rules") -> None:
+    """Rebuild sphinx-generated.rules from all deployed Suricata rules in the DB.
 
-    Appends the rule to sphinx-generated.rules so Suricata picks it up
-    on the next PCAP ingest.
+    This ensures the file always matches the current state of deployed rules,
+    handling edits, re-deployments, and deletions cleanly.
+    """
+    rules_path = Path(rules_dir) / "sphinx-generated.rules"
+    rules_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with get_cursor() as cur:
+        cur.execute(
+            """SELECT id, finding_id, title, rule_content, created_at::text AS created_at
+               FROM detection_rules
+               WHERE rule_type = 'suricata' AND status = 'deployed'
+               ORDER BY sid NULLS LAST, id"""
+        )
+        deployed = cur.fetchall()
+
+    lines = [
+        "# ==========================================================================",
+        "# Sphinx AI — Auto-Generated Suricata Rules",
+        "# Rebuilt from deployed detection_rules in database",
+        "# ==========================================================================",
+        "",
+    ]
+
+    for rule in deployed:
+        lines.append(f"# Rule ID: {rule['id']} | Finding: {rule['finding_id']} | Generated: {rule['created_at']}")
+        lines.append(f"# {rule['title']}")
+        lines.append(rule["rule_content"])
+        lines.append("")
+
+    rules_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    log.info("Rebuilt %s with %d deployed rules", rules_path, len(deployed))
+
+
+def deploy_suricata_rule(rule_id: int, rules_dir: str = "/app/data/suricata-rules") -> bool:
+    """Deploy an approved Suricata rule.
+
+    Marks the rule as deployed in the DB, then rebuilds the entire
+    sphinx-generated.rules file from all deployed rules. This handles
+    initial deployment, re-deployment after edits, and avoids duplicates.
     """
     with get_cursor() as cur:
         cur.execute(
@@ -330,18 +367,6 @@ def deploy_suricata_rule(rule_id: int, rules_dir: str = "/app/data/suricata-rule
         if rule["status"] not in ("approved", "deployed"):
             return False
 
-    rules_path = Path(rules_dir) / "sphinx-generated.rules"
-    rules_path.parent.mkdir(parents=True, exist_ok=True)
-
-    header = (
-        f"# Rule ID: {rule['id']} | Finding: {rule['finding_id']} | "
-        f"Generated: {rule['created_at']}\n"
-        f"# {rule['title']}\n"
-    )
-
-    with open(rules_path, "a", encoding="utf-8") as f:
-        f.write(f"\n{header}{rule['rule_content']}\n")
-
     with get_cursor() as cur:
         cur.execute(
             "UPDATE detection_rules SET status = 'deployed', updated_at = now() WHERE id = %s",
@@ -349,7 +374,7 @@ def deploy_suricata_rule(rule_id: int, rules_dir: str = "/app/data/suricata-rule
         )
         cur.connection.commit()
 
-    log.info("Deployed Suricata rule %d to %s", rule_id, rules_path)
+    _rebuild_suricata_rules_file(rules_dir)
     return True
 
 
