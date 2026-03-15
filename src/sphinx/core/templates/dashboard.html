@@ -4,7 +4,18 @@
 {% block content %}
 <div class="page-header">
   <h2>Dashboard</h2>
-  <div class="flex gap-1">
+  <div class="flex gap-1" style="align-items:center;flex-wrap:wrap;">
+    <!-- Mode toggle -->
+    <div class="flex gap-1" style="align-items:center;margin-right:0.5rem;">
+      <span style="font-size:0.8rem;color:var(--muted);">Mode:</span>
+      <a href="/ui/?mode=investigator{% if case_id %}&case_id={{ case_id }}{% endif %}"
+         class="btn btn-sm {% if mode == 'investigator' %}btn-primary{% endif %}">Investigator</a>
+      <a href="/ui/?mode=correlator{% if case_id %}&case_id={{ case_id }}{% endif %}"
+         class="btn btn-sm {% if mode == 'correlator' %}btn-primary{% endif %}">Correlator</a>
+    </div>
+
+    {% if mode == 'investigator' %}
+    <!-- Single case selector -->
     {% if cases|length > 0 %}
     <form method="get" action="/ui/">
       <select name="case_id" onchange="this.form.submit()" style="min-width:200px;">
@@ -16,8 +27,85 @@
     </form>
     {% endif %}
     <a href="/ui/cases/new" class="btn btn-primary">+ New Case</a>
+    {% endif %}
   </div>
 </div>
+
+{% if mode == 'correlator' %}
+<!-- Correlator configuration panel -->
+<div class="card mb-2">
+  <h3>Cross-Case Correlation</h3>
+  <p style="color:var(--muted);font-size:0.85rem;margin-top:0;">
+    Select source cases to analyze across, and a correlation case where findings will be saved.
+  </p>
+  <form method="POST" action="/ui/correlator/configure">
+    <div class="flex gap-2" style="flex-wrap:wrap;">
+      <div style="flex:1;min-width:250px;">
+        <label class="form-label">Source Cases (read-only access)</label>
+        <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;padding:0.5rem;">
+          {% for c in cases %}
+          {% if c.case_type|default('investigation') == 'investigation' %}
+          <label style="display:block;padding:0.15rem 0;cursor:pointer;">
+            <input type="checkbox" name="source_case_ids" value="{{ c.id }}"
+                   {% if c.id in source_case_ids %}checked{% endif %}>
+            {{ c.name }}
+          </label>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      <div style="flex:1;min-width:250px;">
+        <label class="form-label">Correlation Case (write target)</label>
+        <select name="correlation_case_id" class="form-control" style="width:100%;">
+          <option value="">-- Select --</option>
+          {% for c in cases %}
+          {% if c.case_type|default('investigation') == 'correlation' %}
+          <option value="{{ c.id }}" {% if c.id == correlation_case_id %}selected{% endif %}>{{ c.name }}</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+        <div style="margin-top:0.5rem;">
+          <a href="/ui/correlator/new-case" class="btn btn-sm">+ New Correlation Case</a>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:0.75rem;">
+      <button type="submit" class="btn btn-primary">Apply Configuration</button>
+    </div>
+  </form>
+</div>
+
+{% if correlation_case_id and source_case_ids|length > 0 %}
+<!-- Correlator summary -->
+<div class="card mb-2">
+  <h3>Correlation Scope</h3>
+  <p style="color:var(--muted);font-size:0.85rem;margin-top:0;">
+    Analyzing {{ source_case_ids|length }} source case(s). Findings write to correlation case.
+  </p>
+  {% if correlator_summary %}
+  <div class="table-wrap" style="margin-top:0.5rem;">
+    <table>
+      <thead><tr><th>Source Case</th><th style="text-align:right;">Records</th></tr></thead>
+      <tbody>
+        {% for cs in correlator_summary %}
+        <tr>
+          <td>{{ cs.name }}</td>
+          <td style="text-align:right;" class="text-mono">{{ cs.record_count }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  <div style="margin-top:0.75rem;">
+    <a href="/ui/cases/{{ correlation_case_id }}/tasks/new" class="btn btn-primary">New Correlation Task</a>
+    <a href="/ui/cases/{{ correlation_case_id }}/tasks" class="btn btn-sm">View Tasks</a>
+    <a href="/ui/cases/{{ correlation_case_id }}/findings" class="btn btn-sm">View Findings</a>
+  </div>
+</div>
+{% endif %}
+
+{% endif %}
 
 {% if not case_id %}
 <div class="empty-state">

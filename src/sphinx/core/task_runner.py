@@ -73,6 +73,8 @@ async def run_task_endpoint(
     """
     check_case_access(user, case_id)
     settings = request.app.state.settings
+    task_mode = user.get("mode", "investigator")
+    task_source_case_ids = user.get("source_case_ids", [])
 
     # Verify task exists and is pending
     with get_cursor() as cur:
@@ -92,12 +94,20 @@ async def run_task_endpoint(
         from sphinx.core.rlm_loop import run_task, _update_task_status
 
         try:
-            log.info("Pre-computing for case %s, task %d", case_id, task_id)
-            precompute_result = run_precompute(case_id, task_id)
-            log.info("Precompute: %s", precompute_result)
+            # In correlator mode, precompute for all source cases
+            if task_mode == "correlator" and task_source_case_ids:
+                for src_id in task_source_case_ids:
+                    log.info("Pre-computing for source case %s, task %d", src_id, task_id)
+                    run_precompute(src_id, task_id)
+            else:
+                log.info("Pre-computing for case %s, task %d", case_id, task_id)
+                run_precompute(case_id, task_id)
 
-            log.info("Starting RLM loop for task %d", task_id)
-            result = run_task(settings, case_id, task_id)
+            log.info("Starting RLM loop for task %d (mode=%s)", task_id, task_mode)
+            result = run_task(
+                settings, case_id, task_id,
+                mode=task_mode, source_case_ids=task_source_case_ids,
+            )
             log.info("Task %d result: %s", task_id, result.get("status"))
         except Exception as e:
             log.error("Task %d failed: %s", task_id, e, exc_info=True)

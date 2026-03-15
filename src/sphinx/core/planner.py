@@ -17,29 +17,50 @@ log = logging.getLogger(__name__)
 MAX_HISTORY_MESSAGES = 20
 
 
-def build_system_prompt(case_id: str, plugin_prompts: dict[str, Any]) -> str:
+def build_system_prompt(
+    case_id: str, plugin_prompts: dict[str, Any],
+    mode: str = "investigator", source_case_ids: list[str] | None = None,
+) -> str:
     """Assemble the system prompt from core + plugin prompts."""
+    if mode == "correlator" and source_case_ids:
+        readable_ids = source_case_ids
+    else:
+        readable_ids = [case_id]
+
     with get_cursor() as cur:
         # Case metadata
         cur.execute("SELECT * FROM cases WHERE id = %s", (case_id,))
         case = cur.fetchone()
 
-        # Record type summary
+        # Record type summary (across all readable cases)
         cur.execute(
             """SELECT record_type, count(*) AS cnt
-               FROM records WHERE case_id = %s
+               FROM records WHERE case_id = ANY(%s)
                GROUP BY record_type ORDER BY cnt DESC""",
-            (case_id,),
+            (readable_ids,),
         )
         record_types = cur.fetchall()
 
-        # Precomputed results available
+        # Precomputed results available (across all readable cases)
         cur.execute(
             """SELECT DISTINCT name FROM scratch_precomputed
-               WHERE case_id = %s""",
-            (case_id,),
+               WHERE case_id = ANY(%s)""",
+            (readable_ids,),
         )
         precomputed = [r["name"] for r in cur.fetchall()]
+
+        # Source case details (for correlator mode)
+        source_cases = []
+        if mode == "correlator" and source_case_ids:
+            cur.execute(
+                """SELECT c.id, c.name, count(r.id) AS record_count
+                   FROM cases c
+                   LEFT JOIN records r ON r.case_id = c.id
+                   WHERE c.id = ANY(%s)
+                   GROUP BY c.id ORDER BY c.name""",
+                (source_case_ids,),
+            )
+            source_cases = cur.fetchall()
 
     # Build prompt sections
     sections = []
@@ -59,6 +80,11 @@ def build_system_prompt(case_id: str, plugin_prompts: dict[str, Any]) -> str:
         "- Set `result` at the end of every step.\n"
         "- When done, set `result = {'status': 'done', 'summary': '...', "
         "'citations': [record_ids]}`\n"
+        "- For MITRE ATT&CK mapping: ALWAYS use `get_precomputed('mitre_detections')` "
+        "as your primary source. It returns pattern-verified technique IDs with "
+        "supporting record IDs. Do NOT guess technique IDs from memory — use the "
+        "pre-computed detections. You may add techniques only if you find clear "
+        "evidence not caught by the detector.\n"
     )
 
     sections.append("## Available Tools\n")
@@ -72,8 +98,21 @@ def build_system_prompt(case_id: str, plugin_prompts: dict[str, Any]) -> str:
         "- `trunc(text)` — truncate long output\n"
     )
 
-    # Case context
-    if case:
+    # Mode context
+    if mode == "correlator" and source_cases:
+        sections.append("## Mode: Cross-Case Correlator\n")
+        sections.append(
+            "You are analyzing evidence across multiple cases. "
+            "All tool functions (describe, search, get_precomputed) query across "
+            "all source cases. Findings and results write to the correlation case.\n\n"
+        )
+        sections.append(f"- Correlation Case (write target): {case['id']} — {case['name']}\n" if case else "")
+        sections.append(f"- `READABLE_CASE_IDS` contains all source case IDs\n\n")
+        sections.append("### Source Cases\n")
+        for sc in source_cases:
+            sections.append(f"- {sc['name']} ({sc['id'][:8]}…): {sc['record_count']} records\n")
+        sections.append("\n")
+    elif case:
         sections.append("## Case\n")
         sections.append(f"- ID: {case['id']}\n")
         sections.append(f"- Name: {case['name']}\n")

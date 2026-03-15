@@ -17,6 +17,7 @@ MANIFEST = {
         "sphinx.plugins.sphinx_plugin_threat_hunter.precompute:ioc_summary",
         "sphinx.plugins.sphinx_plugin_threat_hunter.precompute:cross_source_ips",
         "sphinx.plugins.sphinx_plugin_threat_hunter.precompute:attack_surface",
+        "sphinx.plugins.sphinx_plugin_threat_hunter.precompute:mitre_detections",
     ],
 
     "migrations": [],

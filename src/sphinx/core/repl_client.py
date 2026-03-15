@@ -70,9 +70,18 @@ class ReplClient:
             buf += chunk
         return buf
 
-    def init_session(self, case_id: str, task_id: int) -> dict:
+    def init_session(
+        self, case_id: str, task_id: int,
+        mode: str = "investigator", source_case_ids: list[str] | None = None,
+    ) -> dict:
         """Initialize a REPL session for a case/task."""
-        return self._send({"cmd": "init", "case_id": case_id, "task_id": task_id})
+        return self._send({
+            "cmd": "init",
+            "case_id": case_id,
+            "task_id": task_id,
+            "mode": mode,
+            "source_case_ids": source_case_ids or [],
+        })
 
     def execute(self, code: str, timeout: int = 120) -> dict[str, Any]:
         """Execute code and return the result dict."""

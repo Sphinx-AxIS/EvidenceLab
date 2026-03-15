@@ -91,7 +91,10 @@ def _store_finding(
         cur.connection.commit()
 
 
-def run_task(settings: Settings, case_id: str, task_id: int) -> dict[str, Any]:
+def run_task(
+    settings: Settings, case_id: str, task_id: int,
+    mode: str = "investigator", source_case_ids: list[str] | None = None,
+) -> dict[str, Any]:
     """Execute an investigation task using the RLM loop.
 
     Returns a summary dict with status, steps taken, and findings.
@@ -110,7 +113,10 @@ def run_task(settings: Settings, case_id: str, task_id: int) -> dict[str, Any]:
 
     # Build system prompt with plugin prompts
     registry = get_registry()
-    system_prompt = build_system_prompt(case_id, registry.prompts)
+    system_prompt = build_system_prompt(
+        case_id, registry.prompts,
+        mode=mode, source_case_ids=source_case_ids,
+    )
 
     # Initialize conversation
     messages = [
@@ -124,11 +130,11 @@ def run_task(settings: Settings, case_id: str, task_id: int) -> dict[str, Any]:
     repl = None
 
     if use_docker_repl:
-        repl_client.init_session(case_id, task_id)
-        log.info("Using Docker REPL container for task %d", task_id)
+        repl_client.init_session(case_id, task_id, mode=mode, source_case_ids=source_case_ids)
+        log.info("Using Docker REPL container for task %d (mode=%s)", task_id, mode)
     else:
-        repl = ReplRunner(case_id, task_id, timeout=timeout)
-        log.info("Using in-process REPL for task %d (Docker REPL unavailable)", task_id)
+        repl = ReplRunner(case_id, task_id, timeout=timeout, mode=mode, source_case_ids=source_case_ids)
+        log.info("Using in-process REPL for task %d (mode=%s, Docker REPL unavailable)", task_id, mode)
 
     _update_task_status(task_id, "running")
     log.info("Starting RLM loop for task %d (max %d steps)", task_id, max_steps)
@@ -232,20 +238,28 @@ def run_task(settings: Settings, case_id: str, task_id: int) -> dict[str, Any]:
         }
 
 
-def run_task_async(settings: Settings, case_id: str, task_id: int) -> None:
+def run_task_async(
+    settings: Settings, case_id: str, task_id: int,
+    mode: str = "investigator", source_case_ids: list[str] | None = None,
+) -> None:
     """Run a task in a background thread (precompute + RLM loop)."""
     import threading
 
     def _run():
         try:
             from sphinx.core.precompute import run_precompute
-            log.info("Pre-computing for case %s, task %d", case_id, task_id)
-            run_precompute(case_id, task_id)
+            if mode == "correlator" and source_case_ids:
+                for src_id in source_case_ids:
+                    log.info("Pre-computing for source case %s, task %d", src_id, task_id)
+                    run_precompute(src_id, task_id)
+            else:
+                log.info("Pre-computing for case %s, task %d", case_id, task_id)
+                run_precompute(case_id, task_id)
         except Exception as e:
             log.warning("Precompute failed: %s", e)
 
         try:
-            result = run_task(settings, case_id, task_id)
+            result = run_task(settings, case_id, task_id, mode=mode, source_case_ids=source_case_ids)
             log.info("Task %d result: %s", task_id, result.get("status"))
         except Exception as e:
             log.error("Task %d failed: %s", task_id, e)

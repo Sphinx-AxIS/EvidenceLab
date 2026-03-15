@@ -44,6 +44,8 @@ def create_token(
     role: str,
     case_ids: list[str] | None = None,
     mode: str = "investigator",
+    correlation_case_id: str = "",
+    source_case_ids: list[str] | None = None,
 ) -> str:
     """Create a signed JWT."""
     now = datetime.now(timezone.utc)
@@ -52,6 +54,8 @@ def create_token(
         "role": role,
         "case_ids": case_ids or [],
         "mode": mode,
+        "correlation_case_id": correlation_case_id,
+        "source_case_ids": source_case_ids or [],
         "iat": now,
         "exp": now + timedelta(minutes=settings.jwt_expire_minutes),
     }
@@ -118,6 +122,18 @@ def check_case_access(user: dict[str, Any], case_id: str) -> None:
     role = user.get("role", "")
     if role in ("admin", "case_manager"):
         return  # full access
+
+    # In correlator mode, allow access to source cases and the correlation case
+    mode = user.get("mode", "investigator")
+    if mode == "correlator":
+        allowed = set(user.get("source_case_ids", []))
+        corr_id = user.get("correlation_case_id", "")
+        if corr_id:
+            allowed.add(corr_id)
+        allowed.update(user.get("case_ids", []))
+        if case_id in allowed:
+            return
+
     allowed = user.get("case_ids", [])
     if allowed and case_id not in allowed:
         raise HTTPException(

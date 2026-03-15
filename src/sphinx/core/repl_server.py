@@ -27,7 +27,10 @@ DB_URL = os.environ.get("DATABASE_URL", "")
 _namespace: dict[str, Any] = {}
 
 
-def _init_namespace(case_id: str, task_id: int) -> None:
+def _init_namespace(
+    case_id: str, task_id: int,
+    mode: str = "investigator", source_case_ids: list[str] | None = None,
+) -> None:
     """Reset and initialize the REPL namespace with tools."""
     import collections
     import datetime
@@ -39,6 +42,12 @@ def _init_namespace(case_id: str, task_id: int) -> None:
     import uuid
 
     import psycopg
+
+    # Determine readable case IDs
+    if mode == "correlator" and source_case_ids:
+        readable_ids = source_case_ids
+    else:
+        readable_ids = [case_id]
 
     # Build tool functions
     def sql(query: str, params: tuple = ()) -> list[dict]:
@@ -52,15 +61,15 @@ def _init_namespace(case_id: str, task_id: int) -> None:
             with conn.cursor() as cur:
                 if record_type is None:
                     cur.execute(
-                        "SELECT record_type, count(*) AS cnt FROM records WHERE case_id = %s GROUP BY record_type ORDER BY cnt DESC",
-                        (case_id,),
+                        "SELECT record_type, count(*) AS cnt FROM records WHERE case_id = ANY(%s) GROUP BY record_type ORDER BY cnt DESC",
+                        (readable_ids,),
                     )
                     rows = cur.fetchall()
                     return "\n".join(f"  {r['record_type']}: {r['cnt']}" for r in rows) if rows else "No records."
                 else:
                     cur.execute(
-                        "SELECT raw FROM records WHERE case_id = %s AND record_type = %s LIMIT 1",
-                        (case_id, record_type),
+                        "SELECT raw FROM records WHERE case_id = ANY(%s) AND record_type = %s LIMIT 1",
+                        (readable_ids, record_type),
                     )
                     row = cur.fetchone()
                     if not row:
@@ -71,12 +80,22 @@ def _init_namespace(case_id: str, task_id: int) -> None:
     def get_precomputed(name: str) -> Any:
         with psycopg.connect(DB_URL, row_factory=psycopg.rows.dict_row) as conn:
             with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT data FROM scratch_precomputed WHERE case_id = %s AND name = %s ORDER BY created_at DESC LIMIT 1",
-                    (case_id, name),
-                )
-                row = cur.fetchone()
-                return row["data"] if row else None
+                if len(readable_ids) == 1:
+                    cur.execute(
+                        "SELECT data FROM scratch_precomputed WHERE case_id = %s AND name = %s ORDER BY created_at DESC LIMIT 1",
+                        (readable_ids[0], name),
+                    )
+                    row = cur.fetchone()
+                    return row["data"] if row else None
+                else:
+                    cur.execute(
+                        "SELECT case_id, data FROM scratch_precomputed WHERE case_id = ANY(%s) AND name = %s ORDER BY case_id, created_at DESC",
+                        (readable_ids, name),
+                    )
+                    rows = cur.fetchall()
+                    if not rows:
+                        return None
+                    return {r["case_id"]: r["data"] for r in rows}
 
     def get_docs(topic: str) -> str:
         with psycopg.connect(DB_URL, row_factory=psycopg.rows.dict_row) as conn:
@@ -89,8 +108,8 @@ def _init_namespace(case_id: str, task_id: int) -> None:
         with psycopg.connect(DB_URL, row_factory=psycopg.rows.dict_row) as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "SELECT id, record_type, ts, raw::text AS raw_text FROM records WHERE case_id = %s AND raw::text ILIKE %s LIMIT %s",
-                    (case_id, f"%{query}%", limit),
+                    "SELECT id, case_id, record_type, ts, raw::text AS raw_text FROM records WHERE case_id = ANY(%s) AND raw::text ILIKE %s LIMIT %s",
+                    (readable_ids, f"%{query}%", limit),
                 )
                 return cur.fetchall()
 
@@ -108,6 +127,9 @@ def _init_namespace(case_id: str, task_id: int) -> None:
         "uuid": uuid,
         "CASE_ID": case_id,
         "TASK_ID": task_id,
+        "MODE": mode,
+        "SOURCE_CASE_IDS": source_case_ids or [],
+        "READABLE_CASE_IDS": readable_ids,
         "sql": sql,
         "describe": describe,
         "get_precomputed": get_precomputed,
@@ -197,7 +219,11 @@ class ReplHandler(socketserver.StreamRequestHandler):
                 cmd = msg.get("cmd", "exec")
 
                 if cmd == "init":
-                    _init_namespace(msg["case_id"], msg["task_id"])
+                    _init_namespace(
+                        msg["case_id"], msg["task_id"],
+                        mode=msg.get("mode", "investigator"),
+                        source_case_ids=msg.get("source_case_ids", []),
+                    )
                     resp = {"status": "ok"}
                 elif cmd == "exec":
                     resp = execute_code(msg["code"], msg.get("timeout", 120))

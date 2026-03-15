@@ -61,7 +61,7 @@
       </nav>
       <div class="sidebar-footer">
         {% if user %}
-          {{ user.username }} &middot; {{ user.role }}
+          {{ user.username }} &middot; {{ user.role }}{% if mode == 'correlator' %} &middot; <span style="color:var(--blue);">correlator</span>{% endif %}
         {% else %}
           Not signed in
         {% endif %}

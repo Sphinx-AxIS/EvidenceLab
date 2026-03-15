@@ -75,6 +75,9 @@ def _ctx(request: Request, user: dict, page: str, case_id: str = "", **extra):
         "user": user,
         "active_page": page,
         "case_id": case_id,
+        "mode": user.get("mode", "investigator") if user else "investigator",
+        "correlation_case_id": user.get("correlation_case_id", "") if user else "",
+        "source_case_ids": user.get("source_case_ids", []) if user else [],
         **extra,
     }
 
@@ -119,14 +122,37 @@ async def logout():
 # ── Dashboard ───────────────────────────────────────
 
 @router.get("/", response_class=HTMLResponse)
-async def dashboard(request: Request, case_id: str = ""):
+async def dashboard(request: Request, case_id: str = "", mode: str = ""):
     user = _get_user(request)
     if not user:
         return RedirectResponse(url="/ui/login", status_code=303)
 
+    # Mode switch — re-issue JWT with new mode
+    current_mode = user.get("mode", "investigator")
+    if mode and mode in ("investigator", "correlator") and mode != current_mode:
+        from sphinx.core.auth import create_token
+        settings = request.app.state.settings
+        new_token = create_token(
+            settings,
+            user_id=user["sub"],
+            role=user["role"],
+            case_ids=user.get("case_ids", []),
+            mode=mode,
+            correlation_case_id=user.get("correlation_case_id", ""),
+            source_case_ids=user.get("source_case_ids", []),
+        )
+        url = f"/ui/?case_id={case_id}" if case_id else "/ui/"
+        response = RedirectResponse(url=url, status_code=303)
+        response.set_cookie("sphinx_token", new_token, httponly=True, max_age=86400)
+        return response
+
     with get_cursor() as cur:
-        # List cases
-        cur.execute("SELECT id, name, status, created_at::text AS created_at FROM cases ORDER BY created_at DESC")
+        # List cases (include case_type for correlator filtering)
+        cur.execute("""
+            SELECT id, name, status, created_at::text AS created_at,
+                   COALESCE(case_type, 'investigation') AS case_type
+            FROM cases ORDER BY created_at DESC
+        """)
         cases = cur.fetchall()
 
         summary = {}
@@ -209,9 +235,24 @@ async def dashboard(request: Request, case_id: str = ""):
         plugins.append({"name": name, "version": manifest.get("version", "?")})
     summary["plugins"] = plugins
 
+    # Correlator summary (when in correlator mode with cases selected)
+    correlator_summary = []
+    src_ids = user.get("source_case_ids", [])
+    if current_mode == "correlator" and src_ids:
+        with get_cursor() as cur:
+            cur.execute(
+                """SELECT c.id, c.name, count(r.id) AS record_count
+                   FROM cases c
+                   LEFT JOIN records r ON r.case_id = c.id
+                   WHERE c.id = ANY(%s)
+                   GROUP BY c.id ORDER BY c.name""",
+                (src_ids,),
+            )
+            correlator_summary = cur.fetchall()
+
     return templates.TemplateResponse("dashboard.html", _ctx(
         request, user, "dashboard", case_id=case_id,
-        cases=cases, summary=summary,
+        cases=cases, summary=summary, correlator_summary=correlator_summary,
     ))
 
 
@@ -377,7 +418,10 @@ async def task_new_submit(
     # Kick off RLM loop in background (if configured)
     try:
         from sphinx.core.rlm_loop import run_task_async
-        run_task_async(request.app.state.settings, case_id, task_id)
+        task_mode = user.get("mode", "investigator")
+        task_source = user.get("source_case_ids", [])
+        run_task_async(request.app.state.settings, case_id, task_id,
+                       mode=task_mode, source_case_ids=task_source)
     except Exception as e:
         log.warning("Could not start RLM loop: %s", e)
 
@@ -901,6 +945,98 @@ async def analytics_toggle(request: Request, case_id: str):
         cur.connection.commit()
 
     return RedirectResponse(url=f"/ui/cases/{case_id}/analytics", status_code=303)
+
+
+# ── Correlator Mode ────────────────────────────────
+
+@router.post("/correlator/configure")
+async def correlator_configure(request: Request):
+    """Apply correlator configuration — selected source cases and correlation case."""
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    form = await request.form()
+    source_case_ids = form.getlist("source_case_ids")
+    correlation_case_id = form.get("correlation_case_id", "")
+
+    from sphinx.core.auth import create_token
+    settings = request.app.state.settings
+    new_token = create_token(
+        settings,
+        user_id=user["sub"],
+        role=user["role"],
+        case_ids=user.get("case_ids", []),
+        mode="correlator",
+        correlation_case_id=correlation_case_id,
+        source_case_ids=source_case_ids,
+    )
+    response = RedirectResponse(url="/ui/", status_code=303)
+    response.set_cookie("sphinx_token", new_token, httponly=True, max_age=86400)
+    return response
+
+
+@router.get("/correlator/new-case", response_class=HTMLResponse)
+async def correlator_new_case_form(request: Request):
+    """Form to create a new correlation case."""
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    source_case_ids = user.get("source_case_ids", [])
+    with get_cursor() as cur:
+        if source_case_ids:
+            cur.execute(
+                "SELECT id, name FROM cases WHERE id = ANY(%s) ORDER BY name",
+                (source_case_ids,),
+            )
+            source_cases = cur.fetchall()
+        else:
+            source_cases = []
+
+    return templates.TemplateResponse("correlator_new_case.html", _ctx(
+        request, user, "dashboard", source_cases=source_cases,
+    ))
+
+
+@router.post("/correlator/new-case")
+async def correlator_new_case_submit(
+    request: Request,
+    name: str = Form(...),
+    description: str = Form(""),
+):
+    """Create a correlation case and activate correlator mode."""
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    import uuid
+    case_id = str(uuid.uuid4())
+    source_case_ids = user.get("source_case_ids", [])
+
+    with get_cursor() as cur:
+        cur.execute(
+            """INSERT INTO cases (id, name, description, status, case_type, source_case_ids)
+               VALUES (%s, %s, %s, 'open', 'correlation', %s)""",
+            (case_id, name, description, source_case_ids),
+        )
+        cur.connection.commit()
+
+    # Re-issue JWT with the new correlation case
+    from sphinx.core.auth import create_token
+    settings = request.app.state.settings
+    new_token = create_token(
+        settings,
+        user_id=user["sub"],
+        role=user["role"],
+        case_ids=user.get("case_ids", []),
+        mode="correlator",
+        correlation_case_id=case_id,
+        source_case_ids=source_case_ids,
+    )
+    response = RedirectResponse(url="/ui/", status_code=303)
+    response.set_cookie("sphinx_token", new_token, httponly=True, max_age=86400)
+    return response
 
 
 # ── Case Notes ──────────────────────────────────────

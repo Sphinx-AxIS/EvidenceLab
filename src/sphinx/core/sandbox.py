@@ -74,12 +74,21 @@ def _truncate(text: str, limit: int = MAX_OUTPUT) -> str:
 class ReplRunner:
     """Executes LLM-generated Python code in a restricted environment."""
 
-    def __init__(self, case_id: str, task_id: int, timeout: int = 120):
+    def __init__(self, case_id: str, task_id: int, timeout: int = 120,
+                 mode: str = "investigator", source_case_ids: list[str] | None = None):
         self.case_id = case_id
         self.task_id = task_id
         self.timeout = timeout
+        self.mode = mode
+        self.source_case_ids = source_case_ids or []
         self._globals: dict[str, Any] = {}
         self._setup_globals()
+
+    def _readable_case_ids(self) -> list[str]:
+        """Case IDs the REPL can read from."""
+        if self.mode == "correlator" and self.source_case_ids:
+            return self.source_case_ids
+        return [self.case_id]
 
     def _setup_globals(self):
         """Initialize the REPL global namespace with tools and helpers."""
@@ -113,6 +122,9 @@ class ReplRunner:
             # Case context
             "CASE_ID": self.case_id,
             "TASK_ID": self.task_id,
+            "MODE": self.mode,
+            "SOURCE_CASE_IDS": self.source_case_ids,
+            "READABLE_CASE_IDS": self._readable_case_ids(),
             # Tool functions (bound to this case)
             "sql": self._tool_sql,
             "describe": self._tool_describe,
@@ -132,13 +144,14 @@ class ReplRunner:
 
     def _tool_describe(self, record_type: str | None = None) -> str:
         """Describe available record types or fields for a specific type."""
+        readable = self._readable_case_ids()
         with get_cursor() as cur:
             if record_type is None:
                 cur.execute(
                     """SELECT record_type, count(*) AS cnt
-                       FROM records WHERE case_id = %s
+                       FROM records WHERE case_id = ANY(%s)
                        GROUP BY record_type ORDER BY cnt DESC""",
-                    (self.case_id,),
+                    (readable,),
                 )
                 rows = cur.fetchall()
                 if not rows:
@@ -150,9 +163,9 @@ class ReplRunner:
             else:
                 cur.execute(
                     """SELECT raw FROM records
-                       WHERE case_id = %s AND record_type = %s
+                       WHERE case_id = ANY(%s) AND record_type = %s
                        LIMIT 1""",
-                    (self.case_id, record_type),
+                    (readable, record_type),
                 )
                 row = cur.fetchone()
                 if not row:
@@ -162,15 +175,28 @@ class ReplRunner:
 
     def _tool_get_precomputed(self, name: str) -> Any:
         """Retrieve a pre-computed result by name."""
+        readable = self._readable_case_ids()
         with get_cursor() as cur:
-            cur.execute(
-                """SELECT data FROM scratch_precomputed
-                   WHERE case_id = %s AND name = %s
-                   ORDER BY created_at DESC LIMIT 1""",
-                (self.case_id, name),
-            )
-            row = cur.fetchone()
-            return row["data"] if row else None
+            if len(readable) == 1:
+                cur.execute(
+                    """SELECT data FROM scratch_precomputed
+                       WHERE case_id = %s AND name = %s
+                       ORDER BY created_at DESC LIMIT 1""",
+                    (readable[0], name),
+                )
+                row = cur.fetchone()
+                return row["data"] if row else None
+            else:
+                cur.execute(
+                    """SELECT case_id, data FROM scratch_precomputed
+                       WHERE case_id = ANY(%s) AND name = %s
+                       ORDER BY case_id, created_at DESC""",
+                    (readable, name),
+                )
+                rows = cur.fetchall()
+                if not rows:
+                    return None
+                return {r["case_id"]: r["data"] for r in rows}
 
     def _tool_get_docs(self, topic: str) -> str:
         """Retrieve on-demand documentation by topic."""
@@ -192,17 +218,18 @@ class ReplRunner:
             return row["content"] if row else f"No docs found for topic '{topic}'."
 
     def _tool_search(self, query: str, limit: int = 20) -> list[dict]:
-        """Full-text search across records in this case."""
+        """Full-text search across records in readable cases."""
+        readable = self._readable_case_ids()
         with get_cursor() as cur:
             cur.execute(
-                """SELECT id, record_type, ts,
+                """SELECT id, case_id, record_type, ts,
                           raw::text AS raw_text
                    FROM records
-                   WHERE case_id = %s
+                   WHERE case_id = ANY(%s)
                      AND raw::text ILIKE %s
                    ORDER BY ts
                    LIMIT %s""",
-                (self.case_id, f"%{query}%", limit),
+                (readable, f"%{query}%", limit),
             )
             return cur.fetchall()
 

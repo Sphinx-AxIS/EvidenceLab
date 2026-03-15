@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from sphinx.plugins.sphinx_plugin_threat_hunter.mitre import detect_techniques
+
 
 def ioc_summary(case_id: str, cur) -> dict[str, Any]:
     """Aggregate all extracted IOCs by type and frequency."""
@@ -72,4 +74,18 @@ def attack_surface(case_id: str, cur) -> dict[str, Any]:
         "name": "attack_surface",
         "plugin": "sphinx-plugin-threat-hunter",
         "data": cur.fetchall(),
+    }
+
+
+def mitre_detections(case_id: str, cur) -> dict[str, Any]:
+    """Run pattern-based MITRE ATT&CK detection against case evidence.
+
+    Scans all records for known technique indicators and returns
+    detected techniques with supporting record IDs.
+    """
+    detected = detect_techniques(case_id, cur)
+    return {
+        "name": "mitre_detections",
+        "plugin": "sphinx-plugin-threat-hunter",
+        "data": detected,
     }
