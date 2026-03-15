@@ -14,25 +14,49 @@
 {% endif %}
 
 <div class="card" style="max-width:600px;">
-  <form method="post" action="/ui/cases/{{ case_id }}/ingest" enctype="multipart/form-data">
+  <form id="ingestForm" method="post" enctype="multipart/form-data">
     <div class="form-group">
-      <label for="record_type">Record Type</label>
-      <select id="record_type" name="record_type" required>
-        <option value="">Select handler...</option>
-        {% for h in handlers %}
-        <option value="{{ h }}">{{ h }}</option>
-        {% endfor %}
+      <label for="ingest_mode">Ingest Mode</label>
+      <select id="ingest_mode" required>
+        <option value="">Select mode...</option>
+        <option value="json">JSON / JSONL (structured records)</option>
+        <option value="pcap">PCAP (network capture)</option>
       </select>
     </div>
-    <div class="form-group">
-      <label for="file">JSON File</label>
-      <input type="file" id="file" name="file" accept=".json,.jsonl" required
-        style="padding:0.4rem; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); width:100%;">
-      <div class="text-muted mt-1" style="font-size:0.75rem;">
-        Upload a JSON array or JSONL file containing evidence records.
+
+    <div id="json_options" style="display:none;">
+      <div class="form-group">
+        <label for="record_type">Record Type</label>
+        <select id="record_type" name="record_type">
+          <option value="">Select handler...</option>
+          {% for h in handlers %}
+          <option value="{{ h }}">{{ h }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="file">File</label>
+        <input type="file" id="json_file" name="file" accept=".json,.jsonl"
+          style="padding:0.4rem; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); width:100%;">
+        <div class="text-muted mt-1" style="font-size:0.75rem;">
+          Upload a JSON array or JSONL file containing evidence records.
+        </div>
       </div>
     </div>
-    <button type="submit" class="btn btn-primary">Upload &amp; Ingest</button>
+
+    <div id="pcap_options" style="display:none;">
+      <div class="form-group">
+        <label for="pcap_file">File</label>
+        <input type="file" id="pcap_file" name="file" accept=".pcap,.pcapng,.cap"
+          style="padding:0.4rem; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); width:100%;">
+        <div class="text-muted mt-1" style="font-size:0.75rem;">
+          Upload a PCAP/PCAPNG file. The system will run tshark, Suricata, and Zeek
+          against it and ingest all outputs (alerts, protocol logs, TCP streams).
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary" id="submitBtn" disabled>Upload &amp; Ingest</button>
   </form>
 </div>
 
@@ -49,19 +73,56 @@
 </div>
 {% endif %}
 
-<div class="card mt-2" style="max-width:600px;">
-  <h3 style="margin-top:0;">PCAP Upload</h3>
-  <p class="text-muted" style="font-size:0.8rem; margin-bottom:0.8rem;">
-    Upload a PCAP/PCAPNG file. The system will run tshark, Suricata, and Zeek
-    against it and ingest all outputs (alerts, protocol logs, TCP streams).
-  </p>
-  <form method="post" action="/ui/cases/{{ case_id }}/ingest/pcap" enctype="multipart/form-data">
-    <div class="form-group">
-      <label for="pcap_file">PCAP File</label>
-      <input type="file" id="pcap_file" name="file" accept=".pcap,.pcapng,.cap" required
-        style="padding:0.4rem; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); width:100%;">
-    </div>
-    <button type="submit" class="btn btn-primary">Upload &amp; Convert</button>
-  </form>
-</div>
+<script>
+(function() {
+  var modeSelect = document.getElementById('ingest_mode');
+  var jsonOpts = document.getElementById('json_options');
+  var pcapOpts = document.getElementById('pcap_options');
+  var form = document.getElementById('ingestForm');
+  var submitBtn = document.getElementById('submitBtn');
+  var jsonFile = document.getElementById('json_file');
+  var pcapFile = document.getElementById('pcap_file');
+  var recordType = document.getElementById('record_type');
+  var caseId = '{{ case_id }}';
+
+  modeSelect.addEventListener('change', function() {
+    var mode = this.value;
+    jsonOpts.style.display = mode === 'json' ? '' : 'none';
+    pcapOpts.style.display = mode === 'pcap' ? '' : 'none';
+    submitBtn.disabled = !mode;
+
+    // Toggle required/name attributes so only the active file input submits
+    if (mode === 'json') {
+      jsonFile.setAttribute('name', 'file');
+      jsonFile.required = true;
+      recordType.required = true;
+      pcapFile.removeAttribute('name');
+      pcapFile.required = false;
+      pcapFile.value = '';
+    } else if (mode === 'pcap') {
+      pcapFile.setAttribute('name', 'file');
+      pcapFile.required = true;
+      jsonFile.removeAttribute('name');
+      jsonFile.required = false;
+      jsonFile.value = '';
+      recordType.required = false;
+    } else {
+      jsonFile.required = false;
+      pcapFile.required = false;
+      recordType.required = false;
+    }
+  });
+
+  form.addEventListener('submit', function(e) {
+    var mode = modeSelect.value;
+    if (mode === 'json') {
+      form.action = '/ui/cases/' + caseId + '/ingest';
+    } else if (mode === 'pcap') {
+      form.action = '/ui/cases/' + caseId + '/ingest/pcap';
+    } else {
+      e.preventDefault();
+    }
+  });
+})();
+</script>
 {% endblock %}
