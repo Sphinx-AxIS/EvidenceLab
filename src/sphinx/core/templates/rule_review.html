@@ -27,6 +27,14 @@
 <div class="alert alert-success">{{ success }}</div>
 {% endif %}
 
+<!-- Provenance -->
+{% if rule.case_name or rule.case_id %}
+<div style="font-size:0.8rem;color:var(--muted);margin-bottom:1rem;">
+  Origin: <strong>{{ rule.case_name or 'Unknown' }}</strong>
+  <span class="text-mono">({{ rule.case_id[:8] if rule.case_id else '—' }})</span>
+</div>
+{% endif %}
+
 <!-- Finding context -->
 {% if finding %}
 <div class="card mb-2">

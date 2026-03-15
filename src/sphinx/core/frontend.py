@@ -1657,7 +1657,7 @@ async def detection_rules_list(request: Request, case_id: str, filter: str = "",
             params.append(filter)
 
         cur.execute(
-            f"""SELECT id, title, rule_type, status, mitre_ids,
+            f"""SELECT id, title, rule_type, status, mitre_ids, case_id, case_name,
                        created_at::text AS created_at
                 FROM detection_rules WHERE {where}
                 ORDER BY created_at DESC""",

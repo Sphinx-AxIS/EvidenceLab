@@ -2,8 +2,9 @@
 
 CREATE TABLE IF NOT EXISTS detection_rules (
     id              SERIAL PRIMARY KEY,
-    case_id         TEXT NOT NULL REFERENCES cases(id),
-    finding_id      INTEGER REFERENCES findings(id),
+    case_id         TEXT DEFAULT '',              -- originating case (provenance, not FK)
+    case_name       TEXT DEFAULT '',              -- snapshot of case name at creation time
+    finding_id      INTEGER,                      -- originating finding (no FK — survives case deletion)
     rule_type       TEXT NOT NULL CHECK (rule_type IN ('sigma', 'suricata')),
     status          TEXT NOT NULL DEFAULT 'draft'
                         CHECK (status IN ('draft', 'pending_review', 'approved', 'rejected', 'deployed')),

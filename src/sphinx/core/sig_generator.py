@@ -266,6 +266,14 @@ def generate_rules_for_findings(
     """
     created_rules = []
 
+    # Snapshot case name for provenance
+    case_name = ""
+    with get_cursor() as cur:
+        cur.execute("SELECT name FROM cases WHERE id = %s", (case_id,))
+        row = cur.fetchone()
+        if row:
+            case_name = row["name"]
+
     for fid in finding_ids:
         finding, evidence = fetch_evidence_for_finding(fid)
         if not finding:
@@ -285,12 +293,13 @@ def generate_rules_for_findings(
                 with get_cursor() as cur:
                     cur.execute(
                         """INSERT INTO detection_rules
-                           (case_id, finding_id, rule_type, status, title, description,
+                           (case_id, case_name, finding_id, rule_type, status, title, description,
                             rule_content, evidence_ids, mitre_ids, sid)
-                           VALUES (%s, %s, %s, 'pending_review', %s, %s, %s, %s, %s, %s)
+                           VALUES (%s, %s, %s, %s, 'pending_review', %s, %s, %s, %s, %s, %s)
                            RETURNING *""",
                         (
                             case_id,
+                            case_name,
                             fid,
                             rule_type,
                             result["title"],

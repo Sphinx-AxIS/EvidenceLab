@@ -34,6 +34,7 @@
         <th>Title</th>
         <th>Type</th>
         <th>Status</th>
+        <th>Origin Case</th>
         <th>MITRE</th>
         <th>Created</th>
         <th>Actions</th>
@@ -61,6 +62,7 @@
           <span class="badge">{{ r.status }}</span>
           {% endif %}
         </td>
+        <td style="font-size:0.78rem;">{{ r.case_name or r.case_id[:8] if r.case_id else '—' }}</td>
         <td style="font-size:0.75rem;">
           {% for m in (r.mitre_ids or []) %}<span class="badge badge-purple">{{ m }}</span> {% endfor %}
         </td>
