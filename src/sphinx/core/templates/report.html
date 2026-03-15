@@ -49,7 +49,7 @@
     <tbody>
       {% for item in report.evidence_summary %}
       <tr>
-        <td><span class="record-type">{{ item.record_type }}</span></td>
+        <td><span class="record-type">{{ item.type }}</span></td>
         <td style="text-align:right;" class="text-mono">{{ item.count }}</td>
       </tr>
       {% endfor %}
@@ -115,7 +115,7 @@
     <tbody>
       {% for ioc in report.iocs[:30] %}
       <tr>
-        <td><span class="badge badge-info">{{ ioc.entity_type }}</span></td>
+        <td><span class="badge badge-info">{{ ioc.type }}</span></td>
         <td class="text-mono" style="word-break:break-all;">{{ ioc.value }}</td>
         <td class="text-mono">{{ ioc.count }}</td>
       </tr>
