@@ -47,7 +47,7 @@ async def analytics_summary(
             "SELECT DISTINCT entity_type FROM entities WHERE case_id = %s ORDER BY entity_type",
             (case_id,),
         )
-        entity_types = [r[0] for r in cur.fetchall()]
+        entity_types = [r["entity_type"] for r in cur.fetchall()]
     return {"types": types, "entity_types": entity_types}
 
 
@@ -111,8 +111,8 @@ async def analytics_query(
         order_dir = "ASC" if sort_dir and sort_dir.lower() == "asc" else "DESC"
 
         # Count
-        cur.execute(f"SELECT count(*) FROM records WHERE {where}", params)
-        total = cur.fetchone()[0]
+        cur.execute(f"SELECT count(*) AS cnt FROM records WHERE {where}", params)
+        total = cur.fetchone()["cnt"]
 
         # Fetch
         # Build select: system cols + raw JSONB
@@ -123,12 +123,12 @@ async def analytics_query(
         display_cols = get_columns_for_type(cur, case_id, record_type)
         for row in cur.fetchall():
             rec = {
-                "id": row[0],
-                "record_type": row[1],
-                "ts": row[2].isoformat() if row[2] else None,
-                "source_plugin": row[3],
+                "id": row["id"],
+                "record_type": row["record_type"],
+                "ts": row["ts"].isoformat() if row["ts"] else None,
+                "source_plugin": row["source_plugin"],
             }
-            raw = row[4] if isinstance(row[4], dict) else (json.loads(row[4]) if row[4] else {})
+            raw = row["raw"] if isinstance(row["raw"], dict) else (json.loads(row["raw"]) if row["raw"] else {})
             for key in display_cols:
                 if key not in rec and key in raw:
                     val = raw[key]

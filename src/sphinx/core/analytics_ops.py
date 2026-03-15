@@ -43,7 +43,7 @@ def get_record_types(cur: psycopg.Cursor, case_id: str) -> List[Dict[str, Any]]:
            GROUP BY record_type ORDER BY count DESC""",
         (case_id,),
     )
-    return [{"type": r[0], "count": r[1]} for r in cur.fetchall()]
+    return [{"type": r["record_type"], "count": r["count"]} for r in cur.fetchall()]
 
 
 def get_columns_for_type(cur: psycopg.Cursor, case_id: str, record_type: str) -> List[str]:
@@ -61,7 +61,7 @@ def get_columns_for_type(cur: psycopg.Cursor, case_id: str, record_type: str) ->
            ) sub""",
         (case_id, record_type),
     )
-    json_keys = sorted(r[0] for r in cur.fetchall())
+    json_keys = sorted(r["key"] for r in cur.fetchall())
     # Prepend system columns
     system_cols = ["id", "record_type", "ts", "source_plugin"]
     return system_cols + json_keys
@@ -135,7 +135,7 @@ def value_counts(
     )
     params.append(limit)
     cur.execute(sql, params)
-    rows = [{"value": r[0], "count": r[1]} for r in cur.fetchall()]
+    rows = [{"value": r["value"], "count": r["count"]} for r in cur.fetchall()]
     total = sum(r["count"] for r in rows)
 
     return {
@@ -174,7 +174,7 @@ def relationships(
     )
     params.append(limit)
     cur.execute(sql, params)
-    rows = [{"a": r[0], "b": r[1], "count": r[2]} for r in cur.fetchall()]
+    rows = [{"a": r["a"], "b": r["b"], "count": r["count"]} for r in cur.fetchall()]
 
     unique_a = len({r["a"] for r in rows})
     unique_b = len({r["b"] for r in rows})
@@ -230,12 +230,12 @@ def time_series(
 
     if group_col:
         rows = [
-            {"bucket": r[0].isoformat() if r[0] else None, "group": r[1], "count": r[2]}
+            {"bucket": r["bucket"].isoformat() if r["bucket"] else None, "group": r["group_value"], "count": r["count"]}
             for r in cur.fetchall()
         ]
     else:
         rows = [
-            {"bucket": r[0].isoformat() if r[0] else None, "count": r[1]}
+            {"bucket": r["bucket"].isoformat() if r["bucket"] else None, "count": r["count"]}
             for r in cur.fetchall()
         ]
 
@@ -291,11 +291,11 @@ def top_n(
 
     if metric_col:
         rows = [
-            {"group": r[0], "count": r[1], "metric": float(r[2]) if r[2] is not None else None}
+            {"group": r["group_value"], "count": r["count"], "metric": float(r["metric"]) if r["metric"] is not None else None}
             for r in cur.fetchall()
         ]
     else:
-        rows = [{"group": r[0], "count": r[1]} for r in cur.fetchall()]
+        rows = [{"group": r["group_value"], "count": r["count"]} for r in cur.fetchall()]
 
     return {
         "operation": "top_n",
@@ -379,15 +379,15 @@ def correlate(
     rows = []
     for r in cur.fetchall():
         rows.append({
-            "id_a": r[0],
-            "type_a": r[1],
-            "ts_a": r[2].isoformat() if r[2] else None,
-            "id_b": r[3],
-            "type_b": r[4],
-            "ts_b": r[5].isoformat() if r[5] else None,
-            "shared_entity_type": r[6],
-            "shared_entity_value": r[7],
-            "delta_seconds": r[8],
+            "id_a": r["id_a"],
+            "type_a": r["type_a"],
+            "ts_a": r["ts_a"].isoformat() if r["ts_a"] else None,
+            "id_b": r["id_b"],
+            "type_b": r["type_b"],
+            "ts_b": r["ts_b"].isoformat() if r["ts_b"] else None,
+            "shared_entity_type": r["shared_entity_type"],
+            "shared_entity_value": r["shared_entity_value"],
+            "delta_seconds": r["delta_seconds"],
         })
 
     # Get available entity types for this case
@@ -395,7 +395,7 @@ def correlate(
         "SELECT DISTINCT entity_type FROM entities WHERE case_id = %s ORDER BY entity_type",
         (case_id,),
     )
-    available_entity_types = [r[0] for r in cur.fetchall()]
+    available_entity_types = [r["entity_type"] for r in cur.fetchall()]
 
     return {
         "operation": "correlate",
