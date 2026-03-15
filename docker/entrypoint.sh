@@ -34,7 +34,8 @@ case "${1:-}" in
         run_bootstrap
         echo "[sphinx] Starting API server on :8000"
         exec python -m uvicorn sphinx.core.app:create_app \
-            --factory --host 0.0.0.0 --port 8000 --reload
+            --factory --host 0.0.0.0 --port 8000 \
+            --reload --reload-dir /app/src
         ;;
     --repl)
         wait_for_db

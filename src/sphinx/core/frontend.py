@@ -17,6 +17,13 @@ from sphinx.core.plugin_loader import get_registry
 
 log = logging.getLogger(__name__)
 
+# ── In-memory job tracking (replaces unreliable DB-mediated progress) ──
+import time as _time
+import threading as _threading
+
+_LIVE_JOBS: dict[int, dict] = {}  # job_id -> live state dict
+_LIVE_JOBS_LOCK = _threading.Lock()
+
 _HERE = Path(__file__).parent
 templates = Jinja2Templates(directory=str(_HERE / "templates"))
 
@@ -156,14 +163,17 @@ async def dashboard(request: Request, case_id: str = ""):
             # Background jobs
             bg_jobs = []
             try:
-                # Mark stale running jobs (>15 min) as failed before fetching
+                # Mark stale running jobs as failed before fetching.
+                # Use LEAST(created_at, updated_at) so it works even if
+                # progress was never written (updated_at = created_at).
                 cur.execute(
                     """UPDATE background_jobs
                        SET status = 'failed',
-                           summary = summary || '{"error": "Timed out (no response after 15 min)"}'::jsonb,
+                           summary = COALESCE(summary, '{}'::jsonb)
+                                     || '{"error": "Timed out (no response after 15 min)"}'::jsonb,
                            updated_at = now()
                        WHERE case_id = %s AND status = 'running'
-                         AND updated_at < now() - interval '15 minutes'""",
+                         AND LEAST(created_at, updated_at) < now() - interval '15 minutes'""",
                     (case_id,),
                 )
                 cur.connection.commit()
@@ -522,8 +532,9 @@ async def ingest_pcap_submit(
             status_code=303,
         )
 
-    # Save uploaded file
-    upload_dir = Path("/app/data/pcap_uploads") / case_id
+    # Save uploaded file — use /tmp so REPL output files don't trigger
+    # uvicorn --reload on the shared /app volume mount.
+    upload_dir = Path("/tmp/sphinx_pcap") / case_id
     upload_dir.mkdir(parents=True, exist_ok=True)
     upload_id = str(uuid_mod.uuid4())[:8]
     pcap_path = upload_dir / f"{upload_id}_{fname}"
@@ -547,30 +558,123 @@ async def ingest_pcap_submit(
     except Exception as e:
         log.warning("Could not create job record (table may not exist yet): %s", e)
 
-    # Launch background conversion via REPL
+    # Launch background conversion via REPL with in-memory progress tracking
     _job_id = job_id
 
+    def _poll_record_counts(job_id: int, case_id: str, stop_event: threading.Event):
+        """Poll DB for record counts while REPL converts, update in-memory state."""
+        import time
+        while not stop_event.is_set():
+            time.sleep(2)
+            try:
+                with get_cursor() as cur:
+                    cur.execute(
+                        """SELECT record_type, count(*) AS n
+                           FROM records WHERE case_id = %s
+                             AND source_plugin = 'sphinx-plugin-pcap'
+                           GROUP BY record_type""",
+                        (case_id,),
+                    )
+                    rows = cur.fetchall()
+                counts = {r["record_type"]: r["n"] for r in rows}
+                total = sum(counts.values())
+                with _LIVE_JOBS_LOCK:
+                    state = _LIVE_JOBS.get(job_id)
+                    if state and state["status"] == "running":
+                        state["total_inserted"] = total
+                        state["record_counts"] = counts
+                        state["elapsed_s"] = round(time.time() - state["_start"], 1)
+                        # Estimate progress from record types seen
+                        stages_seen = set(counts.keys())
+                        if any(k.startswith("tshark") for k in stages_seen):
+                            state["stage"] = "ingesting tshark streams"
+                            state["pct"] = min(90, 50 + total // 5)
+                        elif any(k.startswith("zeek") for k in stages_seen):
+                            state["stage"] = "ingesting Zeek records"
+                            state["pct"] = min(60, 30 + total // 5)
+                        elif any(k.startswith("suricata") for k in stages_seen):
+                            state["stage"] = "ingesting Suricata records"
+                            state["pct"] = min(30, 10 + total // 5)
+                        elif total > 0:
+                            state["stage"] = "ingesting records"
+                            state["pct"] = min(20, total // 5)
+                        log.debug("Job %s progress: %s records, stage=%s", job_id, total, state.get("stage"))
+            except Exception as e:
+                log.debug("Progress poll error (non-fatal): %s", e)
+
     def _run_pcap_convert():
+        import time
+        # Initialize in-memory state
+        with _LIVE_JOBS_LOCK:
+            _LIVE_JOBS[_job_id] = {
+                "status": "running",
+                "stage": "starting conversion",
+                "pct": 0,
+                "total_inserted": 0,
+                "record_counts": {},
+                "errors": [],
+                "elapsed_s": 0,
+                "_start": time.time(),
+            }
+
+        stop_poll = threading.Event()
+        poll_thread = threading.Thread(
+            target=_poll_record_counts, args=(_job_id, case_id, stop_poll), daemon=True,
+        )
+        poll_thread.start()
+
         result = None
         try:
             from sphinx.core.repl_client import ReplClient
             client = ReplClient()
             if not client.connect():
                 log.error("PCAP convert: cannot connect to REPL server")
+                with _LIVE_JOBS_LOCK:
+                    _LIVE_JOBS[_job_id].update(status="failed", stage="connection failed",
+                                                errors=["Cannot connect to REPL server"])
                 _update_job(_job_id, "failed", {"error": "Cannot connect to REPL server"})
                 return
+            with _LIVE_JOBS_LOCK:
+                _LIVE_JOBS[_job_id]["stage"] = "connected to REPL"
+                _LIVE_JOBS[_job_id]["pct"] = 5
+
             try:
                 result = client.pcap_convert(case_id, str(pcap_path), job_id=_job_id)
                 log.info("PCAP convert result: %s", result)
+                elapsed = round(time.time() - _LIVE_JOBS[_job_id]["_start"], 1)
+
+                # Build final summary from result + polled counts
+                final_status = result.get("status", "done")
+                with _LIVE_JOBS_LOCK:
+                    state = _LIVE_JOBS[_job_id]
+                    state["status"] = final_status
+                    state["pct"] = 100
+                    state["stage"] = "complete"
+                    state["elapsed_s"] = elapsed
+                    if result.get("total_inserted"):
+                        state["total_inserted"] = result["total_inserted"]
+                    if result.get("record_counts"):
+                        state["record_counts"] = result["record_counts"]
+                    if result.get("errors"):
+                        state["errors"] = result["errors"]
+                    summary = {k: v for k, v in state.items() if not k.startswith("_")}
+
                 # Clean up PCAP on success
-                if result.get("status") in ("ok", "partial"):
+                if final_status in ("ok", "partial"):
                     pcap_path.unlink(missing_ok=True)
-                _update_job(_job_id, result.get("status", "done"), result)
+                _update_job(_job_id, final_status, summary)
             finally:
                 client.close()
         except Exception as e:
             log.error("PCAP convert background task failed: %s", e)
+            with _LIVE_JOBS_LOCK:
+                state = _LIVE_JOBS.get(_job_id, {})
+                state["status"] = "failed"
+                state["stage"] = "error"
+                state["errors"] = [str(e)]
             _update_job(_job_id, "failed", {"error": str(e)})
+        finally:
+            stop_poll.set()
 
     thread = threading.Thread(target=_run_pcap_convert, daemon=True)
     thread.start()
@@ -599,8 +703,29 @@ def _update_job(job_id: int | None, status: str, summary: dict):
 
 @router.get("/cases/{case_id}/jobs/{job_id}/status")
 async def job_status_json(request: Request, case_id: str, job_id: int):
-    """Return current job status as JSON (polled by the dashboard JS)."""
+    """Return current job status as JSON (polled by the dashboard JS).
+
+    Reads from in-memory _LIVE_JOBS first (updated by the background thread
+    without any DB round-trip). Falls back to DB for completed/historical jobs.
+    """
     import json as _json
+
+    # In-memory state — always fresh, no DB needed
+    with _LIVE_JOBS_LOCK:
+        live = _LIVE_JOBS.get(job_id)
+        if live:
+            data = {
+                "status": live["status"],
+                "pct": live.get("pct", 0),
+                "stage": live.get("stage", ""),
+                "total_inserted": live.get("total_inserted", 0),
+                "record_counts": live.get("record_counts", {}),
+                "errors": live.get("errors", []),
+                "elapsed_s": live.get("elapsed_s", 0),
+            }
+            return HTMLResponse(_json.dumps(data), media_type="application/json")
+
+    # Fallback to DB for historical/completed jobs
     try:
         with get_cursor() as cur:
             cur.execute(
