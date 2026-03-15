@@ -215,7 +215,6 @@
 
 <script>
 const CASE_ID = '{{ case_id }}';
-const TOKEN = document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith('sphinx_token='))?.split('=')[1] || '';
 
 let currentType = null;
 let currentOffset = 0;
@@ -231,7 +230,7 @@ const TEXT_OPS = ['eq', 'neq', 'contains', 'is_null', 'not_null'];
 const NUM_OPS = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'is_null', 'not_null'];
 
 function apiFetch(url) {
-  return fetch(url, { headers: { 'Authorization': 'Bearer ' + TOKEN } }).then(r => r.json());
+  return fetch(url, { credentials: 'same-origin' }).then(r => r.json());
 }
 
 function loadSummary() {

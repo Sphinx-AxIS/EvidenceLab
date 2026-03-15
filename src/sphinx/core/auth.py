@@ -81,10 +81,24 @@ class CurrentUser:
     async def __call__(
         self,
         request: Request,
-        credentials: HTTPAuthorizationCredentials = Depends(_bearer),
+        credentials: HTTPAuthorizationCredentials | None = Depends(
+            HTTPBearer(auto_error=False)
+        ),
     ) -> dict[str, Any]:
         settings: Settings = request.app.state.settings
-        user = decode_token(settings, credentials.credentials)
+
+        # Try Bearer token first, then fall back to sphinx_token cookie
+        if credentials and credentials.credentials:
+            token = credentials.credentials
+        else:
+            token = request.cookies.get("sphinx_token")
+            if not token:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Not authenticated",
+                )
+
+        user = decode_token(settings, token)
 
         if self.required_role is not None:
             user_rank = ROLE_RANK.get(user.get("role", ""), -1)
