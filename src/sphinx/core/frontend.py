@@ -153,6 +153,24 @@ async def dashboard(request: Request, case_id: str = ""):
             # Total records
             total_records = sum(r["count"] for r in record_counts)
 
+            # Background jobs
+            bg_jobs = []
+            try:
+                cur.execute(
+                    """SELECT id, job_type, status, input_name,
+                              created_at::text AS created_at,
+                              updated_at::text AS updated_at,
+                              summary
+                       FROM background_jobs
+                       WHERE case_id = %s
+                       ORDER BY created_at DESC
+                       LIMIT 10""",
+                    (case_id,),
+                )
+                bg_jobs = cur.fetchall()
+            except Exception:
+                pass  # table may not exist yet
+
             summary = {
                 "record_counts": record_counts,
                 "tasks_total": tasks_total,
@@ -160,6 +178,7 @@ async def dashboard(request: Request, case_id: str = ""):
                 "findings_count": findings_count,
                 "entity_count": entity_count,
                 "total_records": total_records,
+                "background_jobs": bg_jobs,
             }
 
     # Plugin info
@@ -502,13 +521,32 @@ async def ingest_pcap_submit(
     pcap_path.write_bytes(content)
     log.info("PCAP uploaded: %s (%d bytes)", pcap_path, len(content))
 
+    # Create background job record
+    job_id = None
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """INSERT INTO background_jobs (case_id, job_type, status, input_name, summary)
+                   VALUES (%s, 'pcap_ingest', 'running', %s, '{}')
+                   RETURNING id""",
+                (case_id, fname),
+            )
+            job_id = cur.fetchone()["id"]
+            cur.connection.commit()
+    except Exception as e:
+        log.warning("Could not create job record (table may not exist yet): %s", e)
+
     # Launch background conversion via REPL
+    _job_id = job_id
+
     def _run_pcap_convert():
+        result = None
         try:
             from sphinx.core.repl_client import ReplClient
             client = ReplClient()
             if not client.connect():
                 log.error("PCAP convert: cannot connect to REPL server")
+                _update_job(_job_id, "failed", {"error": "Cannot connect to REPL server"})
                 return
             try:
                 result = client.pcap_convert(case_id, str(pcap_path))
@@ -516,10 +554,12 @@ async def ingest_pcap_submit(
                 # Clean up PCAP on success
                 if result.get("status") in ("ok", "partial"):
                     pcap_path.unlink(missing_ok=True)
+                _update_job(_job_id, result.get("status", "done"), result)
             finally:
                 client.close()
         except Exception as e:
             log.error("PCAP convert background task failed: %s", e)
+            _update_job(_job_id, "failed", {"error": str(e)})
 
     thread = threading.Thread(target=_run_pcap_convert, daemon=True)
     thread.start()
@@ -528,6 +568,22 @@ async def ingest_pcap_submit(
         url=f"/ui/cases/{case_id}/ingest?message=PCAP+uploaded+({fname}).+Conversion+running+in+background+(tshark,+Suricata,+Zeek).",
         status_code=303,
     )
+
+
+def _update_job(job_id: int | None, status: str, summary: dict):
+    """Update a background job record."""
+    if not job_id:
+        return
+    try:
+        with get_cursor() as cur:
+            from psycopg.types.json import Jsonb
+            cur.execute(
+                "UPDATE background_jobs SET status = %s, summary = %s, updated_at = now() WHERE id = %s",
+                (status, Jsonb(summary), job_id),
+            )
+            cur.connection.commit()
+    except Exception as e:
+        log.warning("Could not update job %s: %s", job_id, e)
 
 
 # ── Entities ────────────────────────────────────────

@@ -71,6 +71,56 @@
 </div>
 {% endif %}
 
+<!-- Background jobs -->
+{% if summary.background_jobs %}
+<div class="table-wrap">
+  <div class="table-title">Background Jobs</div>
+  <table>
+    <thead>
+      <tr><th>Type</th><th>Input</th><th>Status</th><th>Started</th><th>Details</th></tr>
+    </thead>
+    <tbody>
+      {% for j in summary.background_jobs %}
+      <tr>
+        <td class="text-mono">{{ j.job_type }}</td>
+        <td>{{ j.input_name }}</td>
+        <td>
+          {% if j.status == 'running' %}
+          <span class="badge" style="background:var(--blue);">running</span>
+          {% elif j.status == 'done' or j.status == 'ok' %}
+          <span class="badge badge-success">done</span>
+          {% elif j.status == 'partial' %}
+          <span class="badge" style="background:var(--yellow);color:#000;">partial</span>
+          {% elif j.status == 'failed' %}
+          <span class="badge badge-danger">failed</span>
+          {% else %}
+          <span class="badge">{{ j.status }}</span>
+          {% endif %}
+        </td>
+        <td class="text-mono" style="font-size:0.75rem;">{{ j.created_at[:19] }}</td>
+        <td style="font-size:0.75rem;">
+          {% if j.summary %}
+            {% if j.summary.total_inserted is defined %}
+              {{ j.summary.total_inserted }} records
+            {% endif %}
+            {% if j.summary.tools_run is defined %}
+              ({{ j.summary.tools_run|join(', ') }})
+            {% endif %}
+            {% if j.summary.error is defined %}
+              <span style="color:var(--red);">{{ j.summary.error[:80] }}</span>
+            {% endif %}
+            {% if j.summary.errors is defined and j.summary.errors|length > 0 %}
+              <span style="color:var(--yellow);">{{ j.summary.errors|length }} warning(s)</span>
+            {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
 <!-- Plugin status -->
 {% if summary.plugins %}
 <div class="table-wrap">
@@ -93,4 +143,19 @@
 {% endif %}
 
 {% endif %}
+
+<script>
+(function() {
+  var caseId = '{{ case_id }}';
+  var key = 'sphinx_last_case_id';
+  if (caseId) {
+    localStorage.setItem(key, caseId);
+  } else {
+    var saved = localStorage.getItem(key);
+    if (saved) {
+      window.location.href = '/ui/?case_id=' + encodeURIComponent(saved);
+    }
+  }
+})();
+</script>
 {% endblock %}
