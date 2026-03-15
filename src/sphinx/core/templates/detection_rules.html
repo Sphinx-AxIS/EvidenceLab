@@ -67,9 +67,9 @@
         <td class="text-mono" style="font-size:0.78rem;">{{ r.created_at[:19] if r.created_at else '—' }}</td>
         <td class="flex gap-1">
           <a href="/ui/cases/{{ case_id }}/detection-rules/{{ r.id }}" class="btn btn-sm">Review</a>
-          {% if r.status == 'approved' and r.rule_type == 'suricata' %}
+          {% if r.status in ('approved', 'deployed') and r.rule_type == 'suricata' %}
           <form method="POST" action="/ui/cases/{{ case_id }}/detection-rules/{{ r.id }}/deploy" style="margin:0;">
-            <button type="submit" class="btn btn-sm btn-primary">Deploy</button>
+            <button type="submit" class="btn btn-sm btn-primary">{% if r.status == 'deployed' %}Re-deploy{% else %}Deploy{% endif %}</button>
           </form>
           {% endif %}
           <a href="/ui/cases/{{ case_id }}/detection-rules/{{ r.id }}/export" class="btn btn-sm">Export</a>

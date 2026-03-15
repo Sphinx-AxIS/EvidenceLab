@@ -78,15 +78,15 @@
     </form>
     {% endif %}
 
-    {% if rule.status == 'approved' and rule.rule_type == 'suricata' %}
+    {% if rule.status in ('approved', 'deployed') and rule.rule_type == 'suricata' %}
     <form method="POST" action="/ui/cases/{{ case_id }}/detection-rules/{{ rule.id }}/deploy" style="margin:0;">
-      <button type="submit" class="btn btn-primary">Deploy to Suricata</button>
+      <button type="submit" class="btn btn-primary">{% if rule.status == 'deployed' %}Re-deploy to Suricata{% else %}Deploy to Suricata{% endif %}</button>
     </form>
     {% endif %}
 
-    {% if rule.status == 'approved' and rule.rule_type == 'sigma' %}
+    {% if rule.status in ('approved', 'deployed') and rule.rule_type == 'sigma' %}
     <form method="POST" action="/ui/cases/{{ case_id }}/detection-rules/{{ rule.id }}/deploy" style="margin:0;">
-      <button type="submit" class="btn btn-primary">Deploy (Compile to SQL)</button>
+      <button type="submit" class="btn btn-primary">{% if rule.status == 'deployed' %}Re-deploy (Recompile SQL){% else %}Deploy (Compile to SQL){% endif %}</button>
     </form>
     {% endif %}
 
