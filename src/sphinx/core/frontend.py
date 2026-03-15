@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Form, Request, UploadFile, File
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
 from sphinx.core.auth import create_token, verify_password
@@ -560,7 +560,7 @@ async def ingest_pcap_submit(
                 _update_job(_job_id, "failed", {"error": "Cannot connect to REPL server"})
                 return
             try:
-                result = client.pcap_convert(case_id, str(pcap_path))
+                result = client.pcap_convert(case_id, str(pcap_path), job_id=_job_id)
                 log.info("PCAP convert result: %s", result)
                 # Clean up PCAP on success
                 if result.get("status") in ("ok", "partial"):
@@ -595,6 +595,62 @@ def _update_job(job_id: int | None, status: str, summary: dict):
             cur.connection.commit()
     except Exception as e:
         log.warning("Could not update job %s: %s", job_id, e)
+
+
+@router.get("/cases/{case_id}/jobs/{job_id}/stream")
+async def job_progress_stream(request: Request, case_id: str, job_id: int):
+    """SSE endpoint streaming background job progress updates."""
+    import asyncio as _asyncio
+
+    async def _event_generator():
+        last_pct = -1
+        while True:
+            # Check if client disconnected
+            if await request.is_disconnected():
+                break
+            try:
+                with get_cursor() as cur:
+                    cur.execute(
+                        "SELECT status, summary FROM background_jobs WHERE id = %s AND case_id = %s",
+                        (job_id, case_id),
+                    )
+                    row = cur.fetchone()
+            except Exception:
+                break
+            if not row:
+                break
+
+            summary = row["summary"] or {}
+            pct = summary.get("pct", 0)
+            stage = summary.get("stage", "")
+            status = row["status"]
+
+            # Only send when something changed
+            if pct != last_pct or status in ("done", "ok", "partial", "failed"):
+                import json as _json
+                data = _json.dumps({
+                    "status": status,
+                    "pct": pct,
+                    "stage": stage,
+                    "total_inserted": summary.get("total_inserted", 0),
+                    "record_counts": summary.get("record_counts", {}),
+                    "errors": summary.get("errors", []),
+                    "elapsed_s": summary.get("elapsed_s", 0),
+                })
+                yield f"data: {data}\n\n"
+                last_pct = pct
+
+            # Terminal states — send final event and stop
+            if status in ("done", "ok", "partial", "failed"):
+                break
+
+            await _asyncio.sleep(2)
+
+    return StreamingResponse(
+        _event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 # ── Entities ────────────────────────────────────────

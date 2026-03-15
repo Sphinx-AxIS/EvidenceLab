@@ -81,10 +81,10 @@
     </thead>
     <tbody>
       {% for j in summary.background_jobs %}
-      <tr>
+      <tr id="job-row-{{ j.id }}">
         <td class="text-mono">{{ j.job_type }}</td>
         <td>{{ j.input_name }}</td>
-        <td>
+        <td id="job-status-{{ j.id }}">
           {% if j.status == 'running' %}
           <span class="badge" style="background:var(--blue);">running</span>
           {% elif j.status == 'done' or j.status == 'ok' %}
@@ -98,19 +98,28 @@
           {% endif %}
         </td>
         <td class="text-mono" style="font-size:0.75rem;">{{ j.created_at[:19] }}</td>
-        <td style="font-size:0.75rem;">
-          {% if j.summary %}
-            {% if j.summary.total_inserted is defined %}
-              {{ j.summary.total_inserted }} records
-            {% endif %}
-            {% if j.summary.tools_run is defined %}
-              ({{ j.summary.tools_run|join(', ') }})
-            {% endif %}
-            {% if j.summary.error is defined %}
-              <span style="color:var(--red);">{{ j.summary.error[:80] }}</span>
-            {% endif %}
-            {% if j.summary.errors is defined and j.summary.errors|length > 0 %}
-              <span style="color:var(--yellow);">{{ j.summary.errors|length }} warning(s)</span>
+        <td id="job-details-{{ j.id }}" style="font-size:0.75rem;">
+          {% if j.status == 'running' %}
+            <div style="margin-bottom:0.25rem;">
+              <div style="background:var(--border);border-radius:4px;height:16px;overflow:hidden;min-width:200px;">
+                <div id="job-bar-{{ j.id }}" style="background:var(--blue);height:100%;width:{{ j.summary.pct|default(0) }}%;transition:width 0.5s;"></div>
+              </div>
+            </div>
+            <span id="job-stage-{{ j.id }}">{{ j.summary.stage|default('starting') }}{% if j.summary.pct is defined %} ({{ j.summary.pct }}%){% endif %}</span>
+          {% else %}
+            {% if j.summary %}
+              {% if j.summary.total_inserted is defined %}
+                {{ j.summary.total_inserted }} records
+              {% endif %}
+              {% if j.summary.tools_run is defined %}
+                ({{ j.summary.tools_run|join(', ') }})
+              {% endif %}
+              {% if j.summary.error is defined %}
+                <span style="color:var(--red);">{{ j.summary.error[:80] }}</span>
+              {% endif %}
+              {% if j.summary.errors is defined and j.summary.errors|length > 0 %}
+                <span style="color:var(--yellow);">{{ j.summary.errors|length }} warning(s)</span>
+              {% endif %}
             {% endif %}
           {% endif %}
         </td>
@@ -156,6 +165,52 @@
       window.location.href = '/ui/?case_id=' + encodeURIComponent(saved);
     }
   }
+
+  /* SSE progress for running jobs */
+  if (!caseId) return;
+  {% for j in summary.background_jobs %}
+  {% if j.status == 'running' %}
+  (function(jobId) {
+    var src = new EventSource('/ui/cases/' + caseId + '/jobs/' + jobId + '/stream');
+    src.onmessage = function(e) {
+      var d = JSON.parse(e.data);
+      var bar = document.getElementById('job-bar-' + jobId);
+      var stage = document.getElementById('job-stage-' + jobId);
+      var statusEl = document.getElementById('job-status-' + jobId);
+      var detailsEl = document.getElementById('job-details-' + jobId);
+
+      if (bar) bar.style.width = d.pct + '%';
+      if (stage) stage.textContent = d.stage + ' (' + d.pct + '%) — ' + d.total_inserted + ' records, ' + d.elapsed_s + 's';
+
+      /* Terminal state — update badge and details, close stream */
+      if (d.status === 'ok' || d.status === 'done' || d.status === 'partial' || d.status === 'failed') {
+        src.close();
+        if (bar) bar.style.width = '100%';
+        if (d.status === 'ok' || d.status === 'done') {
+          if (bar) bar.style.background = 'var(--green, #22c55e)';
+          if (statusEl) statusEl.innerHTML = '<span class="badge badge-success">done</span>';
+        } else if (d.status === 'partial') {
+          if (bar) bar.style.background = 'var(--yellow, #eab308)';
+          if (statusEl) statusEl.innerHTML = '<span class="badge" style="background:var(--yellow);color:#000;">partial</span>';
+        } else {
+          if (bar) bar.style.background = 'var(--red, #ef4444)';
+          if (statusEl) statusEl.innerHTML = '<span class="badge badge-danger">failed</span>';
+        }
+        /* Build final detail text */
+        var detail = d.total_inserted + ' records';
+        if (d.record_counts) {
+          var types = Object.keys(d.record_counts);
+          if (types.length) detail += ' (' + types.join(', ') + ')';
+        }
+        if (d.errors && d.errors.length) detail += ' <span style="color:var(--yellow);">' + d.errors.length + ' warning(s)</span>';
+        detail += ' in ' + d.elapsed_s + 's';
+        if (detailsEl) detailsEl.innerHTML = detail;
+      }
+    };
+    src.onerror = function() { src.close(); };
+  })({{ j.id }});
+  {% endif %}
+  {% endfor %}
 })();
 </script>
 {% endblock %}

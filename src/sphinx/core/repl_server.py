@@ -197,6 +197,7 @@ class ReplHandler(socketserver.StreamRequestHandler):
                             case_id=msg["case_id"],
                             pcap_path=msg["pcap_path"],
                             work_dir=msg.get("work_dir"),
+                            job_id=msg.get("job_id"),
                         )
                     except Exception as e:
                         resp = {"status": "error", "error": str(e)}

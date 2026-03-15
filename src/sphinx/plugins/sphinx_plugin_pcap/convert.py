@@ -350,13 +350,34 @@ ZEEK_TYPE_MAP = {
 }
 
 
-def convert_pcap(case_id: str, pcap_path: str, work_dir: str | None = None) -> dict[str, Any]:
+def _update_job_progress(db_conn, job_id: int | None, summary: dict) -> None:
+    """Write incremental progress to the background_jobs row."""
+    if not job_id:
+        return
+    try:
+        with db_conn.cursor() as cur:
+            cur.execute(
+                "UPDATE background_jobs SET summary = %s, updated_at = now() WHERE id = %s",
+                (psycopg.types.json.Jsonb(summary), job_id),
+            )
+            db_conn.commit()
+    except Exception as e:
+        log.warning("Could not update job %d progress: %s", job_id, e)
+
+
+def convert_pcap(
+    case_id: str,
+    pcap_path: str,
+    work_dir: str | None = None,
+    job_id: int | None = None,
+) -> dict[str, Any]:
     """Run tshark, Suricata, and Zeek against a PCAP file, ingest all outputs.
 
     Args:
         case_id: Sphinx case UUID.
         pcap_path: Absolute path to the PCAP file.
         work_dir: Directory for intermediate outputs. Auto-created if None.
+        job_id: Optional background_jobs row ID for progress updates.
 
     Returns:
         Summary dict with tool statuses and record counts.
@@ -385,38 +406,63 @@ def convert_pcap(case_id: str, pcap_path: str, work_dir: str | None = None) -> d
     db_conn = psycopg.connect(db_url, row_factory=psycopg.rows.dict_row)
     db_cur = db_conn.cursor()
 
+    pcap_size_mb = round(pcap.stat().st_size / (1024 * 1024), 1)
+
     t0 = time.time()
     summary: dict[str, Any] = {
         "pcap_file": pcap.name,
+        "pcap_size_mb": pcap_size_mb,
         "tools_run": [],
         "tools_skipped": [],
         "record_counts": {},
         "errors": [],
+        "stage": "initializing",
+        "pct": 0,
     }
+
+    def _progress(stage: str, pct: int) -> None:
+        summary["stage"] = stage
+        summary["pct"] = pct
+        summary["elapsed_s"] = round(time.time() - t0, 1)
+        _update_job_progress(db_conn, job_id, summary)
 
     # --- Locate tools ---
     zeek_bin = find_zeek()
     suri_bin = find_suricata()
     tshark_bin = find_tshark()
 
-    if not zeek_bin:
-        summary["tools_skipped"].append("zeek")
-        log.warning("Zeek not found — skipping")
-    if not suri_bin:
+    # Build list of active tools to compute % weights
+    tools_active = []
+    if suri_bin:
+        tools_active.append("suricata")
+    else:
         summary["tools_skipped"].append("suricata")
         log.warning("Suricata not found — skipping")
-    if not tshark_bin:
+    if zeek_bin:
+        tools_active.append("zeek")
+    else:
+        summary["tools_skipped"].append("zeek")
+        log.warning("Zeek not found — skipping")
+    if tshark_bin:
+        tools_active.append("tshark")
+    else:
         summary["tools_skipped"].append("tshark")
         log.warning("tshark not found — skipping")
 
-    if not zeek_bin and not suri_bin and not tshark_bin:
+    if not tools_active:
         return {"status": "error", "error": "No analysis tools found (Zeek, Suricata, tshark)"}
 
+    # Each tool gets an equal share of 0-90%, ingesting fills to 95%, final 100%
+    tool_weight = 90 // len(tools_active)
+    pct_base = 0
     total_inserted = 0
+
+    _progress("starting", 0)
 
     # --- Suricata ---
     if suri_bin:
         try:
+            _progress("running Suricata", pct_base)
             suri_dir = base_dir / "suricata"
             result = run_suricata(suri_bin, pcap, suri_dir)
             summary["tools_run"].append("suricata")
@@ -424,6 +470,7 @@ def convert_pcap(case_id: str, pcap_path: str, work_dir: str | None = None) -> d
             if result.returncode != 0:
                 summary["errors"].append(f"Suricata exit code {result.returncode}")
 
+            _progress("ingesting Suricata records", pct_base + tool_weight // 2)
             eve_records = parse_eve_json(suri_dir)
             for event_type, records in eve_records.items():
                 record_type = SURICATA_TYPE_MAP.get(event_type)
@@ -439,10 +486,12 @@ def convert_pcap(case_id: str, pcap_path: str, work_dir: str | None = None) -> d
         except Exception as e:
             summary["errors"].append(f"Suricata failed: {e}")
             log.error("Suricata failed: %s", e)
+        pct_base += tool_weight
 
     # --- Zeek ---
     if zeek_bin:
         try:
+            _progress("running Zeek", pct_base)
             zeek_dir = base_dir / "zeek"
             result = run_zeek(zeek_bin, pcap, zeek_dir)
             summary["tools_run"].append("zeek")
@@ -450,6 +499,7 @@ def convert_pcap(case_id: str, pcap_path: str, work_dir: str | None = None) -> d
             if result.returncode != 0:
                 summary["errors"].append(f"Zeek exit code {result.returncode}")
 
+            _progress("ingesting Zeek records", pct_base + tool_weight // 2)
             zeek_logs = parse_zeek_logs(zeek_dir)
             for log_type, records in zeek_logs.items():
                 record_type = ZEEK_TYPE_MAP.get(log_type)
@@ -465,15 +515,18 @@ def convert_pcap(case_id: str, pcap_path: str, work_dir: str | None = None) -> d
         except Exception as e:
             summary["errors"].append(f"Zeek failed: {e}")
             log.error("Zeek failed: %s", e)
+        pct_base += tool_weight
 
     # --- tshark ---
     if tshark_bin:
         try:
+            _progress("running tshark", pct_base)
             tshark_dir = base_dir / "tshark"
             stream_records = run_tshark_streams(tshark_bin, pcap, tshark_dir)
             summary["tools_run"].append("tshark")
 
             if stream_records:
+                _progress("ingesting tshark streams", pct_base + tool_weight // 2)
                 try:
                     count = ingest_tshark(case_id, stream_records, cur=db_cur)
                     summary["record_counts"]["tshark_stream"] = count
@@ -484,6 +537,13 @@ def convert_pcap(case_id: str, pcap_path: str, work_dir: str | None = None) -> d
         except Exception as e:
             summary["errors"].append(f"tshark failed: {e}")
             log.error("tshark failed: %s", e)
+        pct_base += tool_weight
+
+    # Final summary
+    summary["total_inserted"] = total_inserted
+    summary["stage"] = "complete"
+    summary["pct"] = 100
+    _progress("complete", 100)
 
     # Clean up DB connection
     try:
