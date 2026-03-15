@@ -410,13 +410,18 @@ def convert_pcap(
         base_dir = pcap.parent / f"_sphinx_convert_{pcap.stem}"
     base_dir.mkdir(parents=True, exist_ok=True)
 
-    # Use a direct DB connection (REPL container does not have the API pool).
+    # Use direct DB connections (REPL container does not have the API pool).
+    # Two separate connections: one for record inserts, one for progress
+    # updates. If an ingest error aborts the insert transaction, the
+    # progress connection remains healthy for status writes.
     db_url = os.environ.get(
         "DATABASE_URL",
         "postgresql://sphinx:changeme@sphinx-db:5432/sphinx",
     )
     db_conn = psycopg.connect(db_url, row_factory=psycopg.rows.dict_row)
     db_cur = db_conn.cursor()
+    # Separate connection for progress — never poisoned by ingest errors
+    progress_conn = psycopg.connect(db_url, row_factory=psycopg.rows.dict_row)
 
     pcap_size_mb = round(pcap.stat().st_size / (1024 * 1024), 1)
 
@@ -436,7 +441,8 @@ def convert_pcap(
         summary["stage"] = stage
         summary["pct"] = pct
         summary["elapsed_s"] = round(time.time() - t0, 1)
-        _update_job_progress(db_conn, job_id, summary)
+        summary["total_inserted"] = total_inserted
+        _update_job_progress(progress_conn, job_id, summary)
 
     # --- Locate tools ---
     zeek_bin = find_zeek()
@@ -493,6 +499,7 @@ def convert_pcap(
                     summary["record_counts"][record_type] = count
                     total_inserted += count
                 except Exception as e:
+                    db_conn.rollback()  # clear aborted transaction state
                     summary["errors"].append(f"Suricata ingest ({record_type}): {e}")
                     log.error("Suricata ingest error (%s): %s", record_type, e)
         except Exception as e:
@@ -522,6 +529,7 @@ def convert_pcap(
                     summary["record_counts"][record_type] = count
                     total_inserted += count
                 except Exception as e:
+                    db_conn.rollback()
                     summary["errors"].append(f"Zeek ingest ({record_type}): {e}")
                     log.error("Zeek ingest error (%s): %s", record_type, e)
         except Exception as e:
@@ -544,6 +552,7 @@ def convert_pcap(
                     summary["record_counts"]["tshark_stream"] = count
                     total_inserted += count
                 except Exception as e:
+                    db_conn.rollback()
                     summary["errors"].append(f"tshark ingest: {e}")
                     log.error("tshark ingest error: %s", e)
         except Exception as e:
@@ -551,8 +560,8 @@ def convert_pcap(
             log.error("tshark failed: %s", e)
         pct_base += tool_weight
 
-    # Final summary — write terminal status directly to DB so it doesn't
-    # depend on the socket response making it back to the API container.
+    # Final summary — write terminal status directly to DB via the progress
+    # connection (guaranteed healthy, independent of ingest connection).
     elapsed = time.time() - t0
     summary["total_inserted"] = total_inserted
     summary["elapsed_s"] = round(elapsed, 2)
@@ -560,14 +569,14 @@ def convert_pcap(
     summary["pct"] = 100
     final_status = "ok" if not summary["errors"] else "partial"
     summary["status"] = final_status
-    _update_job_progress(db_conn, job_id, summary, status=final_status)
+    _update_job_progress(progress_conn, job_id, summary, status=final_status)
 
-    # Clean up DB connection
-    try:
-        db_cur.close()
-        db_conn.close()
-    except Exception:
-        pass
+    # Clean up DB connections
+    for conn in (db_cur, db_conn, progress_conn):
+        try:
+            conn.close()
+        except Exception:
+            pass
 
     log.info("PCAP conversion complete: %d records in %.1fs (tools: %s)",
              total_inserted, elapsed, ", ".join(summary["tools_run"]))
