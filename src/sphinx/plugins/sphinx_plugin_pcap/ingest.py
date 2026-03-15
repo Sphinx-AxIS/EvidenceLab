@@ -4,11 +4,22 @@ from __future__ import annotations
 
 import json
 import logging
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any
 
 from sphinx.core.db import get_cursor
 from sphinx.core.entity_extractor import extract_and_store
+
+
+@contextmanager
+def _use_cursor(cur=None):
+    """Yield the provided cursor, or fall back to pool-based get_cursor()."""
+    if cur is not None:
+        yield cur
+    else:
+        with get_cursor() as c:
+            yield c
 
 log = logging.getLogger(__name__)
 
@@ -105,22 +116,22 @@ def ingest_zeek_dns(case_id: str, records: list[dict]) -> int:
     return inserted
 
 
-def ingest_tshark(case_id: str, records: list[dict]) -> int:
+def ingest_tshark(case_id: str, records: list[dict], *, cur=None) -> int:
     """Ingest tshark TCP stream reconstruction output."""
     inserted = 0
-    with get_cursor() as cur:
+    with _use_cursor(cur) as c:
         for raw in records:
             ts = _parse_timestamp(raw, "timestamp", "ts", "first_ts")
-            cur.execute(
+            c.execute(
                 """INSERT INTO records (case_id, record_type, source_plugin, raw, ts)
                    VALUES (%s, 'tshark_stream', 'sphinx-plugin-pcap', %s, %s)
                    RETURNING id""",
                 (case_id, json.dumps(raw), ts),
             )
-            record_id = cur.fetchone()["id"]
-            extract_and_store(case_id, record_id, raw, cur=cur)
+            record_id = c.fetchone()["id"]
+            extract_and_store(case_id, record_id, raw, cur=c)
             inserted += 1
-        cur.connection.commit()
+        c.connection.commit()
 
     log.info("Ingested %d tshark stream records for case %s", inserted, case_id)
     return inserted
@@ -130,55 +141,57 @@ def ingest_tshark(case_id: str, records: list[dict]) -> int:
 # Generic handlers — used by convert.py for all Suricata/Zeek types
 # ---------------------------------------------------------------------------
 
-def ingest_suricata_records(case_id: str, records: list[dict], record_type: str) -> int:
+def ingest_suricata_records(case_id: str, records: list[dict], record_type: str, *, cur=None) -> int:
     """Ingest Suricata EVE JSON records of any event type.
 
     Args:
         case_id: Case UUID.
         records: List of EVE JSON dicts.
         record_type: e.g. 'suricata_alert', 'suricata_http', 'suricata_dns'.
+        cur: Optional DB cursor (for REPL-side direct connections).
     """
     inserted = 0
-    with get_cursor() as cur:
+    with _use_cursor(cur) as c:
         for raw in records:
             ts = _parse_timestamp(raw, "timestamp")
-            cur.execute(
+            c.execute(
                 """INSERT INTO records (case_id, record_type, source_plugin, raw, ts)
                    VALUES (%s, %s, 'sphinx-plugin-pcap', %s, %s)
                    RETURNING id""",
                 (case_id, record_type, json.dumps(raw), ts),
             )
-            record_id = cur.fetchone()["id"]
-            extract_and_store(case_id, record_id, raw, cur=cur)
+            record_id = c.fetchone()["id"]
+            extract_and_store(case_id, record_id, raw, cur=c)
             inserted += 1
-        cur.connection.commit()
+        c.connection.commit()
 
     log.info("Ingested %d %s records for case %s", inserted, record_type, case_id)
     return inserted
 
 
-def ingest_zeek_records(case_id: str, records: list[dict], record_type: str) -> int:
+def ingest_zeek_records(case_id: str, records: list[dict], record_type: str, *, cur=None) -> int:
     """Ingest Zeek log records of any type.
 
     Args:
         case_id: Case UUID.
         records: List of parsed Zeek JSON log entries.
         record_type: e.g. 'zeek_conn', 'zeek_dns', 'zeek_http'.
+        cur: Optional DB cursor (for REPL-side direct connections).
     """
     inserted = 0
-    with get_cursor() as cur:
+    with _use_cursor(cur) as c:
         for raw in records:
             ts = _parse_timestamp(raw, "ts")
-            cur.execute(
+            c.execute(
                 """INSERT INTO records (case_id, record_type, source_plugin, raw, ts)
                    VALUES (%s, %s, 'sphinx-plugin-pcap', %s, %s)
                    RETURNING id""",
                 (case_id, record_type, json.dumps(raw), ts),
             )
-            record_id = cur.fetchone()["id"]
-            extract_and_store(case_id, record_id, raw, cur=cur)
+            record_id = c.fetchone()["id"]
+            extract_and_store(case_id, record_id, raw, cur=c)
             inserted += 1
-        cur.connection.commit()
+        c.connection.commit()
 
     log.info("Ingested %d %s records for case %s", inserted, record_type, case_id)
     return inserted

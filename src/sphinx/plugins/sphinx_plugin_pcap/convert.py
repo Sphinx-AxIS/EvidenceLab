@@ -18,6 +18,9 @@ import time
 from pathlib import Path
 from typing import Any
 
+import psycopg
+import psycopg.rows
+
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -374,6 +377,14 @@ def convert_pcap(case_id: str, pcap_path: str, work_dir: str | None = None) -> d
         base_dir = pcap.parent / f"_sphinx_convert_{pcap.stem}"
     base_dir.mkdir(parents=True, exist_ok=True)
 
+    # Use a direct DB connection (REPL container does not have the API pool).
+    db_url = os.environ.get(
+        "DATABASE_URL",
+        "postgresql://sphinx:changeme@sphinx-db:5432/sphinx",
+    )
+    db_conn = psycopg.connect(db_url, row_factory=psycopg.rows.dict_row)
+    db_cur = db_conn.cursor()
+
     t0 = time.time()
     summary: dict[str, Any] = {
         "pcap_file": pcap.name,
@@ -419,7 +430,7 @@ def convert_pcap(case_id: str, pcap_path: str, work_dir: str | None = None) -> d
                 if not record_type:
                     continue
                 try:
-                    count = ingest_suricata_records(case_id, records, record_type)
+                    count = ingest_suricata_records(case_id, records, record_type, cur=db_cur)
                     summary["record_counts"][record_type] = count
                     total_inserted += count
                 except Exception as e:
@@ -445,7 +456,7 @@ def convert_pcap(case_id: str, pcap_path: str, work_dir: str | None = None) -> d
                 if not record_type:
                     continue
                 try:
-                    count = ingest_zeek_records(case_id, records, record_type)
+                    count = ingest_zeek_records(case_id, records, record_type, cur=db_cur)
                     summary["record_counts"][record_type] = count
                     total_inserted += count
                 except Exception as e:
@@ -464,7 +475,7 @@ def convert_pcap(case_id: str, pcap_path: str, work_dir: str | None = None) -> d
 
             if stream_records:
                 try:
-                    count = ingest_tshark(case_id, stream_records)
+                    count = ingest_tshark(case_id, stream_records, cur=db_cur)
                     summary["record_counts"]["tshark_stream"] = count
                     total_inserted += count
                 except Exception as e:
@@ -473,6 +484,13 @@ def convert_pcap(case_id: str, pcap_path: str, work_dir: str | None = None) -> d
         except Exception as e:
             summary["errors"].append(f"tshark failed: {e}")
             log.error("tshark failed: %s", e)
+
+    # Clean up DB connection
+    try:
+        db_cur.close()
+        db_conn.close()
+    except Exception:
+        pass
 
     elapsed = time.time() - t0
     summary["elapsed_s"] = round(elapsed, 2)
