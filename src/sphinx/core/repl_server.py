@@ -13,7 +13,6 @@ from __future__ import annotations
 import io
 import json
 import os
-import signal
 import socketserver
 import struct
 import sys
@@ -119,7 +118,14 @@ def _init_namespace(case_id: str, task_id: int) -> None:
 
 
 def execute_code(code: str, timeout: int = 120) -> dict[str, Any]:
-    """Execute a code block in the persistent namespace."""
+    """Execute a code block in the persistent namespace.
+
+    Uses threading-based timeout instead of signal.alarm so it works
+    from any thread (the REPL server uses ThreadingMixIn).
+    """
+    import ctypes
+    import threading
+
     old_stdout, old_stderr = sys.stdout, sys.stderr
     sys.stdout = cap_out = io.StringIO()
     sys.stderr = cap_err = io.StringIO()
@@ -127,22 +133,34 @@ def execute_code(code: str, timeout: int = 120) -> dict[str, Any]:
     error = None
     t0 = time.monotonic()
 
-    def _alarm(signum, frame):
-        raise TimeoutError(f"Exceeded {timeout}s timeout")
+    exec_done = threading.Event()
 
-    old_handler = signal.signal(signal.SIGALRM, _alarm)
-    signal.alarm(timeout)
+    def _run_code():
+        nonlocal error
+        try:
+            exec(compile(code, "<repl>", "exec"), _namespace)
+        except Exception:
+            error = traceback.format_exc()
+        finally:
+            exec_done.set()
 
-    try:
-        exec(compile(code, "<repl>", "exec"), _namespace)
-    except TimeoutError as e:
-        error = str(e)
-    except Exception:
-        error = traceback.format_exc()
-    finally:
-        signal.alarm(0)
-        signal.signal(signal.SIGALRM, old_handler)
-        sys.stdout, sys.stderr = old_stdout, old_stderr
+    worker = threading.Thread(target=_run_code, daemon=True)
+    worker.start()
+
+    if not exec_done.wait(timeout=timeout):
+        # Timeout — try to interrupt the worker thread
+        try:
+            tid = worker.ident
+            if tid is not None:
+                ctypes.pythonapi.PyThreadState_SetAsyncExc(
+                    ctypes.c_ulong(tid),
+                    ctypes.py_object(TimeoutError),
+                )
+        except Exception:
+            pass
+        error = f"Exceeded {timeout}s timeout"
+
+    sys.stdout, sys.stderr = old_stdout, old_stderr
 
     elapsed = time.monotonic() - t0
     stdout = cap_out.getvalue()[:64_000]
