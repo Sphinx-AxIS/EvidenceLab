@@ -532,9 +532,9 @@ async def ingest_pcap_submit(
             status_code=303,
         )
 
-    # Save uploaded file — use /tmp so REPL output files don't trigger
-    # uvicorn --reload on the shared /app volume mount.
-    upload_dir = Path("/tmp/sphinx_pcap") / case_id
+    # Save uploaded file to shared volume (accessible by both API + REPL).
+    # uvicorn --reload-dir /app/src ensures data writes don't trigger reloads.
+    upload_dir = Path("/app/data/pcap_uploads") / case_id
     upload_dir.mkdir(parents=True, exist_ok=True)
     upload_id = str(uuid_mod.uuid4())[:8]
     pcap_path = upload_dir / f"{upload_id}_{fname}"

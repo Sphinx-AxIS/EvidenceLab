@@ -184,7 +184,7 @@
           if (stage) stage.textContent = d.stage + ' (' + d.pct + '%) \u2014 ' + d.total_inserted + ' records, ' + d.elapsed_s + 's';
 
           /* Terminal state */
-          if (d.status === 'ok' || d.status === 'done' || d.status === 'partial' || d.status === 'failed') {
+          if (d.status === 'ok' || d.status === 'done' || d.status === 'partial' || d.status === 'failed' || d.status === 'error') {
             clearInterval(timer);
             if (bar) bar.style.width = '100%';
             if (d.status === 'ok' || d.status === 'done') {
@@ -193,9 +193,9 @@
             } else if (d.status === 'partial') {
               if (bar) bar.style.background = 'var(--yellow, #eab308)';
               if (statusEl) statusEl.innerHTML = '<span class="badge" style="background:var(--yellow);color:#000;">partial</span>';
-            } else {
+            } else { /* failed or error */
               if (bar) bar.style.background = 'var(--red, #ef4444)';
-              if (statusEl) statusEl.innerHTML = '<span class="badge badge-danger">failed</span>';
+              if (statusEl) statusEl.innerHTML = '<span class="badge badge-danger">' + d.status + '</span>';
             }
             var detail = d.total_inserted + ' records';
             if (d.record_counts) {
