@@ -20,18 +20,17 @@ RUN apt-get update \
     || echo "[sphinx-repl] WARN: some forensic packages unavailable for this platform" \
     ; rm -rf /var/lib/apt/lists/*
 
-# Zeek — from upstream OBS repo (Debian 12 / amd64 only)
-RUN ARCH=$(dpkg --print-architecture) && \
-    if [ "$ARCH" = "amd64" ]; then \
-        echo 'deb http://download.opensuse.org/repositories/security:/zeek/Debian_12/ /' \
-            > /etc/apt/sources.list.d/zeek.list \
-        && curl -fsSL https://download.opensuse.org/repositories/security:zeek/Debian_12/Release.key \
-            | gpg --dearmor -o /etc/apt/trusted.gpg.d/zeek.gpg \
-        && apt-get update && apt-get install -y --no-install-recommends zeek \
-        && rm -rf /var/lib/apt/lists/* ; \
-    else \
-        echo "[sphinx-repl] WARN: Zeek not available for $ARCH — skipping" ; \
-    fi
+# Zeek — from upstream OBS repo
+RUN echo 'deb http://download.opensuse.org/repositories/security:/zeek/Debian_12/ /' \
+        > /etc/apt/sources.list.d/zeek.list \
+    && curl -fsSL 'https://download.opensuse.org/repositories/security:zeek/Debian_12/Release.key' \
+        | gpg --dearmor -o /etc/apt/trusted.gpg.d/zeek.gpg \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends zeek \
+    && rm -rf /var/lib/apt/lists/* \
+    || echo "[sphinx-repl] WARN: Zeek install failed — skipping"
+
+ENV PATH="/opt/zeek/bin:${PATH}"
 
 WORKDIR /app
 

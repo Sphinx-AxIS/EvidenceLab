@@ -190,16 +190,18 @@ async def dashboard(request: Request, case_id: str = "", mode: str = ""):
             bg_jobs = []
             try:
                 # Mark stale running jobs as failed before fetching.
-                # Use LEAST(created_at, updated_at) so it works even if
-                # progress was never written (updated_at = created_at).
+                # Only mark as stale after 60 minutes — PCAP conversion can
+                # legitimately take a long time. The conversion process itself
+                # sets terminal status (ok/partial/failed) when it finishes;
+                # this is just a safety net for truly abandoned jobs.
                 cur.execute(
                     """UPDATE background_jobs
                        SET status = 'failed',
                            summary = COALESCE(summary, '{}'::jsonb)
-                                     || '{"error": "Timed out (no response after 15 min)"}'::jsonb,
+                                     || '{"error": "Timed out (no progress after 60 min)"}'::jsonb,
                            updated_at = now()
                        WHERE case_id = %s AND status = 'running'
-                         AND LEAST(created_at, updated_at) < now() - interval '15 minutes'""",
+                         AND LEAST(created_at, updated_at) < now() - interval '60 minutes'""",
                     (case_id,),
                 )
                 cur.connection.commit()
