@@ -585,6 +585,41 @@ async def entity_pivot(
     ))
 
 
+# ── Analytics ───────────────────────────────────────
+
+@router.get("/cases/{case_id}/analytics", response_class=HTMLResponse)
+async def analytics_page(request: Request, case_id: str):
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        cur.execute("SELECT analytics_enabled FROM cases WHERE id = %s", (case_id,))
+        row = cur.fetchone()
+        analytics_enabled = row["analytics_enabled"] if row else True
+
+    return templates.TemplateResponse("analytics.html", _ctx(
+        request, user, "analytics", case_id=case_id,
+        analytics_enabled=analytics_enabled,
+    ))
+
+
+@router.post("/cases/{case_id}/analytics/toggle")
+async def analytics_toggle(request: Request, case_id: str):
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        cur.execute(
+            "UPDATE cases SET analytics_enabled = NOT analytics_enabled WHERE id = %s RETURNING analytics_enabled",
+            (case_id,),
+        )
+        cur.connection.commit()
+
+    return RedirectResponse(url=f"/ui/cases/{case_id}/analytics", status_code=303)
+
+
 # ── Case Notes ──────────────────────────────────────
 
 @router.get("/cases/{case_id}/notes", response_class=HTMLResponse)

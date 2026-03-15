@@ -69,12 +69,14 @@ def create_app() -> FastAPI:
     from sphinx.core.dashboard import router as dashboard_router
     from sphinx.core.task_runner import router as task_router
     from sphinx.core.ingest_routes import router as ingest_router
+    from sphinx.core.analytics_routes import router as analytics_router
 
     app.include_router(auth_router)
     app.include_router(case_router)
     app.include_router(dashboard_router)
     app.include_router(task_router)
     app.include_router(ingest_router)
+    app.include_router(analytics_router)
 
     # ── SSE streaming ─────────────────────────────
     from sphinx.core.sse import router as sse_router

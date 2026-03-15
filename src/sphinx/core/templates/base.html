@@ -12,7 +12,7 @@
     <!-- Sidebar -->
     <aside class="sidebar">
       <div class="sidebar-brand">
-        <h1>Sphinx AI</h1>
+        <img src="/static/img/logo.png" alt="Sphinx AI" style="max-width:180px;margin-bottom:0.25rem;">
         <div class="subtitle">Incident Response</div>
       </div>
       <nav>
@@ -37,6 +37,9 @@
         </a>
         <a href="/ui/cases/{{ case_id }}/findings" class="{% if active_page == 'findings' %}active{% endif %}">
           <span class="icon">&#10004;</span> Findings
+        </a>
+        <a href="/ui/cases/{{ case_id }}/analytics" class="{% if active_page == 'analytics' %}active{% endif %}">
+          <span class="icon">&#9636;</span> Analytics
         </a>
         <a href="/ui/cases/{{ case_id }}/notes" class="{% if active_page == 'notes' %}active{% endif %}">
           <span class="icon">&#9998;</span> Notes
