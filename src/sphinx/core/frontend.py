@@ -156,6 +156,17 @@ async def dashboard(request: Request, case_id: str = ""):
             # Background jobs
             bg_jobs = []
             try:
+                # Mark stale running jobs (>15 min) as failed before fetching
+                cur.execute(
+                    """UPDATE background_jobs
+                       SET status = 'failed',
+                           summary = summary || '{"error": "Timed out (no response after 15 min)"}'::jsonb,
+                           updated_at = now()
+                       WHERE case_id = %s AND status = 'running'
+                         AND updated_at < now() - interval '15 minutes'""",
+                    (case_id,),
+                )
+                cur.connection.commit()
                 cur.execute(
                     """SELECT id, job_type, status, input_name,
                               created_at::text AS created_at,

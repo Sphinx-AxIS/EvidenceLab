@@ -243,7 +243,10 @@ def main():
     if sock_path.exists():
         sock_path.unlink()
 
-    server = socketserver.UnixStreamServer(args.socket, ReplHandler)
+    class ThreadedUnixServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
+        daemon_threads = True
+
+    server = ThreadedUnixServer(args.socket, ReplHandler)
     print(f"REPL server listening on {args.socket}", flush=True)
     server.serve_forever()
 
