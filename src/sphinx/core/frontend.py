@@ -470,6 +470,66 @@ async def ingest_submit(
         )
 
 
+@router.post("/cases/{case_id}/ingest/pcap")
+async def ingest_pcap_submit(
+    request: Request, case_id: str,
+    file: UploadFile = File(...),
+):
+    """Handle PCAP file upload — saves file, launches background conversion."""
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    import uuid as uuid_mod
+    import threading
+
+    # Validate file extension
+    fname = file.filename or "upload.pcap"
+    suffix = Path(fname).suffix.lower()
+    if suffix not in (".pcap", ".pcapng", ".cap"):
+        return RedirectResponse(
+            url=f"/ui/cases/{case_id}/ingest?error=Invalid+file+type:+{suffix}+(expected+.pcap/.pcapng/.cap)",
+            status_code=303,
+        )
+
+    # Save uploaded file
+    upload_dir = Path("/app/data/pcap_uploads") / case_id
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    upload_id = str(uuid_mod.uuid4())[:8]
+    pcap_path = upload_dir / f"{upload_id}_{fname}"
+
+    content = await file.read()
+    pcap_path.write_bytes(content)
+    log.info("PCAP uploaded: %s (%d bytes)", pcap_path, len(content))
+
+    # Launch background conversion via REPL
+    def _run_pcap_convert():
+        try:
+            from sphinx.core.repl_client import ReplClient
+            client = ReplClient()
+            if not client.connect():
+                log.error("PCAP convert: cannot connect to REPL server")
+                return
+            try:
+                result = client.pcap_convert(case_id, str(pcap_path))
+                log.info("PCAP convert result: %s", result)
+                # Clean up PCAP on success
+                if result.get("status") in ("ok", "partial"):
+                    pcap_path.unlink(missing_ok=True)
+            finally:
+                client.close()
+        except Exception as e:
+            log.error("PCAP convert background task failed: %s", e)
+
+    thread = threading.Thread(target=_run_pcap_convert, daemon=True)
+    thread.start()
+
+    return RedirectResponse(
+        url=f"/ui/cases/{case_id}/ingest?message=PCAP+uploaded+({fname}).+Conversion+running+in+background+(tshark,+Suricata,+Zeek).",
+        status_code=303,
+    )
+
+
 # ── Entities ────────────────────────────────────────
 
 @router.get("/cases/{case_id}/entities", response_class=HTMLResponse)

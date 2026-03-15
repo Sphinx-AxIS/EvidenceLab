@@ -189,6 +189,17 @@ class ReplHandler(socketserver.StreamRequestHandler):
                             json.dumps(resp["result"])
                         except (TypeError, ValueError):
                             resp["result"] = str(resp["result"])
+                elif cmd == "pcap_convert":
+                    # Run PCAP conversion pipeline (tshark + Suricata + Zeek)
+                    try:
+                        from sphinx.plugins.sphinx_plugin_pcap.convert import convert_pcap
+                        resp = convert_pcap(
+                            case_id=msg["case_id"],
+                            pcap_path=msg["pcap_path"],
+                            work_dir=msg.get("work_dir"),
+                        )
+                    except Exception as e:
+                        resp = {"status": "error", "error": str(e)}
                 elif cmd == "ping":
                     resp = {"status": "ok", "pong": True}
                 else:

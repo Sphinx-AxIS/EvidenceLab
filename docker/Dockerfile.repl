@@ -40,6 +40,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Suricata config and custom detection rules (LOTL post-compromise)
+COPY config/suricata/suricata.yaml /etc/suricata/suricata.yaml
+COPY data/suricata-rules/ /app/data/suricata-rules/
+
 # REPL does not expose any ports — it is called by the API container
 # over the internal network via an RPC mechanism or direct invocation.
 

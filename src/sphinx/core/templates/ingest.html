@@ -48,4 +48,20 @@
   </table>
 </div>
 {% endif %}
+
+<div class="card mt-2" style="max-width:600px;">
+  <h3 style="margin-top:0;">PCAP Upload</h3>
+  <p class="text-muted" style="font-size:0.8rem; margin-bottom:0.8rem;">
+    Upload a PCAP/PCAPNG file. The system will run tshark, Suricata, and Zeek
+    against it and ingest all outputs (alerts, protocol logs, TCP streams).
+  </p>
+  <form method="post" action="/ui/cases/{{ case_id }}/ingest/pcap" enctype="multipart/form-data">
+    <div class="form-group">
+      <label for="pcap_file">PCAP File</label>
+      <input type="file" id="pcap_file" name="file" accept=".pcap,.pcapng,.cap" required
+        style="padding:0.4rem; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); width:100%;">
+    </div>
+    <button type="submit" class="btn btn-primary">Upload &amp; Convert</button>
+  </form>
+</div>
 {% endblock %}

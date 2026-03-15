@@ -1,0 +1,62 @@
+# ==========================================================================
+# RLM CI Forensics — Custom Post-Compromise Detection Rules
+# ==========================================================================
+#
+# These rules detect living-off-the-land (LOTL) post-compromise activity
+# in cleartext TCP sessions (FTP, telnet, reverse shells, etc.).
+#
+# SID range: 9000001–9000099 (local/custom namespace)
+#
+# NOTE: These rules only fire on cleartext traffic. Encrypted sessions
+# (SSH, TLS) will not trigger them — use tshark stream extraction for
+# visibility into those protocols after decryption or key recovery.
+#
+# DESIGN: No `flow:established` — many forensic PCAPs lack complete TCP
+# handshakes (partial captures, asymmetric routing, tap placement), so
+# Suricata never marks flows as "established". Content-match only.
+#
+# IMPORTANT: Each Suricata rule MUST be on a single line.
+# ==========================================================================
+
+# --- 1. Anti-Forensics: unset HISTFILE ---
+alert tcp any any -> any any (msg:"RLM Post-Compromise: unset HISTFILE (anti-forensics)"; content:"unset HISTFILE"; nocase; classtype:trojan-activity; sid:9000001; rev:1; metadata:mitre_attack T1070.003, category anti-forensics;)
+
+# export HISTFILE=/dev/null variant
+alert tcp any any -> any any (msg:"RLM Post-Compromise: HISTFILE redirected to /dev/null"; content:"HISTFILE"; nocase; content:"/dev/null"; distance:0; within:30; classtype:trojan-activity; sid:9000002; rev:1; metadata:mitre_attack T1070.003, category anti-forensics;)
+
+# HISTSIZE=0 suppresses history
+alert tcp any any -> any any (msg:"RLM Post-Compromise: HISTSIZE set to 0 (anti-forensics)"; content:"HISTSIZE=0"; nocase; classtype:trojan-activity; sid:9000003; rev:1; metadata:mitre_attack T1070.003, category anti-forensics;)
+
+# --- 2. Log Tampering: sed -i targeting /var/log/ ---
+alert tcp any any -> any any (msg:"RLM Post-Compromise: sed -i targeting /var/log (log tampering)"; content:"sed "; nocase; content:"-i"; distance:0; within:10; content:"/var/log/"; distance:0; within:200; classtype:trojan-activity; sid:9000010; rev:1; metadata:mitre_attack T1070.002, category log-tampering;)
+
+# sed -i with delete pattern (e.g., sed -i '/attacker_ip/d' logfile)
+alert tcp any any -> any any (msg:"RLM Post-Compromise: sed -i with delete pattern (log line removal)"; content:"sed "; nocase; content:"-i"; distance:0; within:10; content:"/d'"; distance:0; within:200; classtype:trojan-activity; sid:9000011; rev:1; metadata:mitre_attack T1070.002, category log-tampering;)
+
+# Truncating logs with > /var/log/...
+alert tcp any any -> any any (msg:"RLM Post-Compromise: log file truncation via redirect"; content:"> /var/log/"; classtype:trojan-activity; sid:9000012; rev:1; metadata:mitre_attack T1070.002, category log-tampering;)
+
+# --- 3. Timestomping: touch -r / touch -t ---
+alert tcp any any -> any any (msg:"RLM Post-Compromise: touch -r (timestomping)"; content:"touch "; nocase; content:"-r "; distance:0; within:10; classtype:trojan-activity; sid:9000020; rev:1; metadata:mitre_attack T1070.006, category timestomping;)
+
+alert tcp any any -> any any (msg:"RLM Post-Compromise: touch -t (explicit timestamp modification)"; content:"touch "; nocase; content:"-t "; distance:0; within:10; classtype:trojan-activity; sid:9000021; rev:1; metadata:mitre_attack T1070.006, category timestomping;)
+
+# --- 4. Encoded Payload Delivery: echo + base64 ---
+alert tcp any any -> any any (msg:"RLM Post-Compromise: echo piped to base64 decode (payload delivery)"; content:"echo "; nocase; content:"|20|base64"; distance:0; within:500; content:"-d"; distance:0; within:10; classtype:trojan-activity; sid:9000030; rev:1; metadata:mitre_attack T1027, category encoded-payload;)
+
+# echo <base64> > /path/to/file
+alert tcp any any -> any any (msg:"RLM Post-Compromise: echo with base64 string redirected to file"; content:"echo "; nocase; content:" > /"; distance:10; within:500; classtype:trojan-activity; sid:9000031; rev:2; metadata:mitre_attack T1027, category encoded-payload;)
+
+# printf piped to base64 -d
+alert tcp any any -> any any (msg:"RLM Post-Compromise: printf piped to base64 decode"; content:"printf "; nocase; content:"|20|base64"; distance:0; within:500; content:"-d"; distance:0; within:10; classtype:trojan-activity; sid:9000032; rev:1; metadata:mitre_attack T1027, category encoded-payload;)
+
+# --- 5. Additional LOTL indicators ---
+
+# SCP to non-standard port
+alert tcp any any -> any any (msg:"RLM Post-Compromise: scp with non-standard port (-P flag)"; content:"scp "; nocase; content:"-P "; distance:0; within:10; classtype:trojan-activity; sid:9000040; rev:1; metadata:mitre_attack T1105, category lateral-movement;)
+
+# Dropping binary into /usr/bin
+alert tcp any any -> any any (msg:"RLM Post-Compromise: file copy/move to /usr/bin (persistence)"; content:"/usr/bin/"; pcre:"/\b(cp|mv|install|scp)\b.{0,60}\/usr\/bin\//"; classtype:trojan-activity; sid:9000041; rev:1; metadata:mitre_attack T1036.005, category persistence;)
+
+# Crontab manipulation (not crontab -l which is read-only)
+alert tcp any any -> any any (msg:"RLM Post-Compromise: crontab modification"; content:"crontab "; nocase; pcre:"/crontab\s+(-[a-z]\s+)*[^-l]/"; classtype:trojan-activity; sid:9000042; rev:1; metadata:mitre_attack T1053.003, category persistence;)
