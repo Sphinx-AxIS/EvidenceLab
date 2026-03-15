@@ -57,11 +57,11 @@ def classify_evidence(records: list[dict]) -> list[str]:
     if types & winevt_types:
         rule_types.append("sigma")
 
-    # Network/PCAP evidence → Suricata
-    network_types = {"suricata_alert", "suricata_flow", "suricata_http", "suricata_dns",
-                     "suricata_tls", "zeek_conn", "zeek_dns", "zeek_http", "zeek_ssl",
-                     "tshark_stream"}
-    if types & network_types:
+    # Suricata/PCAP evidence → Suricata (exclude Zeek — its field names
+    # are Zeek abstractions like conn_state "OTH" that don't exist on the wire)
+    suricata_types = {"suricata_alert", "suricata_flow", "suricata_http", "suricata_dns",
+                      "suricata_tls", "tshark_stream"}
+    if types & suricata_types:
         rule_types.append("suricata")
 
     return rule_types or ["suricata"]  # default to suricata if unclear
@@ -127,18 +127,20 @@ def generate_sigma_rule(
         f"## Finding\n"
         f"Title: {finding.get('title', '')}\n"
         f"Body: {finding.get('body', '')[:2000]}\n"
-        f"Severity: {finding.get('severity', 'medium')}\n"
-        f"MITRE: {', '.join(finding.get('mitre_ids', []))}\n\n"
+        f"Severity: {finding.get('severity', 'medium')}\n\n"
         f"## Supporting Evidence (Windows Event Logs)\n"
         f"```json\n{json.dumps(evidence_summary, indent=2, default=str)[:6000]}\n```\n\n"
+        f"## MITRE ATT&CK (pre-verified, use these exact IDs)\n"
+        f"{', '.join(finding.get('mitre_ids', [])) or 'None identified'}\n\n"
         f"## Instructions\n"
         f"Generate a Sigma rule in YAML format that detects the behavioral pattern "
         f"observed in this finding. The rule should:\n"
         f"1. Use proper Sigma YAML with: title, id (UUID), status, description, "
-        f"logsource, detection, condition, level, tags (MITRE ATT&CK)\n"
+        f"logsource, detection, condition, level, tags\n"
         f"2. Detect the BEHAVIOR, not specific IOCs\n"
         f"3. Use field names that match the Windows event log fields in the evidence\n"
-        f"4. Be general enough to catch similar attacks, not just this specific instance\n\n"
+        f"4. Be general enough to catch similar attacks, not just this specific instance\n"
+        f"5. In the tags section, use ONLY the MITRE IDs listed above (e.g. attack.t1070.006) — do NOT use other IDs\n\n"
         f"Return ONLY the Sigma rule YAML, no other text."
     )
 
@@ -166,12 +168,21 @@ def generate_suricata_rule(
     """Generate a Suricata rule from a finding and its evidence.
 
     Returns dict with title, description, rule_content, sid.
+    Only Suricata and tshark evidence is included — Zeek records are excluded
+    because Zeek field names (conn_state, service labels, etc.) are Zeek
+    abstractions that don't exist in raw network packets.
     """
     sid = _next_suricata_sid()
 
+    # Filter to only Suricata + tshark evidence (exclude Zeek)
+    suricata_evidence = [
+        r for r in evidence_records
+        if r["record_type"].startswith("suricata_") or r["record_type"] == "tshark_stream"
+    ]
+
     # Build evidence context
     evidence_summary = []
-    for r in evidence_records[:10]:
+    for r in suricata_evidence[:10]:
         raw = r["raw"] if isinstance(r["raw"], dict) else {}
         evidence_summary.append({
             "record_type": r["record_type"],
@@ -185,17 +196,30 @@ def generate_suricata_rule(
         "Rules must detect BEHAVIORAL patterns, NOT specific indicators of compromise. "
         "Do NOT use specific IP addresses, domain names, file hashes as match criteria. "
         "Instead, focus on protocol anomalies, payload patterns, traffic behaviors, "
-        "and command sequences that indicate malicious activity."
+        "and command sequences that indicate malicious activity.\n\n"
+        "CRITICAL: Suricata inspects raw network packets. You can ONLY match content "
+        "that is visible on the wire (in packet payloads). Do NOT reference Zeek field "
+        "names (conn_state, service labels like 'OTH', 'SF', 'S0'), host-level artifacts "
+        "(file paths, registry keys, process names), or any data that only exists in "
+        "parsed/processed log output. If the evidence shows command strings from tshark "
+        "stream reconstructions (payload_printable), those ARE wire-visible and can be "
+        "matched with content/pcre. Suricata alerts and flow metadata show what Suricata "
+        "already detected — use them to understand the traffic pattern, then write rules "
+        "to detect the underlying behavior."
     )
 
     user_prompt = (
         f"## Finding\n"
         f"Title: {finding.get('title', '')}\n"
         f"Body: {finding.get('body', '')[:2000]}\n"
-        f"Severity: {finding.get('severity', 'medium')}\n"
-        f"MITRE: {', '.join(finding.get('mitre_ids', []))}\n\n"
-        f"## Supporting Evidence (Network/PCAP)\n"
+        f"Severity: {finding.get('severity', 'medium')}\n\n"
+        f"## Supporting Evidence (Suricata alerts/flows + tshark stream payloads)\n"
+        f"The evidence below comes from Suricata IDS and tshark TCP stream reconstruction.\n"
+        f"tshark payload_printable fields contain actual wire content that can be matched.\n"
+        f"Suricata alerts show what was already detected — use them for context.\n\n"
         f"```json\n{json.dumps(evidence_summary, indent=2, default=str)[:6000]}\n```\n\n"
+        f"## MITRE ATT&CK (pre-verified, use these exact IDs)\n"
+        f"{', '.join(finding.get('mitre_ids', [])) or 'None identified'}\n\n"
         f"## Instructions\n"
         f"Generate one or more Suricata rules that detect the behavioral pattern "
         f"observed in this finding. Each rule must:\n"
@@ -203,8 +227,14 @@ def generate_suricata_rule(
         f"2. Use SID starting at {sid} (increment for additional rules)\n"
         f"3. Use $HOME_NET and $EXTERNAL_NET variables, not literal IPs\n"
         f"4. Include: msg, content/pcre matchers, classtype, sid, rev:1\n"
-        f"5. Include reference:mitre_attack,TXXXX if applicable\n"
-        f"6. Detect BEHAVIOR patterns (command structures, protocol anomalies) not IOCs\n\n"
+        f"5. Use the MITRE IDs listed above in reference:mitre_attack fields — do NOT use other IDs\n"
+        f"6. ONLY match content visible in raw packets (payload strings, protocol fields)\n"
+        f"7. Do NOT try to match Zeek labels, host artifacts, or parsed log fields\n"
+        f"8. Encrypted protocols (SSH, TLS): you can match the handshake/banner but NOT session content\n\n"
+        f"Example of a well-formed rule:\n"
+        f"alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"SPHINX Suspicious HISTFILE Unset via Remote Shell\"; "
+        f"flow:established,to_server; content:\"unset HISTFILE\"; classtype:trojan-activity; "
+        f"sid:9100099; rev:1; reference:mitre_attack,T1070.003;)\n\n"
         f"Return ONLY the Suricata rule(s), one per line, no other text."
     )
 
