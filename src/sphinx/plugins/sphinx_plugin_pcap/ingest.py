@@ -33,6 +33,11 @@ def _parse_timestamp(raw: dict, *keys: str) -> datetime | None:
         if isinstance(val, (int, float)):
             return datetime.fromtimestamp(val, tz=timezone.utc)
         if isinstance(val, str):
+            # Epoch-as-string (e.g. tshark "1735657892.123456")
+            try:
+                return datetime.fromtimestamp(float(val), tz=timezone.utc)
+            except (ValueError, OverflowError, OSError):
+                pass
             for fmt in (
                 "%Y-%m-%dT%H:%M:%S.%f%z",
                 "%Y-%m-%dT%H:%M:%S%z",
@@ -129,7 +134,10 @@ def ingest_tshark(case_id: str, records: list[dict], *, cur=None) -> int:
                 (case_id, json.dumps(raw), ts),
             )
             record_id = c.fetchone()["id"]
-            extract_and_store(case_id, record_id, raw, cur=c)
+            # Strip payload_printable before entity extraction — its escaped
+            # control chars (\r, \n) produce false-positive username entities.
+            entity_raw = {k: v for k, v in raw.items() if k != "payload_printable"}
+            extract_and_store(case_id, record_id, entity_raw, cur=c)
             inserted += 1
         c.connection.commit()
 
