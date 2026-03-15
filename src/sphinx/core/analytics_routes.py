@@ -115,12 +115,12 @@ async def analytics_query(
         total = cur.fetchone()["cnt"]
 
         # Fetch
+        display_cols = get_columns_for_type(cur, case_id, record_type)
         # Build select: system cols + raw JSONB
         sql = f"SELECT id, record_type, ts, source_plugin, raw FROM records WHERE {where} ORDER BY {order_expr} {order_dir} NULLS LAST LIMIT %s OFFSET %s"
         cur.execute(sql, params + [limit, offset])
 
         records = []
-        display_cols = get_columns_for_type(cur, case_id, record_type)
         for row in cur.fetchall():
             rec = {
                 "id": row["id"],
