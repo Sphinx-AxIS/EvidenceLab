@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Edit Rule #{{ rule.id }}{% endblock %}
+
+{% block help %}
+<h3>Edit Detection Rule</h3>
+<p>Edit the rule content, title, and description. Save your changes, then deploy the rule to make it active.</p>
+<ul>
+  <li><strong>Save</strong> — Persist edits to the database. Does not affect the live rules file until deployed.</li>
+  <li><strong>Deploy</strong> — Write the rule to the active rules file (Suricata) or compile to SQL (Sigma). The rule will be used in the next PCAP ingest.</li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>
+    <a href="/ui/admin/data" style="color:var(--muted);text-decoration:none;">&larr; Admin: Data</a>
+    &nbsp;/ Rule #{{ rule.id }}
+  </h2>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+{% if success %}
+<div class="alert alert-success">{{ success }}</div>
+{% endif %}
+
+<div class="card mb-2">
+  <div class="flex gap-1" style="margin-bottom:0.75rem; align-items:center;">
+    <span class="badge {% if rule.rule_type == 'sigma' %}badge-info{% else %}badge-warning{% endif %}">{{ rule.rule_type }}</span>
+    {% if rule.status == 'deployed' %}
+    <span class="badge badge-success" style="background:var(--green);">deployed</span>
+    {% elif rule.status == 'approved' %}
+    <span class="badge badge-success">approved</span>
+    {% elif rule.status == 'pending_review' %}
+    <span class="badge" style="background:var(--blue);">pending review</span>
+    {% else %}
+    <span class="badge badge-muted">{{ rule.status }}</span>
+    {% endif %}
+    {% if rule.sid %}
+    <span style="font-size:0.78rem; color:var(--muted);">SID: {{ rule.sid }}</span>
+    {% endif %}
+    {% if rule.generated_by %}
+    <span style="font-size:0.78rem; color:var(--muted);">origin: {{ rule.generated_by }}</span>
+    {% endif %}
+    {% if rule.case_name %}
+    <span style="font-size:0.78rem; color:var(--muted);">case: {{ rule.case_name }}</span>
+    {% endif %}
+  </div>
+
+  <form method="POST" action="/ui/admin/data/rules/{{ rule.id }}/save">
+    <label for="title">Title</label>
+    <input type="text" id="title" name="title" value="{{ rule.title }}" required style="width:100%; margin-bottom:0.5rem;">
+
+    <label for="description">Description</label>
+    <textarea id="description" name="description" rows="2" style="width:100%; margin-bottom:0.5rem;">{{ rule.description or '' }}</textarea>
+
+    <label for="rule_content">Rule Content</label>
+    <textarea id="rule_content" name="rule_content" rows="12" required
+              style="width:100%; font-family:monospace; font-size:0.85rem; white-space:pre; overflow-x:auto;">{{ rule.rule_content }}</textarea>
+
+    {% for mid in (rule.mitre_ids or []) %}
+    <span class="badge badge-purple" style="margin-top:0.5rem;">{{ mid }}</span>
+    {% endfor %}
+
+    <div class="flex gap-1" style="margin-top:1rem;">
+      <button type="submit" class="btn btn-primary">Save Changes</button>
+    </div>
+  </form>
+
+  <div style="margin-top:0.75rem; border-top:1px solid var(--border); padding-top:0.75rem;">
+    <form method="POST" action="/ui/admin/data/rules/{{ rule.id }}/deploy" style="display:inline;"
+          onsubmit="return confirm('Deploy rule #{{ rule.id }}? This will make it active for the next PCAP ingest.');">
+      <button type="submit" class="btn btn-sm btn-primary">
+        {% if rule.status == 'deployed' %}Re-deploy{% else %}Deploy{% endif %}
+      </button>
+    </form>
+    <form method="POST" action="/ui/admin/data/delete-rule" style="display:inline; margin-left:0.5rem;"
+          onsubmit="return confirm('Delete rule #{{ rule.id }}? This cannot be undone.');">
+      <input type="hidden" name="rule_id" value="{{ rule.id }}">
+      <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+    </form>
+  </div>
+
+  {% if rule.compiled_sql %}
+  <div style="margin-top:1rem;">
+    <label>Compiled SQL (Sigma)</label>
+    <pre style="font-size:0.8rem; background:var(--bg-secondary); padding:0.75rem; border-radius:4px; overflow-x:auto;">{{ rule.compiled_sql }}</pre>
+  </div>
+  {% endif %}
+
+  <div style="margin-top:0.75rem; font-size:0.75rem; color:var(--muted);">
+    Created: {{ rule.created_at[:19] if rule.created_at else '—' }}
+    | Updated: {{ rule.updated_at[:19] if rule.updated_at else '—' }}
+  </div>
+</div>
+{% endblock %}

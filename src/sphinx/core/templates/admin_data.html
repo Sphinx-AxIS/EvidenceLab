@@ -182,6 +182,16 @@
     Manage all detection rules across the platform. Deleting a deployed rule also removes it from the active Suricata rules file.
   </p>
 
+  <!-- Import rules from file -->
+  <div style="margin:0.75rem 0; padding:0.75rem; border:1px solid var(--border); border-radius:6px;">
+    <form method="POST" action="/ui/admin/data/import-rules" enctype="multipart/form-data" style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+      <label style="font-size:0.85rem; color:var(--muted);">Import rules file:</label>
+      <input type="file" name="file" accept=".rules,.yml,.yaml" required style="font-size:0.85rem;">
+      <button type="submit" class="btn btn-sm btn-primary">Import</button>
+      <span style="font-size:0.78rem; color:var(--muted);">Suricata (.rules) or Sigma (.yml/.yaml)</span>
+    </form>
+  </div>
+
   {% if detection_rules %}
   <div class="table-wrap" style="margin-top:0.75rem;">
     <table>
@@ -191,16 +201,19 @@
           <th>Title</th>
           <th>Type</th>
           <th>Status</th>
+          <th>SID</th>
           <th>Origin Case</th>
           <th>Created</th>
-          <th>Action</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
         {% for r in detection_rules %}
         <tr>
           <td class="text-mono">{{ r.id }}</td>
-          <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.title }}</td>
+          <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            <a href="/ui/admin/data/rules/{{ r.id }}">{{ r.title }}</a>
+          </td>
           <td>
             <span class="badge {% if r.rule_type == 'sigma' %}badge-info{% else %}badge-warning{% endif %}">{{ r.rule_type }}</span>
           </td>
@@ -215,9 +228,11 @@
             <span class="badge badge-muted">{{ r.status }}</span>
             {% endif %}
           </td>
+          <td class="text-mono" style="font-size:0.78rem;">{{ r.sid or '—' }}</td>
           <td style="font-size:0.78rem;">{{ r.case_name or '—' }}</td>
           <td class="text-mono" style="font-size:0.78rem;">{{ r.created_at[:10] if r.created_at else '—' }}</td>
-          <td>
+          <td class="flex gap-1">
+            <a href="/ui/admin/data/rules/{{ r.id }}" class="btn btn-sm">Edit</a>
             <form method="POST" action="/ui/admin/data/delete-rule" style="margin:0;"
                   onsubmit="return confirm('Delete rule #{{ r.id }} ({{ r.title }})? If deployed, it will be removed from the active rules file.');">
               <input type="hidden" name="rule_id" value="{{ r.id }}">

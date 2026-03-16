@@ -1604,7 +1604,7 @@ async def admin_data_page(request: Request, success: str = "", error: str = ""):
         # All detection rules
         try:
             cur.execute("""
-                SELECT id, title, rule_type, status, case_name,
+                SELECT id, title, rule_type, status, case_name, sid,
                        created_at::text AS created_at
                 FROM detection_rules
                 ORDER BY created_at DESC
@@ -1741,6 +1741,139 @@ async def admin_delete_rule(request: Request, rule_id: int = Form(...)):
     except Exception as e:
         log.error("Rule deletion failed: %s", e)
         from urllib.parse import quote
+        return RedirectResponse(url=f"/ui/admin/data?error={quote(str(e)[:100])}", status_code=303)
+
+
+@router.get("/admin/data/rules/{rule_id}", response_class=HTMLResponse)
+async def admin_rule_edit_page(request: Request, rule_id: int, success: str = "", error: str = ""):
+    """Admin page to view/edit a single detection rule."""
+    user = _require_admin(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    with get_cursor() as cur:
+        cur.execute(
+            """SELECT id, title, rule_type, status, description, rule_content,
+                      compiled_sql, mitre_ids, sid, case_id, case_name,
+                      generated_by, created_at::text AS created_at, updated_at::text AS updated_at
+               FROM detection_rules WHERE id = %s""",
+            (rule_id,),
+        )
+        rule = cur.fetchone()
+        if not rule:
+            return RedirectResponse(url="/ui/admin/data?error=Rule+not+found", status_code=303)
+
+    return templates.TemplateResponse("admin_rule_edit.html", _ctx(
+        request, user, "admin_data", rule=rule, success=success, error=error,
+    ))
+
+
+@router.post("/admin/data/rules/{rule_id}/save")
+async def admin_rule_save(
+    request: Request,
+    rule_id: int,
+    title: str = Form(...),
+    rule_content: str = Form(...),
+    description: str = Form(""),
+):
+    """Save edits to a detection rule (admin only)."""
+    user = _require_admin(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    from urllib.parse import quote
+    try:
+        with get_cursor() as cur:
+            cur.execute(
+                """UPDATE detection_rules
+                   SET title = %s, rule_content = %s, description = %s, updated_at = now()
+                   WHERE id = %s""",
+                (title, rule_content, description, rule_id),
+            )
+            if cur.rowcount == 0:
+                return RedirectResponse(url="/ui/admin/data?error=Rule+not+found", status_code=303)
+            cur.connection.commit()
+        return RedirectResponse(url=f"/ui/admin/data/rules/{rule_id}?success=Rule+saved", status_code=303)
+    except Exception as e:
+        log.error("Rule save failed: %s", e)
+        return RedirectResponse(url=f"/ui/admin/data/rules/{rule_id}?error={quote(str(e)[:100])}", status_code=303)
+
+
+@router.post("/admin/data/rules/{rule_id}/deploy")
+async def admin_rule_deploy(request: Request, rule_id: int):
+    """Deploy a detection rule (admin only)."""
+    user = _require_admin(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    from urllib.parse import quote
+    with get_cursor() as cur:
+        cur.execute("SELECT rule_type, status FROM detection_rules WHERE id = %s", (rule_id,))
+        rule = cur.fetchone()
+        if not rule:
+            return RedirectResponse(url="/ui/admin/data?error=Rule+not+found", status_code=303)
+
+        # Auto-approve if still pending
+        if rule["status"] in ("pending_review", "draft"):
+            cur.execute(
+                "UPDATE detection_rules SET status = 'approved', updated_at = now() WHERE id = %s",
+                (rule_id,),
+            )
+            cur.connection.commit()
+
+    try:
+        if rule["rule_type"] == "suricata":
+            from sphinx.core.sig_generator import deploy_suricata_rule
+            ok = deploy_suricata_rule(rule_id)
+            if ok:
+                return RedirectResponse(url=f"/ui/admin/data/rules/{rule_id}?success=Suricata+rule+deployed", status_code=303)
+            return RedirectResponse(url=f"/ui/admin/data/rules/{rule_id}?error=Deploy+failed", status_code=303)
+        elif rule["rule_type"] == "sigma":
+            from sphinx.core.sig_generator import compile_sigma_rule
+            ok = compile_sigma_rule(rule_id)
+            msg = "Sigma+rule+compiled+and+deployed" if ok else "Sigma+compile+failed"
+            status = "success" if ok else "error"
+            return RedirectResponse(url=f"/ui/admin/data/rules/{rule_id}?{status}={msg}", status_code=303)
+    except Exception as e:
+        log.error("Admin rule deploy failed: %s", e)
+        return RedirectResponse(url=f"/ui/admin/data/rules/{rule_id}?error={quote(str(e)[:80])}", status_code=303)
+
+    return RedirectResponse(url=f"/ui/admin/data/rules/{rule_id}?error=Unknown+rule+type", status_code=303)
+
+
+@router.post("/admin/data/import-rules")
+async def admin_import_rules(request: Request, file: UploadFile = File(...)):
+    """Import Suricata (.rules) or Sigma (.yml/.yaml) rules from an uploaded file."""
+    user = _require_admin(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    from urllib.parse import quote
+    filename = file.filename or "unknown"
+
+    if not filename.endswith((".rules", ".yml", ".yaml")):
+        return RedirectResponse(
+            url=f"/ui/admin/data?error={quote('Unsupported file type. Upload .rules, .yml, or .yaml files.')}",
+            status_code=303,
+        )
+
+    try:
+        content = (await file.read()).decode("utf-8", errors="replace")
+        from sphinx.core.sig_generator import import_rules_from_file, import_rules_to_db
+        parsed = import_rules_from_file(content, filename)
+        if not parsed:
+            return RedirectResponse(
+                url=f"/ui/admin/data?error={quote(f'No rules found in {filename}')}",
+                status_code=303,
+            )
+        inserted = import_rules_to_db(parsed)
+        skipped = len(parsed) - inserted
+        msg = f"Imported {inserted} rules from {filename}"
+        if skipped:
+            msg += f" ({skipped} duplicates skipped)"
+        return RedirectResponse(url=f"/ui/admin/data?success={quote(msg)}", status_code=303)
+    except Exception as e:
+        log.error("Rule import failed: %s", e)
         return RedirectResponse(url=f"/ui/admin/data?error={quote(str(e)[:100])}", status_code=303)
 
 

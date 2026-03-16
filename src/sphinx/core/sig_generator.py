@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
@@ -389,6 +390,152 @@ def deploy_suricata_rule(rule_id: int, rules_dir: str = "/app/data/suricata-rule
 
     _rebuild_suricata_rules_file(rules_dir)
     return True
+
+
+# ---------------------------------------------------------------------------
+# Rule file import (disk → database)
+# ---------------------------------------------------------------------------
+
+def parse_suricata_rules_file(content: str, source_file: str = "") -> list[dict]:
+    """Parse a Suricata .rules file into individual rule dicts.
+
+    Returns list of dicts with keys: title, rule_content, sid, mitre_ids, description.
+    """
+    rules = []
+    for line in content.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+
+        # Extract msg:"..." for the title
+        msg_match = re.search(r'msg\s*:\s*"([^"]+)"', line)
+        title = msg_match.group(1) if msg_match else f"Imported rule from {source_file}"
+
+        # Extract sid
+        sid_match = re.search(r'\bsid\s*:\s*(\d+)\s*;', line)
+        sid = int(sid_match.group(1)) if sid_match else None
+
+        # Extract MITRE ATT&CK IDs from metadata
+        mitre_ids = re.findall(r'mitre_attack\s+(T\d+(?:\.\d+)?)', line)
+
+        # Extract classtype for description
+        classtype_match = re.search(r'classtype\s*:\s*([^;]+)', line)
+        category_match = re.search(r'category\s+([^;,]+)', line)
+        desc_parts = []
+        if classtype_match:
+            desc_parts.append(f"classtype: {classtype_match.group(1).strip()}")
+        if category_match:
+            desc_parts.append(f"category: {category_match.group(1).strip()}")
+        if source_file:
+            desc_parts.append(f"source: {source_file}")
+
+        rules.append({
+            "title": title,
+            "rule_content": line,
+            "sid": sid,
+            "mitre_ids": mitre_ids,
+            "description": "; ".join(desc_parts) if desc_parts else "",
+            "rule_type": "suricata",
+        })
+
+    return rules
+
+
+def parse_sigma_rules_file(content: str, source_file: str = "") -> list[dict]:
+    """Parse a Sigma YAML file into a rule dict.
+
+    Each .yml file is typically one Sigma rule.
+    Returns a list with one dict (for consistency with Suricata parser).
+    """
+    try:
+        import yaml
+        doc = yaml.safe_load(content)
+    except Exception:
+        # If YAML parsing fails, treat entire content as a single rule
+        return [{
+            "title": f"Imported Sigma rule from {source_file}",
+            "rule_content": content,
+            "sid": None,
+            "mitre_ids": [],
+            "description": f"source: {source_file}" if source_file else "",
+            "rule_type": "sigma",
+        }]
+
+    if not isinstance(doc, dict):
+        return []
+
+    title = doc.get("title", f"Imported Sigma rule from {source_file}")
+
+    # Extract MITRE ATT&CK IDs from tags (e.g., attack.t1059.001)
+    tags = doc.get("tags", []) or []
+    mitre_ids = []
+    for tag in tags:
+        m = re.match(r'attack\.(t\d+(?:\.\d+)?)', str(tag), re.IGNORECASE)
+        if m:
+            mitre_ids.append(m.group(1).upper())
+
+    description = doc.get("description", "")
+    if source_file:
+        description = f"{description}  (source: {source_file})" if description else f"source: {source_file}"
+
+    return [{
+        "title": title,
+        "rule_content": content,
+        "sid": None,
+        "mitre_ids": mitre_ids,
+        "description": description,
+        "rule_type": "sigma",
+    }]
+
+
+def import_rules_from_file(content: str, filename: str) -> list[dict]:
+    """Parse a rules file and return list of rule dicts ready for DB insertion."""
+    if filename.endswith(".rules"):
+        return parse_suricata_rules_file(content, source_file=filename)
+    elif filename.endswith((".yml", ".yaml")):
+        return parse_sigma_rules_file(content, source_file=filename)
+    return []
+
+
+def import_rules_to_db(parsed_rules: list[dict], case_id: str = "") -> int:
+    """Insert parsed rules into the detection_rules table.
+
+    Skips rules whose SID already exists in the database.
+    Returns the number of rules inserted.
+    """
+    inserted = 0
+
+    with get_cursor() as cur:
+        for rule in parsed_rules:
+            # Skip duplicates by SID (for Suricata rules with known SIDs)
+            if rule.get("sid"):
+                cur.execute(
+                    "SELECT id FROM detection_rules WHERE sid = %s",
+                    (rule["sid"],),
+                )
+                if cur.fetchone():
+                    continue
+
+            cur.execute(
+                """INSERT INTO detection_rules
+                   (case_id, rule_type, status, title, description,
+                    rule_content, mitre_ids, sid, generated_by, created_at, updated_at)
+                   VALUES (%s, %s, 'pending_review', %s, %s, %s, %s, %s, 'imported', now(), now())""",
+                (
+                    case_id,
+                    rule["rule_type"],
+                    rule["title"],
+                    rule.get("description", ""),
+                    rule["rule_content"],
+                    rule.get("mitre_ids") or [],
+                    rule.get("sid"),
+                ),
+            )
+            inserted += 1
+
+        cur.connection.commit()
+
+    return inserted
 
 
 # ---------------------------------------------------------------------------
