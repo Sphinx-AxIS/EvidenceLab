@@ -1,4 +1,4 @@
-# Sphinx-AI-IR-Assistant — Design Document
+# EvidenceLab — Design Document
 
 **Date:** 2026-03-14
 **Status:** Approved
@@ -7,7 +7,7 @@
 
 ## 1. Project Overview & Architecture
 
-Sphinx-AI-IR-Assistant is a simplified, plugin-based incident response investigation platform. It follows the same RLM design contract as ResilientCORE (environment-mediated reasoning, full-dataset coverage, audit-first transparency) but strips away complexity in favor of a dashboard-centered, plugin-driven architecture.
+EvidenceLab is a simplified, plugin-based incident response investigation platform. It follows the same RLM design contract as ResilientCORE (environment-mediated reasoning, full-dataset coverage, audit-first transparency) but strips away complexity in favor of a dashboard-centered, plugin-driven architecture.
 
 ### Core Platform
 
@@ -313,7 +313,7 @@ Every step is auditable. Every finding traces back to executed code and evidence
 ### Directory Structure
 
 ```
-sphinx-ai-ir-assistant/
+EvidenceLab/
 ├── docs/
 │   └── plans/
 ├── src/

@@ -36,8 +36,8 @@ LLM inference runs on the host via [LM Studio](https://lmstudio.ai/) (OpenAI-com
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/tom-worthduck/Sphinx-AI-IR-Assistant.git
-   cd Sphinx-AI-IR-Assistant
+   git clone https://github.com/Sphinx-AxIS/EvidenceLab.git
+   cd EvidenceLab
    ```
 
 2. Create your environment file:
@@ -82,7 +82,7 @@ Rules can also be imported into the database via the **Admin: Data** page for ed
 ## Project Structure
 
 ```
-sphinx-ai-ir-assistant/
+EvidenceLab/
 ├── config/
 │   └── suricata/           # Suricata config (offline PCAP mode)
 ├── data/
