@@ -113,6 +113,57 @@ def _init_namespace(
                 )
                 return cur.fetchall()
 
+    def stash(key: str, value, *, description: str = "") -> str:
+        """Save intermediate results to the scratch database. Survives context limits.
+        Retrieve later with recall(key). Overwrites if key exists.
+        """
+        import json as _json
+        data_str = _json.dumps(value, default=str)
+        meta = _json.dumps({"description": description, "size": len(data_str)})
+        with psycopg.connect(DB_URL) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "DELETE FROM scratch_precomputed WHERE case_id = %s AND name = %s",
+                    (case_id, f"_stash_{key}"),
+                )
+                cur.execute(
+                    """INSERT INTO scratch_precomputed (case_id, task_id, name, plugin, data)
+                       VALUES (%s, %s, %s, 'repl_stash', %s)""",
+                    (case_id, task_id, f"_stash_{key}", data_str),
+                )
+            conn.commit()
+        return f"Stashed '{key}' ({len(data_str)} bytes)"
+
+    def recall(key: str):
+        """Retrieve a previously stashed value by key. Returns None if not found."""
+        with psycopg.connect(DB_URL, row_factory=psycopg.rows.dict_row) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT data FROM scratch_precomputed WHERE case_id = %s AND name = %s ORDER BY created_at DESC LIMIT 1",
+                    (case_id, f"_stash_{key}"),
+                )
+                row = cur.fetchone()
+                return row["data"] if row else None
+
+    def stash_list() -> list:
+        """List all stashed keys for the current task."""
+        with psycopg.connect(DB_URL, row_factory=psycopg.rows.dict_row) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """SELECT name, created_at::text AS written_at,
+                              pg_column_size(data) AS size_bytes
+                       FROM scratch_precomputed
+                       WHERE case_id = %s AND name LIKE '_stash_%%'
+                       ORDER BY created_at""",
+                    (case_id,),
+                )
+                return [
+                    {"key": r["name"].replace("_stash_", "", 1),
+                     "written_at": r["written_at"],
+                     "size_bytes": r["size_bytes"]}
+                    for r in cur.fetchall()
+                ]
+
     _namespace.clear()
     _namespace.update({
         "__builtins__": __builtins__,
@@ -135,6 +186,9 @@ def _init_namespace(
         "get_precomputed": get_precomputed,
         "get_docs": get_docs,
         "search": search,
+        "stash": stash,
+        "recall": recall,
+        "stash_list": stash_list,
         "result": None,
     })
 

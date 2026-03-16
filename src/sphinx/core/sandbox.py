@@ -131,6 +131,9 @@ class ReplRunner:
             "get_precomputed": self._tool_get_precomputed,
             "get_docs": self._tool_get_docs,
             "search": self._tool_search,
+            "stash": self._tool_stash,
+            "recall": self._tool_recall,
+            "stash_list": self._tool_stash_list,
             "trunc": _truncate,
             # Result placeholder
             "result": None,
@@ -232,6 +235,50 @@ class ReplRunner:
                 (readable, f"%{query}%", limit),
             )
             return cur.fetchall()
+
+    def _tool_stash(self, key: str, value, *, description: str = "") -> str:
+        """Save intermediate results to scratch DB. Retrieve with recall(key)."""
+        data_str = json.dumps(value, default=str)
+        with get_cursor() as cur:
+            cur.execute(
+                "DELETE FROM scratch_precomputed WHERE case_id = %s AND name = %s",
+                (self.case_id, f"_stash_{key}"),
+            )
+            cur.execute(
+                """INSERT INTO scratch_precomputed (case_id, task_id, name, plugin, data)
+                   VALUES (%s, %s, %s, 'repl_stash', %s)""",
+                (self.case_id, self.task_id, f"_stash_{key}", data_str),
+            )
+            cur.connection.commit()
+        return f"Stashed '{key}' ({len(data_str)} bytes)"
+
+    def _tool_recall(self, key: str):
+        """Retrieve a previously stashed value. Returns None if not found."""
+        with get_cursor() as cur:
+            cur.execute(
+                "SELECT data FROM scratch_precomputed WHERE case_id = %s AND name = %s ORDER BY created_at DESC LIMIT 1",
+                (self.case_id, f"_stash_{key}"),
+            )
+            row = cur.fetchone()
+            return row["data"] if row else None
+
+    def _tool_stash_list(self) -> list:
+        """List all stashed keys for the current task."""
+        with get_cursor() as cur:
+            cur.execute(
+                """SELECT name, created_at::text AS written_at,
+                          pg_column_size(data) AS size_bytes
+                   FROM scratch_precomputed
+                   WHERE case_id = %s AND name LIKE '_stash_%%'
+                   ORDER BY created_at""",
+                (self.case_id,),
+            )
+            return [
+                {"key": r["name"].replace("_stash_", "", 1),
+                 "written_at": r["written_at"],
+                 "size_bytes": r["size_bytes"]}
+                for r in cur.fetchall()
+            ]
 
     def execute(self, code: str) -> dict[str, Any]:
         """Execute a code block and return the step result."""

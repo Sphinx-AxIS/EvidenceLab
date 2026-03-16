@@ -93,6 +93,16 @@ def build_system_prompt(
         "- `get_docs('topic')` — load on-demand documentation\n"
         "- `search('keyword', limit=20)` — full-text search across records\n"
         "- `trunc(text)` — truncate long output\n"
+        "- `stash(key, value)` — save intermediate results to scratch DB\n"
+        "- `recall(key)` — retrieve a previously stashed value\n"
+        "- `stash_list()` — list all stashed keys\n"
+        "\n### Scratch Storage (IMPORTANT)\n"
+        "Use `stash(key, data)` to save large intermediate results (query outputs, "
+        "filtered lists, aggregations) to the database. Then use `recall(key)` in "
+        "later steps. This keeps context small and prevents data loss between steps. "
+        "Do NOT hold large datasets in Python variables or result dicts — stash them.\n"
+        "Example: `stash('suspicious_ips', suspicious_ips)`\n"
+        "Later: `suspicious_ips = recall('suspicious_ips') or []`\n"
     )
 
     # Mode context
@@ -170,18 +180,33 @@ def build_first_step_message(task_text: str) -> str:
     )
 
 
-def build_step_message(step_num: int, stdout: str, error: str | None) -> str:
+def build_step_message(step_num: int, stdout: str, error: str | None, result_val: Any = None, stash_keys: list | None = None) -> str:
     """Build a user message with the output from the previous step."""
     parts = [f"## Step {step_num} — REPL Output\n"]
 
     if stdout:
-        parts.append(f"```\n{stdout}\n```\n")
+        parts.append(f"```\n{stdout[:8000]}\n```\n")
+
+    # If no stdout but there's a result, show a truncated summary
+    if not stdout and not error and result_val is not None:
+        import json
+        try:
+            result_str = json.dumps(result_val, default=str)
+            if len(result_str) > 2000:
+                result_str = result_str[:2000] + "... [truncated]"
+            parts.append(f"**Result (no print output — use `print()` to see data):**\n```\n{result_str}\n```\n")
+        except Exception:
+            parts.append("*Step produced a result but no printed output. Use `print()` to see data.*\n")
     if error:
         parts.append(f"**Error:**\n```\n{error}\n```\n")
         parts.append(
             "Fix the error. Use `describe('type')` to check field names. "
             "Do NOT give up — fix and continue.\n\n"
         )
+
+    # Show stash contents so the model knows what intermediate data is available
+    if stash_keys:
+        parts.append(f"\n**Stash:** {', '.join(stash_keys)}\n")
 
     parts.append(
         "\nContinue the investigation. Write your next code block.\n\n"

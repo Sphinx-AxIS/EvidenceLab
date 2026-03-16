@@ -219,11 +219,27 @@ def run_task(
                 )})
                 continue
 
+        # Fetch stash keys for context
+        stash_keys = []
+        try:
+            with get_cursor() as cur:
+                cur.execute(
+                    """SELECT name FROM scratch_precomputed
+                       WHERE case_id = %s AND name LIKE '_stash_%%'
+                       ORDER BY created_at""",
+                    (case_id,),
+                )
+                stash_keys = [r["name"].replace("_stash_", "", 1) for r in cur.fetchall()]
+        except Exception:
+            pass
+
         # Build next step message
         next_msg = build_step_message(
             step + 1,
             step_result.get("stdout", ""),
             step_result.get("error"),
+            result_val=step_result.get("result"),
+            stash_keys=stash_keys,
         )
         messages.append({"role": "user", "content": next_msg})
 
