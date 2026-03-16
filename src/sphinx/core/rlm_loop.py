@@ -169,10 +169,15 @@ def run_task(
             _log_step(task_id, step, "no_code", "", response, "No code block found", None, 0)
             # Add response to conversation and try again
             messages.append({"role": "assistant", "content": response})
+            messages.append({
+                "role": "user",
+                "content": "You must reply with a fenced Python code block. Try again.",
+            })
+            continue
 
         # Detect repeated code — if the model generates the same code 2+ times,
         # force it to change approach
-        if code and code.strip() == last_code.strip():
+        if code.strip() == last_code.strip():
             repeat_count += 1
             if repeat_count >= 2:
                 log.warning("Task %d: code repeated %d times at step %d, forcing new approach", task_id, repeat_count, step)
@@ -186,12 +191,7 @@ def run_task(
                 continue
         else:
             repeat_count = 0
-        last_code = code or ""
-            messages.append({
-                "role": "user",
-                "content": "You must reply with a fenced Python code block. Try again.",
-            })
-            continue
+        last_code = code
 
         # Execute code
         if use_docker_repl:

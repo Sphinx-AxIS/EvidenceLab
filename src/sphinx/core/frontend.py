@@ -869,7 +869,13 @@ async def job_status_json(request: Request, case_id: str, job_id: int):
     try:
         with get_cursor() as cur:
             # Auto-fix stale running jobs on access
-            _fix_stale_jobs(cur, case_id)
+            try:
+                _fix_stale_jobs(cur, case_id)
+            except Exception:
+                try:
+                    cur.connection.rollback()
+                except Exception:
+                    pass
 
             cur.execute(
                 "SELECT status, summary FROM background_jobs WHERE id = %s AND case_id = %s",
