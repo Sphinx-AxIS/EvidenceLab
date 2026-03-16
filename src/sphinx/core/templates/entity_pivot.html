@@ -14,7 +14,10 @@
 <div class="card-grid mb-2">
   <div class="card">
     <h3>Total References</h3>
-    <div class="value">{{ records|length }}</div>
+    <div class="value">{{ total_refs }}</div>
+    {% if records|length < total_refs %}
+    <div class="label">showing {{ records|length }} most recent</div>
+    {% endif %}
   </div>
   <div class="card">
     <h3>Record Types</h3>

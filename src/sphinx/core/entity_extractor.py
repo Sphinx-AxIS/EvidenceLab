@@ -48,8 +48,10 @@ _RE_SHA256 = re.compile(r"\b[0-9a-fA-F]{64}\b")
 # Hostname (single label, uppercase common in Windows logs)
 _RE_HOSTNAME = re.compile(r"\b[A-Z][A-Z0-9_-]{2,14}\b")
 
-# Username patterns (DOMAIN\user or user@domain)
-_RE_USERNAME = re.compile(r"\b[A-Za-z0-9_-]+\\[A-Za-z0-9_.-]+\b")
+# Username patterns (DOMAIN\user) — require at least 2 chars on each side
+# of the backslash and the right side must start with a letter to avoid
+# matching escaped chars like \r \n \t in serialized data.
+_RE_USERNAME = re.compile(r"\b[A-Za-z][A-Za-z0-9_-]{1,}\\[A-Za-z][A-Za-z0-9_.-]{1,}\b")
 
 PATTERNS = {
     "ip": _RE_IPV4,

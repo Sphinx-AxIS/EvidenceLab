@@ -876,22 +876,38 @@ async def entity_pivot(
         return RedirectResponse(url="/ui/login", status_code=303)
 
     with get_cursor() as cur:
-        # Records containing this entity
+        # Total count for this entity
+        cur.execute(
+            """SELECT count(DISTINCT r.id) AS cnt
+               FROM entities e JOIN records r ON r.id = e.record_id
+               WHERE e.case_id = %s AND e.value = %s AND e.entity_type = %s""",
+            (case_id, value, type),
+        )
+        total_refs = cur.fetchone()["cnt"]
+
+        # Records containing this entity (paginated to avoid timeout)
         cur.execute(
             """SELECT DISTINCT r.id, r.record_type, r.ts::text AS ts
                FROM entities e
                JOIN records r ON r.id = e.record_id
                WHERE e.case_id = %s AND e.value = %s AND e.entity_type = %s
-               ORDER BY r.ts DESC NULLS LAST""",
+               ORDER BY r.ts DESC NULLS LAST
+               LIMIT 200""",
             (case_id, value, type),
         )
         records = cur.fetchall()
 
-        # Record types
-        record_types = sorted({r["record_type"] for r in records})
+        # Record types (from the full set, not just the page)
+        cur.execute(
+            """SELECT DISTINCT r.record_type
+               FROM entities e JOIN records r ON r.id = e.record_id
+               WHERE e.case_id = %s AND e.value = %s AND e.entity_type = %s""",
+            (case_id, value, type),
+        )
+        record_types = sorted(r["record_type"] for r in cur.fetchall())
 
-        # Co-occurring entities (other entities in the same records)
-        record_ids = [r["id"] for r in records]
+        # Co-occurring entities — use a sample of record IDs to keep fast
+        record_ids = [r["id"] for r in records[:100]]
         related_entities = []
         if record_ids:
             cur.execute(
@@ -911,6 +927,7 @@ async def entity_pivot(
         value=value, entity_type=type,
         records=records, record_types=record_types,
         related_entities=related_entities,
+        total_refs=total_refs,
     ))
 
 
