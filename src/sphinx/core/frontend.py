@@ -494,8 +494,8 @@ async def task_new_submit(
 
     with get_cursor() as cur:
         cur.execute(
-            "INSERT INTO tasks (case_id, title, description, status) VALUES (%s, %s, %s, 'pending') RETURNING id",
-            (case_id, question, f"max_steps={max_steps}"),
+            "INSERT INTO tasks (case_id, title, description, status, assigned_to) VALUES (%s, %s, %s, 'pending', %s) RETURNING id",
+            (case_id, question, f"max_steps={max_steps}", user.get("sub")),
         )
         task_id = cur.fetchone()["id"]
         cur.connection.commit()
@@ -554,12 +554,14 @@ async def findings_list(request: Request, case_id: str):
 
     with get_cursor() as cur:
         cur.execute(
-            """SELECT id, title, body AS summary, severity,
-                      evidence_ids, mitre_ids,
-                      created_at::text AS created_at
-               FROM findings
-               WHERE case_id = %s
-               ORDER BY created_at DESC""",
+            """SELECT f.id, f.title, f.body AS summary, f.severity,
+                      f.evidence_ids, f.mitre_ids,
+                      f.created_at::text AS created_at,
+                      t.assigned_to AS owner_id
+               FROM findings f
+               LEFT JOIN tasks t ON t.id = f.task_id
+               WHERE f.case_id = %s
+               ORDER BY f.created_at DESC""",
             (case_id,),
         )
         findings = cur.fetchall()
@@ -567,6 +569,39 @@ async def findings_list(request: Request, case_id: str):
     return templates.TemplateResponse("findings.html", _ctx(
         request, user, "findings", case_id=case_id, findings=findings,
     ))
+
+
+@router.post("/cases/{case_id}/findings/{finding_id}/delete")
+async def finding_delete(request: Request, case_id: str, finding_id: int):
+    """Delete a finding. Admins can delete any; others can only delete their own."""
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    role = user.get("role", "")
+    if role == "llm_agent":
+        return RedirectResponse(url=f"/ui/cases/{case_id}/findings", status_code=303)
+
+    with get_cursor() as cur:
+        cur.execute(
+            """SELECT f.id, t.assigned_to AS owner_id
+               FROM findings f
+               LEFT JOIN tasks t ON t.id = f.task_id
+               WHERE f.id = %s AND f.case_id = %s""",
+            (finding_id, case_id),
+        )
+        finding = cur.fetchone()
+        if not finding:
+            return RedirectResponse(url=f"/ui/cases/{case_id}/findings", status_code=303)
+
+        # Admins can delete any finding; others only their own
+        if role != "admin" and finding["owner_id"] != user.get("sub"):
+            return RedirectResponse(url=f"/ui/cases/{case_id}/findings", status_code=303)
+
+        cur.execute("DELETE FROM findings WHERE id = %s AND case_id = %s", (finding_id, case_id))
+        cur.connection.commit()
+
+    return RedirectResponse(url=f"/ui/cases/{case_id}/findings", status_code=303)
 
 
 # ── Ingest ──────────────────────────────────────────
