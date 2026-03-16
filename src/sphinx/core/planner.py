@@ -149,6 +149,7 @@ def build_first_step_message(task_text: str) -> str:
     """Build the user message for step 1 — forces discovery."""
     return (
         f"## Task\n\n{task_text}\n\n"
+        f"max_steps=15\n\n"
         "## Step 1 — Discovery (MANDATORY)\n\n"
         "Your first code block MUST do ALL of the following:\n\n"
         "```\n"
@@ -163,7 +164,12 @@ def build_first_step_message(task_text: str) -> str:
         "Reply with ONLY a fenced Python code block. "
         "Do NOT simulate or predict output — the REPL will execute "
         "your code and show you the real results.\n\n"
-        "Remember to set `result` at the end of every step."
+        "IMPORTANT: This is step 1 of a multi-step investigation. "
+        "After discovery, you MUST continue with analysis steps. "
+        "Do NOT set `result = {'status': 'done', ...}` on the discovery step. "
+        "For discovery, set `result = {'status': 'discovery_complete'}` instead. "
+        "Only set `status: 'done'` on your FINAL step when you have fully "
+        "answered the task with evidence and citations."
     )
 
 
