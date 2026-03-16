@@ -40,22 +40,11 @@
 
   {% for f in findings %}
   <div class="card mb-2">
-    <div style="display:grid;grid-template-columns:1fr 120px;gap:1rem;">
+    <div style="display:grid;grid-template-columns:1fr auto 120px;gap:1rem;">
       <!-- Finding content -->
       <div>
         <div class="flex gap-1 mb-1" style="align-items:center;">
           <strong>{{ f.title }}</strong>
-          {% if f.severity == 'critical' %}
-          <span class="badge badge-danger">critical</span>
-          {% elif f.severity == 'high' %}
-          <span class="badge badge-danger">high</span>
-          {% elif f.severity == 'medium' %}
-          <span class="badge badge-warning">medium</span>
-          {% elif f.severity == 'low' %}
-          <span class="badge badge-info">low</span>
-          {% else %}
-          <span class="badge badge-muted">info</span>
-          {% endif %}
         </div>
         {% if f.summary %}
         <div style="font-size:0.85rem; white-space:pre-wrap;">{{ f.summary }}</div>
@@ -71,12 +60,26 @@
         </div>
         {% endif %}
       </div>
+      <!-- Severity + date column -->
+      <div style="text-align:center;border-left:1px solid var(--border);padding-left:1rem;min-width:80px;">
+        {% if f.severity == 'critical' %}
+        <span class="badge badge-danger">critical</span>
+        {% elif f.severity == 'high' %}
+        <span class="badge badge-danger">high</span>
+        {% elif f.severity == 'medium' %}
+        <span class="badge badge-warning">medium</span>
+        {% elif f.severity == 'low' %}
+        <span class="badge badge-info">low</span>
+        {% else %}
+        <span class="badge badge-muted">info</span>
+        {% endif %}
+        <div class="text-muted" style="font-size:0.7rem;margin-top:0.4rem;">{{ f.created_at[:10] if f.created_at else '' }}</div>
+      </div>
       <!-- Selection column -->
       <div style="text-align:center;border-left:1px solid var(--border);padding-left:1rem;">
         <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:0.4rem;">Select for<br>detection composer</div>
         <input type="checkbox" name="finding_ids" value="{{ f.id }}" class="finding-checkbox"
                style="width:22px;height:22px;cursor:pointer;accent-color:var(--accent);">
-        <div class="text-muted" style="font-size:0.7rem;margin-top:0.5rem;">{{ f.created_at[:10] if f.created_at else '' }}</div>
       </div>
     </div>
   </div>
