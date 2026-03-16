@@ -197,9 +197,23 @@ def run_task(
         # Check if done
         result_val = step_result.get("result")
         if isinstance(result_val, dict) and result_val.get("status") == "done":
-            final_result = result_val
-            log.info("Task %d completed at step %d", task_id, step)
-            break
+            # Validate citations are real integers, not placeholders
+            citations = result_val.get("citations", [])
+            if citations and all(isinstance(c, int) for c in citations):
+                final_result = result_val
+                log.info("Task %d completed at step %d", task_id, step)
+                break
+            else:
+                log.warning("Task %d step %d: rejected — citations missing or contain placeholders", task_id, step)
+                # Tell the LLM to fix it
+                messages.append({"role": "assistant", "content": f"```python\n{step_result.get('stdout', '')}\n```"})
+                messages.append({"role": "user", "content": (
+                    "Your result was rejected because `citations` must be a list of "
+                    "actual integer record IDs from the database (e.g. [495, 496, 519]). "
+                    "Do NOT use placeholders like `record_id_1`. Query the database for "
+                    "the specific record IDs that support your findings and try again."
+                )})
+                continue
 
         # Build next step message
         next_msg = build_step_message(
