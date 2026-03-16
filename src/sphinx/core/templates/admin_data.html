@@ -175,4 +175,63 @@
   {% endif %}
 </div>
 
+<!-- Section 4: Detection Rules -->
+<div class="card mb-2">
+  <h3>Detection Rules</h3>
+  <p style="color:var(--muted);font-size:0.85rem;margin-top:0;">
+    Manage all detection rules across the platform. Deleting a deployed rule also removes it from the active Suricata rules file.
+  </p>
+
+  {% if detection_rules %}
+  <div class="table-wrap" style="margin-top:0.75rem;">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Title</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Origin Case</th>
+          <th>Created</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in detection_rules %}
+        <tr>
+          <td class="text-mono">{{ r.id }}</td>
+          <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.title }}</td>
+          <td>
+            <span class="badge {% if r.rule_type == 'sigma' %}badge-info{% else %}badge-warning{% endif %}">{{ r.rule_type }}</span>
+          </td>
+          <td>
+            {% if r.status == 'deployed' %}
+            <span class="badge badge-success" style="background:var(--green);">deployed</span>
+            {% elif r.status == 'approved' %}
+            <span class="badge badge-success">approved</span>
+            {% elif r.status == 'pending_review' %}
+            <span class="badge" style="background:var(--blue);">review</span>
+            {% else %}
+            <span class="badge badge-muted">{{ r.status }}</span>
+            {% endif %}
+          </td>
+          <td style="font-size:0.78rem;">{{ r.case_name or '—' }}</td>
+          <td class="text-mono" style="font-size:0.78rem;">{{ r.created_at[:10] if r.created_at else '—' }}</td>
+          <td>
+            <form method="POST" action="/ui/admin/data/delete-rule" style="margin:0;"
+                  onsubmit="return confirm('Delete rule #{{ r.id }} ({{ r.title }})? If deployed, it will be removed from the active rules file.');">
+              <input type="hidden" name="rule_id" value="{{ r.id }}">
+              <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p style="color:var(--muted);">No detection rules found.</p>
+  {% endif %}
+</div>
+
 {% endblock %}

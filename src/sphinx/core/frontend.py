@@ -1507,9 +1507,22 @@ async def admin_data_page(request: Request, success: str = "", error: str = ""):
         """)
         jobs = cur.fetchall()
 
+        # All detection rules
+        try:
+            cur.execute("""
+                SELECT id, title, rule_type, status, case_name,
+                       created_at::text AS created_at
+                FROM detection_rules
+                ORDER BY created_at DESC
+            """)
+            detection_rules = cur.fetchall()
+        except Exception:
+            detection_rules = []
+
     return templates.TemplateResponse("admin_data.html", _ctx(
         request, user, "admin_data",
-        cases=cases, jobs=jobs, success=success, error=error,
+        cases=cases, jobs=jobs, detection_rules=detection_rules,
+        success=success, error=error,
     ))
 
 
@@ -1600,6 +1613,39 @@ async def admin_delete_case(request: Request, case_id: str = Form(...)):
         return RedirectResponse(url=f"/ui/admin/data?success={quote(msg)}", status_code=303)
     except Exception as e:
         log.error("Case deletion failed: %s", e)
+        from urllib.parse import quote
+        return RedirectResponse(url=f"/ui/admin/data?error={quote(str(e)[:100])}", status_code=303)
+
+
+@router.post("/admin/data/delete-rule")
+async def admin_delete_rule(request: Request, rule_id: int = Form(...)):
+    """Delete a detection rule. If deployed, rebuild the Suricata rules file."""
+    user = _require_admin(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    try:
+        with get_cursor() as cur:
+            cur.execute("SELECT id, title, rule_type, status FROM detection_rules WHERE id = %s", (rule_id,))
+            rule = cur.fetchone()
+            if not rule:
+                return RedirectResponse(url="/ui/admin/data?error=Rule+not+found", status_code=303)
+
+            was_deployed = rule["status"] == "deployed" and rule["rule_type"] == "suricata"
+
+            cur.execute("DELETE FROM detection_rules WHERE id = %s", (rule_id,))
+            cur.connection.commit()
+
+        # Rebuild Suricata rules file if a deployed rule was deleted
+        if was_deployed:
+            from sphinx.core.sig_generator import _rebuild_suricata_rules_file
+            _rebuild_suricata_rules_file()
+
+        from urllib.parse import quote
+        msg = f"Deleted rule #{rule_id} ({rule['title']})"
+        return RedirectResponse(url=f"/ui/admin/data?success={quote(msg)}", status_code=303)
+    except Exception as e:
+        log.error("Rule deletion failed: %s", e)
         from urllib.parse import quote
         return RedirectResponse(url=f"/ui/admin/data?error={quote(str(e)[:100])}", status_code=303)
 
