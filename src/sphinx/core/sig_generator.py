@@ -227,14 +227,14 @@ def generate_suricata_rule(
         f"2. Use SID starting at {sid} (increment for additional rules)\n"
         f"3. Use $HOME_NET and $EXTERNAL_NET variables, not literal IPs\n"
         f"4. Include: msg, content/pcre matchers, classtype, sid, rev:1\n"
-        f"5. Use the MITRE IDs listed above in reference:mitre_attack fields — do NOT use other IDs\n"
+        f"5. Use the MITRE IDs listed above in metadata keyword (e.g. metadata:mitre_attack T1070.003;) — do NOT use reference:mitre_attack\n"
         f"6. ONLY match content visible in raw packets (payload strings, protocol fields)\n"
         f"7. Do NOT try to match Zeek labels, host artifacts, or parsed log fields\n"
         f"8. Encrypted protocols (SSH, TLS): you can match the handshake/banner but NOT session content\n\n"
         f"Example of a well-formed rule:\n"
         f"alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"SPHINX Suspicious HISTFILE Unset via Remote Shell\"; "
-        f"flow:established,to_server; content:\"unset HISTFILE\"; classtype:trojan-activity; "
-        f"sid:9100099; rev:1; reference:mitre_attack,T1070.003;)\n\n"
+        f"flow:to_server; content:\"unset HISTFILE\"; classtype:trojan-activity; "
+        f"sid:9100099; rev:1; metadata:mitre_attack T1070.003;)\n\n"
         f"Return ONLY the Suricata rule(s), one per line, no other text."
     )
 
