@@ -854,6 +854,9 @@ async def job_status_json(request: Request, case_id: str, job_id: int):
     # Fallback to DB for historical/completed jobs
     try:
         with get_cursor() as cur:
+            # Auto-fix stale running jobs on access
+            _fix_stale_jobs(cur, case_id)
+
             cur.execute(
                 "SELECT status, summary FROM background_jobs WHERE id = %s AND case_id = %s",
                 (job_id, case_id),
@@ -867,8 +870,17 @@ async def job_status_json(request: Request, case_id: str, job_id: int):
                             media_type="application/json")
 
     summary = row["summary"] or {}
+    status = row["status"]
+
+    # If DB says running but no in-memory entry exists (API restarted),
+    # and the job has inserted records, it actually finished.
+    if status == "running" and summary.get("total_inserted", 0) > 0:
+        status = "done"
+        summary["stage"] = "complete"
+        summary["pct"] = 100
+
     data = {
-        "status": row["status"],
+        "status": status,
         "pct": summary.get("pct", 0),
         "stage": summary.get("stage", ""),
         "total_inserted": summary.get("total_inserted", 0),
