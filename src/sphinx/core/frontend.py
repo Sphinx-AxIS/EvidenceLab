@@ -1738,6 +1738,76 @@ async def detection_rules_list(request: Request, case_id: str, filter: str = "",
     ))
 
 
+@router.get("/cases/{case_id}/detection-rules/new", response_class=HTMLResponse)
+async def detection_rule_new_form(request: Request, case_id: str, error: str = ""):
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+    return templates.TemplateResponse("detection_rule_new.html", _ctx(
+        request, user, "detection_rules", case_id=case_id, error=error,
+    ))
+
+
+@router.post("/cases/{case_id}/detection-rules/new")
+async def detection_rule_new_submit(
+    request: Request, case_id: str,
+    title: str = Form(...),
+    rule_type: str = Form(...),
+    rule_content: str = Form(...),
+    description: str = Form(""),
+    action: str = Form("create"),
+):
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    # Get case name for provenance
+    case_name = ""
+    with get_cursor() as cur:
+        cur.execute("SELECT name FROM cases WHERE id = %s", (case_id,))
+        row = cur.fetchone()
+        if row:
+            case_name = row["name"]
+
+    # Assign SID for Suricata rules
+    sid = None
+    if rule_type == "suricata":
+        from sphinx.core.sig_generator import _next_suricata_sid
+        sid = _next_suricata_sid()
+
+    status = "approved" if action == "create_and_deploy" else "pending_review"
+
+    with get_cursor() as cur:
+        cur.execute(
+            """INSERT INTO detection_rules
+               (case_id, case_name, rule_type, status, title, description,
+                rule_content, generated_by, sid)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, 'manual', %s)
+               RETURNING id""",
+            (case_id, case_name, rule_type, status, title, description,
+             rule_content, sid),
+        )
+        rule_id = cur.fetchone()["id"]
+        cur.connection.commit()
+
+    # Auto-deploy if requested
+    if action == "create_and_deploy":
+        try:
+            if rule_type == "suricata":
+                from sphinx.core.sig_generator import deploy_suricata_rule
+                deploy_suricata_rule(rule_id)
+            elif rule_type == "sigma":
+                from sphinx.core.sig_generator import compile_sigma_rule
+                compile_sigma_rule(rule_id)
+        except Exception as e:
+            log.warning("Auto-deploy failed for rule %d: %s", rule_id, e)
+
+    return RedirectResponse(
+        url=f"/ui/cases/{case_id}/detection-rules/{rule_id}?success=Rule+created",
+        status_code=303,
+    )
+
+
 @router.post("/cases/{case_id}/findings/generate-rules")
 async def generate_rules_submit(request: Request, case_id: str):
     """Generate detection rules from selected findings."""

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}New Detection Rule{% endblock %}
+
+{% block help %}
+<h3>Create Detection Rule</h3>
+<p>Manually write a Suricata or Sigma detection rule. You can also paste rules from external sources.</p>
+
+<h4>Suricata Rules</h4>
+<ul>
+  <li>One rule per line in standard Suricata syntax.</li>
+  <li>Use <code>$HOME_NET</code> and <code>$EXTERNAL_NET</code> variables, not literal IPs.</li>
+  <li>Include: msg, content/pcre matchers, classtype, sid, rev.</li>
+  <li>SID range for custom rules: 9100000+.</li>
+</ul>
+
+<h4>Sigma Rules</h4>
+<ul>
+  <li>Write in YAML format following the Sigma specification.</li>
+  <li>Include: title, logsource, detection, condition, level.</li>
+  <li>When deployed, the rule is compiled to SQL and run against ingested Windows event logs.</li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>New Detection Rule</h2>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+<form method="POST" action="/ui/cases/{{ case_id }}/detection-rules/new" style="max-width:800px;">
+  <div style="margin-bottom:1rem;">
+    <label class="form-label">Title</label>
+    <input type="text" name="title" class="form-control" required
+           placeholder="e.g. ivanti_custom-ssh-tunneling" style="width:100%;">
+  </div>
+
+  <div style="margin-bottom:1rem;">
+    <label class="form-label">Rule Type</label>
+    <select name="rule_type" class="form-control" style="width:200px;">
+      <option value="suricata">Suricata</option>
+      <option value="sigma">Sigma</option>
+    </select>
+  </div>
+
+  <div style="margin-bottom:1rem;">
+    <label class="form-label">Rule Content</label>
+    <textarea name="rule_content" class="form-control text-mono" required
+              style="width:100%;min-height:250px;font-size:0.8rem;white-space:pre;font-family:monospace;"
+              placeholder="alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:&quot;...&quot;; content:&quot;...&quot;; sid:9100100; rev:1;)"></textarea>
+  </div>
+
+  <div style="margin-bottom:1rem;">
+    <label class="form-label">Description (optional)</label>
+    <textarea name="description" class="form-control" rows="2"
+              style="width:100%;" placeholder="What does this rule detect?"></textarea>
+  </div>
+
+  <div class="flex gap-1">
+    <button type="submit" class="btn btn-primary">Create Rule</button>
+    <button type="submit" name="action" value="create_and_deploy" class="btn btn-primary" style="background:var(--green);border-color:var(--green);">Create &amp; Deploy</button>
+    <a href="/ui/cases/{{ case_id }}/detection-rules" class="btn">Cancel</a>
+  </div>
+</form>
+{% endblock %}
