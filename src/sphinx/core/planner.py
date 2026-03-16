@@ -85,6 +85,8 @@ def build_system_prompt(
     sections.append("## Available Tools\n")
     sections.append(
         "- `sql(query, params=())` — execute read-only SQL, returns list of dicts\n"
+        "- `query(record_type, fields, where, params, limit)` — query records with auto case_id filter\n"
+        "   Example: `query('suricata_alert', \"raw->'alert'->>'signature' AS sig, id\", limit=10)`\n"
         "- `describe()` — list record types and counts\n"
         "- `describe('type')` — show fields for a record type\n"
         "- `get_precomputed('name')` — retrieve pre-computed analytics\n"

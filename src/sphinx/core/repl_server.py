@@ -115,6 +115,25 @@ def _init_namespace(
                 row = cur.fetchone()
                 return row["content"] if row else f"No docs for '{topic}'."
 
+    def query(record_type: str, fields: str = "*", where: str = "", params: tuple = (), limit: int = 100) -> list[dict]:
+        """Query records by type with automatic case_id filtering.
+
+        Example: query('suricata_alert', "raw->'alert'->>'signature' AS sig, id", limit=10)
+        """
+        sql_where = f"case_id = %s AND record_type = %s"
+        sql_params = [readable_ids[0] if len(readable_ids) == 1 else readable_ids, record_type]
+        if len(readable_ids) > 1:
+            sql_where = f"case_id = ANY(%s) AND record_type = %s"
+        if where:
+            sql_where += f" AND ({where})"
+            sql_params.extend(params)
+        full_sql = f"SELECT {fields} FROM records WHERE {sql_where} LIMIT %s"
+        sql_params.append(limit)
+        with psycopg.connect(DB_URL, row_factory=psycopg.rows.dict_row) as conn:
+            with conn.cursor() as cur:
+                cur.execute(full_sql, sql_params)
+                return cur.fetchall()
+
     def search(query: str, limit: int = 20) -> list[dict]:
         with psycopg.connect(DB_URL, row_factory=psycopg.rows.dict_row) as conn:
             with conn.cursor() as cur:
@@ -193,6 +212,7 @@ def _init_namespace(
         "SOURCE_CASE_IDS": source_case_ids or [],
         "READABLE_CASE_IDS": readable_ids,
         "sql": sql,
+        "query": query,
         "describe": describe,
         "get_precomputed": get_precomputed,
         "get_docs": get_docs,
