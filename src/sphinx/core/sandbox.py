@@ -173,8 +173,17 @@ class ReplRunner:
                 row = cur.fetchone()
                 if not row:
                     return f"No records of type '{record_type}' found."
-                keys = sorted(row["raw"].keys()) if isinstance(row["raw"], dict) else []
-                return f"Fields for '{record_type}': {', '.join(keys)}"
+                raw = row["raw"] if isinstance(row["raw"], dict) else {}
+                keys = sorted(raw.keys())
+                lines = [f"Table: records (filter: record_type = '{record_type}')"]
+                lines.append(f"JSONB keys in raw column: {', '.join(keys)}")
+                lines.append(f"Query: SELECT raw->>'key' FROM records WHERE case_id = CASE_ID AND record_type = '{record_type}'")
+                for k in keys:
+                    v = raw.get(k)
+                    if isinstance(v, dict):
+                        subkeys = sorted(v.keys())
+                        lines.append(f"  {k} (nested): {', '.join(subkeys)} — access via raw->'{k}'->>'subkey'")
+                return "\n".join(lines)
 
     def _tool_get_precomputed(self, name: str) -> Any:
         """Retrieve a pre-computed result by name."""
