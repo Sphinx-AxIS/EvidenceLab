@@ -55,6 +55,42 @@ def _get_user(request: Request) -> Optional[dict]:
         return None
 
 
+def _fix_stale_jobs(cur, case_id: str | None = None) -> None:
+    """Auto-fix stale background jobs.
+
+    - Jobs with results stuck as 'running' → 'done' (after 60 min)
+    - Jobs with no results stuck as 'running' → 'failed' (after 4 hours)
+    """
+    case_filter = "case_id = %s AND" if case_id else ""
+    params = [case_id] if case_id else []
+
+    # Auto-fix jobs that finished but status was never updated
+    cur.execute(
+        f"""UPDATE background_jobs
+            SET status = 'done', updated_at = now()
+            WHERE {case_filter} status = 'running'
+              AND LEAST(created_at, updated_at) < now() - interval '60 minutes'
+              AND summary->>'total_inserted' IS NOT NULL
+              AND (summary->>'total_inserted')::int > 0""",
+        params,
+    )
+
+    # Mark truly abandoned jobs as failed
+    cur.execute(
+        f"""UPDATE background_jobs
+            SET status = 'failed',
+                summary = COALESCE(summary, '{{}}'::jsonb)
+                          || '{{"error": "Abandoned (no progress after 4 hours)"}}'::jsonb,
+                updated_at = now()
+            WHERE {case_filter} status = 'running'
+              AND LEAST(created_at, updated_at) < now() - interval '4 hours'
+              AND (summary->>'total_inserted' IS NULL
+                   OR (summary->>'total_inserted')::int = 0)""",
+        params,
+    )
+    cur.connection.commit()
+
+
 def _require_user(request: Request):
     """Return user dict or raise redirect to login."""
     user = _get_user(request)
@@ -208,37 +244,7 @@ async def dashboard(request: Request, case_id: str = "", mode: str = ""):
             # Background jobs
             bg_jobs = []
             try:
-                # Mark stale running jobs as failed — but ONLY if they have
-                # no results. Jobs that actually produced records finished
-                # successfully even if the in-memory status update was lost
-                # (e.g. API container restarted). 4-hour threshold for true
-                # abandonment (no records, no progress at all).
-                cur.execute(
-                    """UPDATE background_jobs
-                       SET status = 'failed',
-                           summary = COALESCE(summary, '{}'::jsonb)
-                                     || '{"error": "Abandoned (no progress after 4 hours)"}'::jsonb,
-                           updated_at = now()
-                       WHERE case_id = %s AND status = 'running'
-                         AND LEAST(created_at, updated_at) < now() - interval '4 hours'
-                         AND (summary->>'total_inserted' IS NULL
-                              OR (summary->>'total_inserted')::int = 0)""",
-                    (case_id,),
-                )
-                cur.connection.commit()
-
-                # Auto-fix jobs that have results but are stuck as 'running'
-                # (conversion finished but API restarted before status update)
-                cur.execute(
-                    """UPDATE background_jobs
-                       SET status = 'done', updated_at = now()
-                       WHERE case_id = %s AND status = 'running'
-                         AND LEAST(created_at, updated_at) < now() - interval '60 minutes'
-                         AND summary->>'total_inserted' IS NOT NULL
-                         AND (summary->>'total_inserted')::int > 0""",
-                    (case_id,),
-                )
-                cur.connection.commit()
+                _fix_stale_jobs(cur, case_id)
                 cur.execute(
                     """SELECT id, job_type, status, input_name,
                               created_at::text AS created_at,
@@ -1531,6 +1537,12 @@ async def admin_data_page(request: Request, success: str = "", error: str = ""):
         return RedirectResponse(url="/ui/login", status_code=303)
 
     with get_cursor() as cur:
+        # Fix stale jobs globally (not scoped to a single case)
+        try:
+            _fix_stale_jobs(cur)
+        except Exception:
+            pass
+
         # All cases with record counts
         cur.execute("""
             SELECT c.id, c.name, c.status,
