@@ -252,6 +252,9 @@ def run_task_async(
                 for src_id in source_case_ids:
                     log.info("Pre-computing for source case %s, task %d", src_id, task_id)
                     run_precompute(src_id, task_id)
+                from sphinx.core.precompute import run_precompute_cross_case
+                log.info("Running cross-case precompute for %d source cases", len(source_case_ids))
+                run_precompute_cross_case(source_case_ids, case_id, task_id)
             else:
                 log.info("Pre-computing for case %s, task %d", case_id, task_id)
                 run_precompute(case_id, task_id)

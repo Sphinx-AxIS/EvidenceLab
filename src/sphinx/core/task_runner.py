@@ -94,11 +94,15 @@ async def run_task_endpoint(
         from sphinx.core.rlm_loop import run_task, _update_task_status
 
         try:
-            # In correlator mode, precompute for all source cases
+            # In correlator mode, precompute per-case AND cross-case
             if task_mode == "correlator" and task_source_case_ids:
                 for src_id in task_source_case_ids:
                     log.info("Pre-computing for source case %s, task %d", src_id, task_id)
                     run_precompute(src_id, task_id)
+                # Cross-case precompute (shared IOCs, signatures, MITRE overlap)
+                from sphinx.core.precompute import run_precompute_cross_case
+                log.info("Running cross-case precompute for %d source cases", len(task_source_case_ids))
+                run_precompute_cross_case(task_source_case_ids, case_id, task_id)
             else:
                 log.info("Pre-computing for case %s, task %d", case_id, task_id)
                 run_precompute(case_id, task_id)

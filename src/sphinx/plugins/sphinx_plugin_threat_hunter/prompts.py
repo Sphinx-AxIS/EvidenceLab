@@ -7,11 +7,19 @@ You are operating in cross-case correlation mode. Your goal is to identify
 attack patterns and relationships by correlating evidence **across all cases**
 in the database. Findings are written to the currently selected case.
 
-### Correlation Strategy
-1. Start with `get_precomputed('cross_source_ips')` — IPs seen in multiple evidence types
-2. Check `get_precomputed('ioc_summary')` — all extracted indicators ranked by frequency
-3. Check `get_precomputed('attack_surface')` — external services contacted
-4. Query across cases: `sql("SELECT ... FROM records WHERE case_id IN (...)")`
+### Correlation Strategy (use these cross-case pre-computed results FIRST)
+1. `get_precomputed('cross_case_shared_iocs')` — IOCs (IPs, domains, hashes) found in 2+ cases
+2. `get_precomputed('cross_case_shared_signatures')` — Suricata alert signatures triggered in 2+ cases
+3. `get_precomputed('cross_case_shared_destinations')` — External IP:port pairs contacted from 2+ cases
+4. `get_precomputed('cross_case_mitre_overlap')` — MITRE techniques detected in 2+ cases with per-case evidence
+
+### Per-Case Analytics (also available)
+- `get_precomputed('ioc_summary')` — returns a dict keyed by case_id with each case's IOCs
+- `get_precomputed('cross_source_ips')` — per-case IPs seen in multiple evidence types
+- `get_precomputed('attack_surface')` — per-case external destinations
+
+### Direct Queries
+- Use `READABLE_CASE_IDS` in SQL: `sql("SELECT ... FROM records WHERE case_id = ANY(%s)", (READABLE_CASE_IDS,))`
 
 ### Cross-Case Analysis
 - Identify shared IOCs (IPs, domains, hashes) between cases
