@@ -140,6 +140,8 @@ def run_task(
     log.info("Starting RLM loop for task %d (max %d steps)", task_id, max_steps)
 
     final_result = None
+    last_code = ""
+    repeat_count = 0
 
     for step in range(1, max_steps + 1):
         log.info("Task %d — Step %d/%d", task_id, step, max_steps)
@@ -167,6 +169,24 @@ def run_task(
             _log_step(task_id, step, "no_code", "", response, "No code block found", None, 0)
             # Add response to conversation and try again
             messages.append({"role": "assistant", "content": response})
+
+        # Detect repeated code — if the model generates the same code 2+ times,
+        # force it to change approach
+        if code and code.strip() == last_code.strip():
+            repeat_count += 1
+            if repeat_count >= 2:
+                log.warning("Task %d: code repeated %d times at step %d, forcing new approach", task_id, repeat_count, step)
+                messages.append({"role": "assistant", "content": f"```python\n{code}\n```"})
+                messages.append({"role": "user", "content": (
+                    "You are repeating the same code. This code has already been executed "
+                    "and the results are stashed. Use `recall(key)` to retrieve stashed "
+                    "data, then ANALYZE it — do not re-query. Print your analysis and "
+                    "produce a final result with `status: 'done'`."
+                )})
+                continue
+        else:
+            repeat_count = 0
+        last_code = code or ""
             messages.append({
                 "role": "user",
                 "content": "You must reply with a fenced Python code block. Try again.",
