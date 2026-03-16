@@ -1,6 +1,26 @@
 {% extends "base.html" %}
 {% block title %}Findings{% endblock %}
 
+{% block help %}
+<h3>Findings</h3>
+<p>Findings are the results of LLM-powered investigations. Each finding describes what the investigation discovered, with links back to the specific evidence records that support it.</p>
+
+<h4>Generating Detection Rules</h4>
+<ul>
+  <li>Check the box next to one or more findings you want to create detection rules from.</li>
+  <li>Click <strong>Generate Detection Rules from Selected</strong> at the top.</li>
+  <li>The system will analyze the evidence behind each finding and use the LLM to generate behavioral Suricata rules (for network evidence) or Sigma rules (for Windows event logs).</li>
+  <li>Generated rules appear on the <strong>Detection Rules</strong> page for review, editing, and deployment.</li>
+</ul>
+
+<h4>What makes a good finding for rule generation?</h4>
+<ul>
+  <li>Findings with <strong>Evidence IDs</strong> listed — the LLM needs the actual evidence records to write accurate rules.</li>
+  <li>Findings that describe <strong>behavioral patterns</strong> (e.g., "attacker used base64-encoded payloads via SSH") rather than just IOCs (e.g., "attacker IP was 1.2.3.4").</li>
+  <li>Findings with <strong>MITRE ATT&CK</strong> tags — these help the LLM write properly categorized rules.</li>
+</ul>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <h2>Findings</h2>

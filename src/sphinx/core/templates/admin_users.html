@@ -1,6 +1,25 @@
 {% extends "base.html" %}
 {% block title %}User Management{% endblock %}
 
+{% block help %}
+<h3>User Management</h3>
+<p>Create and manage user accounts. Each user has a role that determines what they can access.</p>
+
+<h4>Roles</h4>
+<ul>
+  <li><strong>Admin</strong> — Full platform access. User management, system configuration, data management.</li>
+  <li><strong>Case Manager</strong> — Create and manage cases, assign analysts, view all cases.</li>
+  <li><strong>Analyst</strong> — Investigate assigned cases, run tasks, create findings. Must be assigned to specific cases.</li>
+  <li><strong>LLM Agent</strong> — Service account for automated LLM processes. Scoped to assigned cases only.</li>
+</ul>
+
+<h4>Actions</h4>
+<ul>
+  <li><strong>Manage</strong> — View user details, change role, reset password, assign/unassign cases.</li>
+  <li><strong>Deactivate</strong> — Disable a user account without deleting it. They can no longer log in.</li>
+</ul>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <h2>User Management</h2>

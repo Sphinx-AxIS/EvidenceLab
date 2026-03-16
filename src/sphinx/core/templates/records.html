@@ -1,6 +1,29 @@
 {% extends "base.html" %}
 {% block title %}Records{% endblock %}
 
+{% block help %}
+<h3>Evidence Records</h3>
+<p>Records are the raw evidence data ingested into this case. Each record is a single event or log entry stored as structured JSON.</p>
+
+<h4>Record Types</h4>
+<ul>
+  <li><strong>suricata_alert</strong> — IDS alerts triggered by Suricata rules against PCAP data.</li>
+  <li><strong>suricata_flow</strong> — Network flow metadata from Suricata.</li>
+  <li><strong>zeek_conn</strong> — Connection logs from Zeek (duration, bytes, service, state).</li>
+  <li><strong>zeek_dns / zeek_http / zeek_ssl</strong> — Protocol-specific Zeek logs.</li>
+  <li><strong>tshark_stream</strong> — Reconstructed TCP stream payloads (printable ASCII content).</li>
+  <li><strong>win_evt_*</strong> — Windows Event Log records (Security, PowerShell, Sysmon, etc.).</li>
+  <li><strong>vol_*</strong> — Volatility memory forensics output (processes, network, handles).</li>
+</ul>
+
+<h4>Usage</h4>
+<ul>
+  <li>Use the <strong>type filter</strong> dropdown to narrow by record type.</li>
+  <li>Click a record to see its full JSON content and extracted entities.</li>
+  <li>Records are referenced by ID in findings and detection rules for traceability.</li>
+</ul>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <h2>Records{% if type_filter %} &mdash; <span class="record-type">{{ type_filter }}</span>{% endif %}</h2>

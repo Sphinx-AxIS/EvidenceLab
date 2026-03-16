@@ -1,6 +1,35 @@
 {% extends "base.html" %}
 {% block title %}Rule Review{% endblock %}
 
+{% block help %}
+<h3>Rule Review</h3>
+<p>Review, edit, and manage a detection rule generated from an investigation finding.</p>
+
+<h4>Editing Rules</h4>
+<ul>
+  <li>The <strong>Rule Content</strong> area is editable. You can modify the rule syntax before approving.</li>
+  <li>Click <strong>Save Changes</strong> to update the rule content in the database.</li>
+  <li>After saving edits to a deployed rule, click <strong>Re-deploy</strong> to update the active version.</li>
+</ul>
+
+<h4>Review Actions</h4>
+<ul>
+  <li><strong>Approve</strong> — Accept the rule. It's ready for deployment.</li>
+  <li><strong>Reject</strong> — Discard the rule (too broad, inaccurate, or not useful).</li>
+  <li><strong>Deploy / Re-deploy</strong> — Make the rule active. Suricata rules are written to the rules file; Sigma rules are compiled to SQL for database matching.</li>
+  <li><strong>Re-generate</strong> — Discard the current content and ask the LLM to generate a new version from the same finding and evidence.</li>
+  <li><strong>Export</strong> — Download the rule as a file for use in external tools.</li>
+</ul>
+
+<h4>Quality Checklist</h4>
+<ul>
+  <li>Does the rule detect a <strong>behavior</strong> (not a specific IP, hash, or domain)?</li>
+  <li>For Suricata: does the rule only match content visible in <strong>network packets</strong> (not host-level artifacts)?</li>
+  <li>Is the rule specific enough to avoid false positives in production?</li>
+  <li>Are the MITRE ATT&CK references correct?</li>
+</ul>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <h2>

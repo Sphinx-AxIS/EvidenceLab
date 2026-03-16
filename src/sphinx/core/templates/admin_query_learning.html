@@ -1,6 +1,30 @@
 {% extends "base.html" %}
 {% block title %}Query Learning{% endblock %}
 
+{% block help %}
+<h3>Query Learning</h3>
+<p>This page helps you discover and optimize commonly used investigation queries. Over time, as analysts run investigations, the system tracks which SQL queries the LLM writes most often.</p>
+
+<h4>How it works</h4>
+<ul>
+  <li><strong>Mine Worklog</strong> scans completed investigation tasks and extracts the SQL queries the LLM used. It normalizes them (strips specific IPs, case IDs, etc.) to find patterns.</li>
+  <li><strong>Frequency</strong> shows how many times a pattern appeared across all investigations. Higher frequency = more valuable to pre-compute.</li>
+</ul>
+
+<h4>Actions</h4>
+<ul>
+  <li><strong>Promote</strong> — Converts a frequently-used query into a pre-computed result. You need to provide the Python function path (ask your developer for this). Once promoted, the results are available instantly via <code>get_precomputed()</code> so the LLM doesn't have to rewrite the query.</li>
+  <li><strong>Dismiss</strong> — Hides a pattern you've reviewed and decided isn't worth pre-computing. You can restore dismissed patterns later.</li>
+</ul>
+
+<h4>Filter tabs</h4>
+<ul>
+  <li><strong>Candidates</strong> — Patterns seen 2+ times that haven't been promoted or dismissed yet. Start here.</li>
+  <li><strong>Promoted</strong> — Patterns that have been linked to pre-compute functions.</li>
+  <li><strong>Dismissed</strong> — Patterns you've decided to skip.</li>
+</ul>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <h2>Query Learning</h2>

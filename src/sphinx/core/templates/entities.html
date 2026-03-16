@@ -1,6 +1,27 @@
 {% extends "base.html" %}
 {% block title %}Entities{% endblock %}
 
+{% block help %}
+<h3>Entities</h3>
+<p>Entities are indicators of compromise (IOCs) automatically extracted from evidence records using pattern matching. They help you quickly identify IPs, domains, emails, users, and hashes involved in the incident.</p>
+
+<h4>Entity Types</h4>
+<ul>
+  <li><strong>ip</strong> — IPv4 addresses found in evidence.</li>
+  <li><strong>domain</strong> — Domain names (e.g., mobilemgmt.sd.mil).</li>
+  <li><strong>email</strong> — Email addresses.</li>
+  <li><strong>user</strong> — Username patterns (DOMAIN\user format).</li>
+  <li><strong>url</strong> — Full URLs.</li>
+  <li><strong>hash_md5 / hash_sha1 / hash_sha256</strong> — File hashes.</li>
+</ul>
+
+<h4>Pivot Analysis</h4>
+<ul>
+  <li>Click <strong>Pivot</strong> on any entity to see all records that contain it and which other entities co-occur in those same records.</li>
+  <li>This reveals relationships — e.g., pivoting on an IP shows you every connection, alert, and log entry involving that IP, plus the domains, users, and hashes associated with it.</li>
+</ul>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <h2>Entity Search</h2>

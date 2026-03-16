@@ -1,6 +1,24 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
 
+{% block help %}
+<h3>Dashboard</h3>
+<p>The dashboard is your central hub for managing investigations. Select a case to see its evidence summary, active tasks, and background jobs.</p>
+
+<h4>Investigation Modes</h4>
+<ul>
+  <li><strong>Investigator</strong> — Focus on a single case. The LLM only sees evidence from the selected case. This is the default mode for most investigations.</li>
+  <li><strong>Correlator</strong> — Cross-case analysis. Select multiple source cases to analyze together. The LLM can query evidence across all selected cases to find shared indicators, common attack patterns, and campaign-level connections. Findings are saved to a dedicated correlation case.</li>
+</ul>
+
+<h4>Dashboard Sections</h4>
+<ul>
+  <li><strong>Records by Type</strong> — Evidence ingested into the case, grouped by source (Suricata alerts, Zeek connections, tshark streams, Windows event logs, etc.). Click "View" to browse individual records.</li>
+  <li><strong>Background Jobs</strong> — Long-running operations like PCAP ingest. Shows progress, status, and record counts.</li>
+  <li><strong>Loaded Plugins</strong> — Active analysis plugins providing ingest, detection, and analytics capabilities.</li>
+</ul>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <h2>Dashboard</h2>

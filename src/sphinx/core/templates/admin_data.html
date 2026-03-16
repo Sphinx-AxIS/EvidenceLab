@@ -1,6 +1,24 @@
 {% extends "base.html" %}
 {% block title %}Data Management{% endblock %}
 
+{% block help %}
+<h3>Data Management</h3>
+<p>This page provides administrative tools for deleting evidence, cases, and ingest job data. All deletions are permanent and cannot be undone.</p>
+
+<h4>Deletion Options</h4>
+<ul>
+  <li><strong>Delete Records by Ingest Job</strong> — Remove all evidence records that were created by a specific PCAP or file ingest job. Useful when an ingest produced bad data and needs to be re-run. The job record itself is kept (marked as "deleted") for audit purposes.</li>
+  <li><strong>Delete Case Evidence</strong> — Remove all evidence from a case (records, entities, findings, tasks, worklog, jobs) but keep the case itself. Use this to reset a case for re-investigation.</li>
+  <li><strong>Delete Entire Case</strong> — Permanently remove a case and everything tied to it: evidence, tasks, findings, notes, user assignments, and the case record itself.</li>
+</ul>
+
+<h4>Important Notes</h4>
+<ul>
+  <li>Detection rules generated from a case's findings are <strong>not deleted</strong> — they are independent global assets.</li>
+  <li>Only jobs with linked records show the "Delete Records" button. Jobs without the link (ingested before job tracking was added) can only be cleaned up via the case-level options.</li>
+</ul>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <h2>Data Management</h2>

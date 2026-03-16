@@ -1,6 +1,24 @@
 {% extends "base.html" %}
 {% block title %}Ingest Evidence{% endblock %}
 
+{% block help %}
+<h3>Ingest Evidence</h3>
+<p>Upload evidence files to add them to the current case. The system parses the data, stores it as structured records, and automatically extracts entities (IPs, domains, hashes, etc.).</p>
+
+<h4>Supported Formats</h4>
+<ul>
+  <li><strong>PCAP / PCAPNG</strong> — Network capture files. Automatically processed by Suricata (IDS alerts), Zeek (connection metadata, protocol logs), and tshark (TCP stream reconstruction). Select "PCAP Upload" and choose your capture file.</li>
+  <li><strong>JSON / JSONL</strong> — Structured log files. Select the appropriate record type (e.g., win_evt_security for Windows Security logs) and upload a JSON array or newline-delimited JSON file.</li>
+</ul>
+
+<h4>What Happens During Ingest</h4>
+<ul>
+  <li>PCAP ingest runs in the background — you can monitor progress on the Dashboard.</li>
+  <li>JSON ingest is immediate — records are inserted and you're redirected back with a count.</li>
+  <li>Deployed detection rules (Suricata and Sigma) automatically run against newly ingested evidence.</li>
+</ul>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <h2>Ingest Evidence</h2>
