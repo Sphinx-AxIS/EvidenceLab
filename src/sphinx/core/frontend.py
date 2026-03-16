@@ -1415,6 +1415,13 @@ def _delete_case_tasks(cur, case_id: str) -> dict:
     """Delete tasks and worklog for a case. Returns counts."""
     counts = {}
 
+    # Scratch precomputed can reference tasks via task_id FK
+    cur.execute(
+        "DELETE FROM scratch_precomputed WHERE task_id IN (SELECT id FROM tasks WHERE case_id = %s)",
+        (case_id,),
+    )
+    counts["scratch_precomputed_by_task"] = cur.rowcount
+
     # Worklog steps reference tasks
     cur.execute(
         "DELETE FROM worklog_steps WHERE task_id IN (SELECT id FROM tasks WHERE case_id = %s)",
