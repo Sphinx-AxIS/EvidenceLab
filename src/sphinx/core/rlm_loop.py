@@ -200,6 +200,10 @@ def run_task(
             # Validate citations are real integers, not placeholders
             citations = result_val.get("citations", [])
             if citations and all(isinstance(c, int) for c in citations):
+                # Cap citations at 100 most relevant
+                if len(citations) > 100:
+                    log.warning("Task %d: capping citations from %d to 100", task_id, len(citations))
+                    result_val["citations"] = citations[:100]
                 final_result = result_val
                 log.info("Task %d completed at step %d", task_id, step)
                 break

@@ -75,20 +75,13 @@ def build_system_prompt(
     sections.append("## Rules\n")
     sections.append(
         "- Write ONLY fenced Python code blocks. No prose outside code.\n"
-        "- Do NOT simulate or predict output — the REPL executes your code "
-        "and shows you real results.\n"
-        "- Use `sql()` with WHERE/JOIN/GROUP BY for filtering and aggregation — "
-        "do NOT fetch all records into Python and filter with list comprehensions.\n"
-        "- Record fields are in the `raw` JSONB column — access via "
-        "`raw->>'field'` in SQL, not as top-level dict keys.\n"
+        "- Do NOT simulate or predict output — the REPL executes your code.\n"
+        "- Use `sql()` for queries. Fields are in `raw` JSONB: use `raw->>'field'` in SQL.\n"
         "- Set `result` at the end of every step.\n"
-        "- When done, set `result = {'status': 'done', 'summary': '...', "
-        "'citations': [record_ids]}`\n"
-        "- For MITRE ATT&CK mapping: ALWAYS use `get_precomputed('mitre_detections')` "
-        "as your primary source. It returns a list of dicts, each with keys: "
-        "technique_id, technique_name, tactic, evidence_count, sample_record_ids. "
-        "Do NOT guess technique IDs or field names — use the pre-computed detections. "
-        "You may add techniques only if you find clear evidence not caught by the detector.\n"
+        "- When done: `result = {'status': 'done', 'summary': '...', 'citations': [record_ids]}`\n"
+        "- Citations: ONLY include the most relevant record IDs (max 50). Do NOT cite all records.\n"
+        "- MITRE ATT&CK: use `get_precomputed('mitre_detections')` — it returns "
+        "[{technique_id, technique_name, tactic, evidence_count, sample_record_ids}].\n"
     )
 
     sections.append("## Available Tools\n")
@@ -186,20 +179,14 @@ def build_step_message(step_num: int, stdout: str, error: str | None) -> str:
     if error:
         parts.append(f"**Error:**\n```\n{error}\n```\n")
         parts.append(
-            "**Fix the error above.** Adjust your code to use the correct field "
-            "names and data structures. Use `describe('record_type')` if you are "
-            "unsure of available fields. Do NOT give up or produce a generic summary — "
-            "fix the code and continue the investigation.\n\n"
+            "Fix the error. Use `describe('type')` to check field names. "
+            "Do NOT give up — fix and continue.\n\n"
         )
 
     parts.append(
-        "\nAnalyze the output above. Write your next code block to continue "
-        "the investigation. Set `result` at the end.\n\n"
-        "If you have enough evidence to answer the task, set:\n"
-        "`result = {'status': 'done', 'summary': '...', 'citations': [record_id_ints]}`\n\n"
-        "IMPORTANT: citations must be a list of actual integer record IDs from "
-        "the database, not placeholders. The summary must reference specific "
-        "evidence you found, not generic descriptions."
+        "\nContinue the investigation. Write your next code block.\n\n"
+        "When done: `result = {'status': 'done', 'summary': '...', "
+        "'citations': [max 50 relevant record IDs as integers]}`"
     )
 
     return "".join(parts)
