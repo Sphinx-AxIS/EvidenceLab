@@ -148,11 +148,20 @@ async def dashboard(request: Request, case_id: str = "", mode: str = ""):
 
     with get_cursor() as cur:
         # List cases (include case_type for correlator filtering)
-        cur.execute("""
-            SELECT id, name, status, created_at::text AS created_at,
-                   COALESCE(case_type, 'investigation') AS case_type
-            FROM cases ORDER BY created_at DESC
-        """)
+        # Use a safe query that works even if case_type column hasn't been migrated yet
+        try:
+            cur.execute("""
+                SELECT id, name, status, created_at::text AS created_at,
+                       COALESCE(case_type, 'investigation') AS case_type
+                FROM cases ORDER BY created_at DESC
+            """)
+        except Exception:
+            cur.connection.rollback()
+            cur.execute("""
+                SELECT id, name, status, created_at::text AS created_at,
+                       'investigation' AS case_type
+                FROM cases ORDER BY created_at DESC
+            """)
         cases = cur.fetchall()
 
         summary = {}
