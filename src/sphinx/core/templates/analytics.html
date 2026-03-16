@@ -1,0 +1,698 @@
+{% extends "base.html" %}
+{% block title %}Analytics{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;">
+  <h2>Data Analytics</h2>
+  {% if case_id %}
+  <form method="post" action="/ui/cases/{{ case_id }}/analytics/toggle" style="display:flex;align-items:center;gap:0.5rem;">
+    <span style="font-size:0.8rem;color:var(--text-muted);">Analytics</span>
+    <label class="toggle-switch">
+      <input type="checkbox" {% if analytics_enabled %}checked{% endif %} onchange="this.form.submit()">
+      <span class="toggle-slider"></span>
+    </label>
+  </form>
+  {% endif %}
+</div>
+
+<style>
+.toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute; cursor: pointer; inset: 0;
+  background: var(--border); border-radius: 24px; transition: 0.2s;
+}
+.toggle-slider::before {
+  content: ""; position: absolute; height: 18px; width: 18px;
+  left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.2s;
+}
+.toggle-switch input:checked + .toggle-slider { background: var(--accent); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
+</style>
+
+{% if not case_id %}
+<div class="card"><p class="text-muted">Select a case first.</p></div>
+{% elif not analytics_enabled %}
+<div class="card">
+  <p class="text-muted">Analytics is disabled for this case. Use the toggle above to enable it.</p>
+  <p style="font-size:0.8rem;color:var(--text-muted);">Disable analytics if ingested data is causing errors. Re-enable when ready.</p>
+</div>
+{% else %}
+
+<!-- Summary cards -->
+<div id="analytics-summary" class="card mb-2">Loading evidence type counts...</div>
+
+<!-- Record type tabs -->
+<div class="search-tabs" id="type-tabs" style="margin-top:1rem;"></div>
+
+<!-- Operation mode tabs -->
+<div class="search-tabs" id="mode-tabs" style="margin-top:0.5rem;display:none;">
+  <button class="active" onclick="selectMode(this,'browse')">Browse</button>
+  <button onclick="selectMode(this,'value_counts')">Value Counts</button>
+  <button onclick="selectMode(this,'relationships')">Relationships</button>
+  <button onclick="selectMode(this,'time_series')">Time Series</button>
+  <button onclick="selectMode(this,'top_n')">Top-N</button>
+  <button onclick="selectMode(this,'correlate')">Correlate</button>
+</div>
+
+<!-- Value Counts controls -->
+<div id="vc-controls" class="op-controls" style="display:none;">
+  <div class="flex gap-1" style="align-items:flex-end;">
+    <div>
+      <label class="form-label">Column</label>
+      <select id="vc-column" class="form-control" style="width:220px;"></select>
+    </div>
+  </div>
+</div>
+
+<!-- Relationships controls -->
+<div id="rel-controls" class="op-controls" style="display:none;">
+  <div class="flex gap-1" style="align-items:flex-end;">
+    <div>
+      <label class="form-label">Column A</label>
+      <select id="rel-col-a" class="form-control" style="width:200px;"></select>
+    </div>
+    <div>
+      <label class="form-label">Column B</label>
+      <select id="rel-col-b" class="form-control" style="width:200px;"></select>
+    </div>
+  </div>
+</div>
+
+<!-- Time Series controls -->
+<div id="ts-controls" class="op-controls" style="display:none;">
+  <div class="flex gap-1" style="align-items:flex-end;">
+    <div>
+      <label class="form-label">Interval</label>
+      <select id="ts-interval" class="form-control" style="width:140px;">
+        <option value="minute">Minute</option>
+        <option value="hour" selected>Hour</option>
+        <option value="day">Day</option>
+        <option value="week">Week</option>
+      </select>
+    </div>
+    <div>
+      <label class="form-label">Group By (optional)</label>
+      <select id="ts-group-col" class="form-control" style="width:200px;">
+        <option value="">-- None --</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<!-- Top-N controls -->
+<div id="topn-controls" class="op-controls" style="display:none;">
+  <div class="flex gap-1" style="align-items:flex-end;flex-wrap:wrap;">
+    <div>
+      <label class="form-label">Group By</label>
+      <select id="topn-group-col" class="form-control" style="width:200px;"></select>
+    </div>
+    <div>
+      <label class="form-label">Metric (optional)</label>
+      <select id="topn-metric-col" class="form-control" style="width:200px;">
+        <option value="">-- None --</option>
+      </select>
+    </div>
+    <div>
+      <label class="form-label">Aggregation</label>
+      <select id="topn-agg-func" class="form-control" style="width:160px;">
+        <option value="count">COUNT</option>
+        <option value="sum">SUM</option>
+        <option value="avg">AVG</option>
+        <option value="min">MIN</option>
+        <option value="max">MAX</option>
+        <option value="count_distinct">COUNT DISTINCT</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<!-- Correlate controls -->
+<div id="corr-controls" class="op-controls" style="display:none;">
+  <div class="flex gap-1" style="align-items:flex-end;flex-wrap:wrap;">
+    <div>
+      <label class="form-label">Type A</label>
+      <select id="corr-type-a" class="form-control" style="width:200px;"></select>
+    </div>
+    <div>
+      <label class="form-label">Type B</label>
+      <select id="corr-type-b" class="form-control" style="width:200px;"></select>
+    </div>
+    <div>
+      <label class="form-label">Time Window</label>
+      <select id="corr-window" class="form-control" style="width:160px;">
+        <option value="60">1 minute</option>
+        <option value="300" selected>5 minutes</option>
+        <option value="900">15 minutes</option>
+        <option value="3600">1 hour</option>
+        <option value="86400">24 hours</option>
+      </select>
+    </div>
+    <div>
+      <label class="form-label">Shared Entity (optional)</label>
+      <select id="corr-entity-type" class="form-control" style="width:180px;">
+        <option value="">-- Any (time only) --</option>
+      </select>
+    </div>
+    <div>
+      <button type="button" class="btn btn-primary" onclick="runCorrelate()">Correlate</button>
+    </div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div id="analytics-filters" class="card mb-2" style="display:none;">
+  <h3 style="margin-bottom:0.5rem;">Filters</h3>
+  <div id="filter-rows"></div>
+  <div class="flex gap-1" style="margin-top:0.5rem;">
+    <button type="button" class="btn" onclick="addFilterRow()">+ Add Filter</button>
+    <button type="button" class="btn btn-primary" onclick="runAnalytics()">Query</button>
+    <button type="button" class="btn" onclick="clearFilters()">Clear</button>
+  </div>
+  <div class="flex gap-1" style="margin-top:0.5rem;align-items:flex-end;">
+    <div>
+      <label class="form-label">Limit</label>
+      <input type="number" id="f-limit" value="200" min="1" max="5000" class="form-control" style="width:100px;">
+    </div>
+    <div id="sort-controls">
+      <label class="form-label">Sort By</label>
+      <select id="f-sort-col" class="form-control" style="width:180px;"></select>
+    </div>
+    <div id="sort-dir-control">
+      <label class="form-label">Direction</label>
+      <select id="f-sort-dir" class="form-control" style="width:140px;">
+        <option value="desc">Descending</option>
+        <option value="asc">Ascending</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<!-- Results -->
+<div id="analytics-results" style="display:none;">
+  <div id="results-meta" class="text-muted mb-1" style="font-size:0.8rem;"></div>
+  <div id="results-table" class="table-wrap" style="overflow-x:auto;"></div>
+  <div id="results-paging" class="flex gap-1" style="margin-top:0.5rem;"></div>
+</div>
+
+<style>
+.search-tabs { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+.search-tabs button {
+  padding: 0.35rem 0.75rem; font-size: 0.78rem; border: 1px solid var(--border);
+  background: var(--bg-card); color: var(--text); border-radius: 4px; cursor: pointer;
+}
+.search-tabs button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.search-tabs button:disabled { opacity: 0.4; cursor: default; }
+.op-controls { margin: 0.5rem 0; padding: 0.5rem 0; }
+.filter-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.35rem; }
+.filter-row select, .filter-row input { margin-bottom: 0; }
+.filter-row .filter-col { flex: 2; }
+.filter-row .filter-op { flex: 1; }
+.filter-row .filter-val { flex: 2; }
+.filter-row .filter-rm { flex: 0; min-width: 2rem; padding: 0.25rem 0.5rem; }
+.bar-cell { background: var(--accent); height: 1rem; border-radius: 3px; min-width: 2px; opacity: 0.6; }
+</style>
+
+<script>
+const CASE_ID = '{{ case_id }}';
+
+let currentType = null;
+let currentOffset = 0;
+let currentMode = 'browse';
+let typeColumns = [];
+
+const OP_LABELS = {
+  eq: '=', neq: '!=', contains: 'contains',
+  gt: '>', gte: '>=', lt: '<', lte: '<=',
+  is_null: 'is null', not_null: 'is not null',
+};
+const TEXT_OPS = ['eq', 'neq', 'contains', 'is_null', 'not_null'];
+const NUM_OPS = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'is_null', 'not_null'];
+
+function apiFetch(url) {
+  return fetch(url, { credentials: 'same-origin' }).then(r => r.json());
+}
+
+function loadSummary() {
+  apiFetch(`/api/analytics/summary?case_id=${CASE_ID}`)
+    .then(d => {
+      if (!d.types || d.types.length === 0) {
+        document.getElementById('analytics-summary').innerHTML = '<p class="text-muted">No evidence ingested for this case.</p>';
+        return;
+      }
+
+      let html = '<div class="card-grid">';
+      for (let t of d.types) {
+        html += `<div class="card" style="text-align:center;padding:0.75rem;">
+          <strong>${t.type}</strong><br>
+          <span style="font-size:1.3rem;" class="text-mono">${t.count.toLocaleString()}</span>
+        </div>`;
+      }
+      html += '</div>';
+      document.getElementById('analytics-summary').innerHTML = html;
+
+      let tabs = document.getElementById('type-tabs');
+      let tabHtml = '';
+      for (let t of d.types) {
+        tabHtml += `<button onclick="selectType(this,'${t.type}')">${t.type} (${t.count})</button>`;
+      }
+      tabs.innerHTML = tabHtml;
+
+      // Populate correlate type dropdowns
+      let typeOpts = d.types.map(t => `<option value="${t.type}">${t.type} (${t.count})</option>`).join('');
+      document.getElementById('corr-type-a').innerHTML = typeOpts;
+      document.getElementById('corr-type-b').innerHTML = typeOpts;
+      if (d.types.length > 1) {
+        document.getElementById('corr-type-b').selectedIndex = 1;
+      }
+
+      // Populate entity types for correlate from summary
+      if (d.entity_types && d.entity_types.length > 0) {
+        let etOpts = '<option value="">-- Any (time only) --</option>';
+        for (let et of d.entity_types) {
+          etOpts += `<option value="${et}">${et}</option>`;
+        }
+        document.getElementById('corr-entity-type').innerHTML = etOpts;
+      }
+
+      // Show mode tabs immediately (correlate doesn't need a type selected)
+      document.getElementById('mode-tabs').style.display = '';
+    });
+}
+
+function selectType(btn, recordType) {
+  currentType = recordType;
+  currentOffset = 0;
+  document.querySelectorAll('#type-tabs button').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  apiFetch(`/api/analytics/columns?case_id=${CASE_ID}&record_type=${recordType}`)
+    .then(d => {
+      typeColumns = (d.columns || []).map(c => ({name: c, type: 'text'}));
+
+      let sortSel = document.getElementById('f-sort-col');
+      sortSel.innerHTML = typeColumns.map(c =>
+        `<option value="${c.name}" ${c.name === 'ts' ? 'selected' : ''}>${c.name}</option>`
+      ).join('');
+
+      let colOpts = typeColumns.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+      let colOptsNone = `<option value="">-- None --</option>` + colOpts;
+      document.getElementById('vc-column').innerHTML = colOpts;
+      document.getElementById('rel-col-a').innerHTML = colOpts;
+      document.getElementById('rel-col-b').innerHTML = colOpts;
+      document.getElementById('ts-group-col').innerHTML = colOptsNone;
+      document.getElementById('topn-group-col').innerHTML = colOpts;
+      document.getElementById('topn-metric-col').innerHTML = colOptsNone;
+
+      document.getElementById('mode-tabs').style.display = '';
+      selectMode(document.querySelector('#mode-tabs button'), 'browse');
+      document.getElementById('analytics-filters').style.display = '';
+      document.getElementById('analytics-results').style.display = '';
+      clearFilters();
+    });
+}
+
+function addFilterRow(col, op, val) {
+  let container = document.getElementById('filter-rows');
+  let row = document.createElement('div');
+  row.className = 'filter-row';
+
+  let colSel = document.createElement('select');
+  colSel.className = 'filter-col form-control';
+  for (let c of typeColumns) {
+    let opt = document.createElement('option');
+    opt.value = c.name; opt.textContent = c.name;
+    if (col && c.name === col) opt.selected = true;
+    colSel.appendChild(opt);
+  }
+
+  let opSel = document.createElement('select');
+  opSel.className = 'filter-op form-control';
+  function populateOps() {
+    opSel.innerHTML = '';
+    for (let o of TEXT_OPS) {
+      let opt = document.createElement('option');
+      opt.value = o; opt.textContent = OP_LABELS[o];
+      if (op && o === op) opt.selected = true;
+      opSel.appendChild(opt);
+    }
+    toggleValInput();
+  }
+
+  let valInput = document.createElement('input');
+  valInput.type = 'text'; valInput.className = 'filter-val form-control';
+  valInput.placeholder = 'Value...';
+  if (val !== undefined) valInput.value = val;
+
+  function toggleValInput() {
+    valInput.style.display = (opSel.value === 'is_null' || opSel.value === 'not_null') ? 'none' : '';
+  }
+
+  colSel.addEventListener('change', populateOps);
+  opSel.addEventListener('change', toggleValInput);
+  valInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); runAnalytics(); } });
+
+  let rmBtn = document.createElement('button');
+  rmBtn.className = 'btn filter-rm'; rmBtn.textContent = '\u00d7';
+  rmBtn.onclick = () => row.remove();
+
+  row.appendChild(colSel); row.appendChild(opSel);
+  row.appendChild(valInput); row.appendChild(rmBtn);
+  container.appendChild(row);
+  populateOps();
+}
+
+function collectFilters() {
+  let filters = [];
+  document.querySelectorAll('.filter-row').forEach(row => {
+    let col = row.querySelector('.filter-col').value;
+    let op = row.querySelector('.filter-op').value;
+    let val = row.querySelector('.filter-val').value;
+    if (op === 'is_null' || op === 'not_null' || val.trim() !== '') {
+      filters.push({col, op, val});
+    }
+  });
+  return filters;
+}
+
+function selectMode(btn, mode) {
+  currentMode = mode; currentOffset = 0;
+  document.querySelectorAll('#mode-tabs button').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.querySelectorAll('.op-controls').forEach(el => el.style.display = 'none');
+  let map = { value_counts: 'vc-controls', relationships: 'rel-controls', time_series: 'ts-controls', top_n: 'topn-controls', correlate: 'corr-controls' };
+  if (map[mode]) document.getElementById(map[mode]).style.display = '';
+  let sortShow = mode === 'browse' ? '' : 'none';
+  document.getElementById('sort-controls').style.display = sortShow;
+  document.getElementById('sort-dir-control').style.display = sortShow;
+  // Correlate has its own controls; hide filters panel
+  document.getElementById('analytics-filters').style.display = mode === 'correlate' ? 'none' : '';
+  if (mode === 'correlate') document.getElementById('analytics-results').style.display = '';
+}
+
+function runAnalytics() {
+  switch (currentMode) {
+    case 'browse': return runQuery();
+    case 'value_counts': return runValueCounts();
+    case 'relationships': return runRelationships();
+    case 'time_series': return runTimeSeries();
+    case 'top_n': return runTopN();
+    case 'correlate': return runCorrelate();
+  }
+}
+
+function runValueCounts() {
+  if (!currentType) return;
+  let col = document.getElementById('vc-column').value;
+  if (!col) return;
+  let p = new URLSearchParams();
+  p.set('case_id', CASE_ID); p.set('record_type', currentType);
+  p.set('column', col); p.set('limit', document.getElementById('f-limit').value || '50');
+  let f = collectFilters();
+  if (f.length > 0) p.set('filters', JSON.stringify(f));
+  document.getElementById('results-table').innerHTML = '<p class="text-muted">Querying...</p>';
+  apiFetch('/api/analytics/value-counts?' + p.toString()).then(d => {
+    if (d.error) { document.getElementById('results-table').innerHTML = `<p>${d.error}</p>`; return; }
+    renderValueCounts(d);
+  });
+}
+
+function renderValueCounts(d) {
+  document.getElementById('results-meta').innerHTML = `Value counts for <strong>${d.column}</strong> in ${d.record_type} | ${d.rows.length} unique values | Total: ${d.total.toLocaleString()}`;
+  if (d.rows.length === 0) { document.getElementById('results-table').innerHTML = '<p class="text-muted">No data.</p>'; return; }
+  let maxCount = d.rows[0].count;
+  let html = '<table><thead><tr><th>Value</th><th>Count</th><th>%</th><th style="width:40%;">Distribution</th></tr></thead><tbody>';
+  for (let row of d.rows) {
+    let pct = d.total > 0 ? (row.count / d.total * 100).toFixed(1) : '0';
+    let barW = (row.count / maxCount * 100).toFixed(1);
+    let v = row.value === null ? '<em>NULL</em>' : row.value;
+    let click = row.value !== null ? ` onclick="addFilterRow('${d.column}','eq','${String(row.value).replace(/'/g,"\\'")}')" style="cursor:pointer;" title="Click to filter"` : '';
+    html += `<tr><td${click}>${v}</td><td class="text-mono">${row.count.toLocaleString()}</td><td class="text-mono">${pct}%</td><td><div class="bar-cell" style="width:${barW}%;"></div></td></tr>`;
+  }
+  html += '</tbody></table>';
+  document.getElementById('results-table').innerHTML = html;
+  document.getElementById('results-paging').innerHTML = '';
+}
+
+function runRelationships() {
+  if (!currentType) return;
+  let a = document.getElementById('rel-col-a').value, b = document.getElementById('rel-col-b').value;
+  if (!a || !b) return;
+  let p = new URLSearchParams();
+  p.set('case_id', CASE_ID); p.set('record_type', currentType);
+  p.set('col_a', a); p.set('col_b', b);
+  p.set('limit', document.getElementById('f-limit').value || '100');
+  let f = collectFilters();
+  if (f.length > 0) p.set('filters', JSON.stringify(f));
+  document.getElementById('results-table').innerHTML = '<p class="text-muted">Querying...</p>';
+  apiFetch('/api/analytics/relationships?' + p.toString()).then(d => {
+    if (d.error) { document.getElementById('results-table').innerHTML = `<p>${d.error}</p>`; return; }
+    renderRelationships(d);
+  });
+}
+
+function renderRelationships(d) {
+  document.getElementById('results-meta').innerHTML = `Relationships: <strong>${d.col_a}</strong> → <strong>${d.col_b}</strong> | ${d.unique_a} unique ${d.col_a} | ${d.unique_b} unique ${d.col_b} | ${d.total_pairs} pairs`;
+  if (d.rows.length === 0) { document.getElementById('results-table').innerHTML = '<p class="text-muted">No data.</p>'; return; }
+  let maxCount = d.rows[0].count;
+  let html = `<table><thead><tr><th>${d.col_a}</th><th>${d.col_b}</th><th>Count</th><th style="width:30%;">Volume</th></tr></thead><tbody>`;
+  for (let row of d.rows) {
+    let barW = (row.count / maxCount * 100).toFixed(1);
+    let aV = row.a === null ? '<em>NULL</em>' : row.a;
+    let bV = row.b === null ? '<em>NULL</em>' : row.b;
+    let clickA = row.a !== null ? ` onclick="addFilterRow('${d.col_a}','eq','${String(row.a).replace(/'/g,"\\'")}')" style="cursor:pointer;"` : '';
+    let clickB = row.b !== null ? ` onclick="addFilterRow('${d.col_b}','eq','${String(row.b).replace(/'/g,"\\'")}')" style="cursor:pointer;"` : '';
+    html += `<tr><td${clickA}>${aV}</td><td${clickB}>${bV}</td><td class="text-mono">${row.count.toLocaleString()}</td><td><div class="bar-cell" style="width:${barW}%;"></div></td></tr>`;
+  }
+  html += '</tbody></table>';
+  document.getElementById('results-table').innerHTML = html;
+  document.getElementById('results-paging').innerHTML = '';
+}
+
+function runTimeSeries() {
+  if (!currentType) return;
+  let interval = document.getElementById('ts-interval').value;
+  let groupCol = document.getElementById('ts-group-col').value;
+  let p = new URLSearchParams();
+  p.set('case_id', CASE_ID); p.set('record_type', currentType);
+  p.set('interval', interval);
+  if (groupCol) p.set('group_col', groupCol);
+  p.set('limit', document.getElementById('f-limit').value || '500');
+  let f = collectFilters();
+  if (f.length > 0) p.set('filters', JSON.stringify(f));
+  document.getElementById('results-table').innerHTML = '<p class="text-muted">Querying...</p>';
+  apiFetch('/api/analytics/time-series?' + p.toString()).then(d => {
+    if (d.error) { document.getElementById('results-table').innerHTML = `<p>${d.error}</p>`; return; }
+    renderTimeSeries(d);
+  });
+}
+
+function renderTimeSeries(d) {
+  let groupNote = d.group_col ? ` grouped by <strong>${d.group_col}</strong>` : '';
+  document.getElementById('results-meta').innerHTML = `Time series (${d.interval}) for ${d.record_type}${groupNote} | ${d.rows.length} rows`;
+  if (d.rows.length === 0) { document.getElementById('results-table').innerHTML = '<p class="text-muted">No data.</p>'; return; }
+  let maxCount = Math.max(...d.rows.map(r => r.count));
+  let hasGroup = d.group_col !== null;
+  let html = '<table><thead><tr><th>Time Bucket</th>';
+  if (hasGroup) html += `<th>${d.group_col}</th>`;
+  html += '<th>Count</th><th style="width:40%;">Volume</th></tr></thead><tbody>';
+  for (let row of d.rows) {
+    let barW = maxCount > 0 ? (row.count / maxCount * 100).toFixed(1) : '0';
+    let bucket = row.bucket ? row.bucket.replace('T', ' ').substring(0, 19) : '';
+    html += `<tr><td class="text-mono">${bucket}</td>`;
+    if (hasGroup) {
+      let gV = row.group === null ? '<em>NULL</em>' : row.group;
+      let clickG = row.group !== null ? ` onclick="addFilterRow('${d.group_col}','eq','${String(row.group).replace(/'/g,"\\'")}')" style="cursor:pointer;"` : '';
+      html += `<td${clickG}>${gV}</td>`;
+    }
+    html += `<td class="text-mono">${row.count.toLocaleString()}</td><td><div class="bar-cell" style="width:${barW}%;"></div></td></tr>`;
+  }
+  html += '</tbody></table>';
+  document.getElementById('results-table').innerHTML = html;
+  document.getElementById('results-paging').innerHTML = '';
+}
+
+function runTopN() {
+  if (!currentType) return;
+  let groupCol = document.getElementById('topn-group-col').value;
+  if (!groupCol) return;
+  let metricCol = document.getElementById('topn-metric-col').value;
+  let aggFunc = document.getElementById('topn-agg-func').value;
+  let p = new URLSearchParams();
+  p.set('case_id', CASE_ID); p.set('record_type', currentType);
+  p.set('group_col', groupCol);
+  if (metricCol) { p.set('metric_col', metricCol); p.set('agg_func', aggFunc); }
+  p.set('limit', document.getElementById('f-limit').value || '20');
+  let f = collectFilters();
+  if (f.length > 0) p.set('filters', JSON.stringify(f));
+  document.getElementById('results-table').innerHTML = '<p class="text-muted">Querying...</p>';
+  apiFetch('/api/analytics/top-n?' + p.toString()).then(d => {
+    if (d.error) { document.getElementById('results-table').innerHTML = `<p>${d.error}</p>`; return; }
+    renderTopN(d);
+  });
+}
+
+function renderTopN(d) {
+  let metricNote = d.metric_col ? ` | ${d.agg_func.toUpperCase()}(${d.metric_col})` : '';
+  document.getElementById('results-meta').innerHTML = `Top-N by <strong>${d.group_col}</strong> in ${d.record_type}${metricNote} | ${d.rows.length} groups`;
+  if (d.rows.length === 0) { document.getElementById('results-table').innerHTML = '<p class="text-muted">No data.</p>'; return; }
+  let maxCount = d.rows[0].count;
+  let hasMetric = d.metric_col && d.rows.length > 0 && d.rows[0].metric !== undefined;
+  let html = `<table><thead><tr><th>${d.group_col}</th><th>Count</th>`;
+  if (hasMetric) html += `<th>${d.agg_func.toUpperCase()}(${d.metric_col})</th>`;
+  html += '<th style="width:35%;">Distribution</th></tr></thead><tbody>';
+  for (let row of d.rows) {
+    let barW = maxCount > 0 ? (row.count / maxCount * 100).toFixed(1) : '0';
+    let gV = row.group === null ? '<em>NULL</em>' : row.group;
+    let clickG = row.group !== null ? ` onclick="addFilterRow('${d.group_col}','eq','${String(row.group).replace(/'/g,"\\'")}')" style="cursor:pointer;"` : '';
+    html += `<tr><td${clickG}>${gV}</td><td class="text-mono">${row.count.toLocaleString()}</td>`;
+    if (hasMetric) {
+      let mv = row.metric !== null ? Number(row.metric).toLocaleString(undefined, {maximumFractionDigits: 2}) : '';
+      html += `<td class="text-mono">${mv}</td>`;
+    }
+    html += `<td><div class="bar-cell" style="width:${barW}%;"></div></td></tr>`;
+  }
+  html += '</tbody></table>';
+  document.getElementById('results-table').innerHTML = html;
+  document.getElementById('results-paging').innerHTML = '';
+}
+
+function runQuery() {
+  if (!currentType) return;
+  let p = new URLSearchParams();
+  p.set('case_id', CASE_ID); p.set('record_type', currentType);
+  p.set('limit', document.getElementById('f-limit').value || '200');
+  p.set('offset', currentOffset);
+  let f = collectFilters();
+  if (f.length > 0) p.set('filters', JSON.stringify(f));
+  let sortCol = document.getElementById('f-sort-col').value;
+  let sortDir = document.getElementById('f-sort-dir').value;
+  if (sortCol) p.set('sort_col', sortCol);
+  if (sortDir) p.set('sort_dir', sortDir);
+  document.getElementById('results-table').innerHTML = '<p class="text-muted">Querying...</p>';
+  apiFetch('/api/analytics/query?' + p.toString()).then(d => {
+    if (d.error) { document.getElementById('results-table').innerHTML = `<p>${d.error}</p>`; return; }
+    renderBrowse(d);
+  });
+}
+
+function renderBrowse(d) {
+  let limit = d.limit, offset = d.offset, total = d.total;
+  let showing = Math.min(d.records.length, limit);
+  document.getElementById('results-meta').innerHTML = `Showing ${offset + 1}\u2013${offset + showing} of ${total.toLocaleString()} records`;
+  if (d.records.length === 0) { document.getElementById('results-table').innerHTML = '<p class="text-muted">No records.</p>'; document.getElementById('results-paging').innerHTML = ''; return; }
+  let cols = d.columns;
+  let html = '<table><thead><tr>';
+  for (let col of cols) {
+    html += `<th style="cursor:pointer;white-space:nowrap;" onclick="sortBy('${col}')">${col}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+  for (let rec of d.records) {
+    html += '<tr>';
+    for (let col of cols) {
+      let val = rec[col];
+      if (val === null || val === undefined) val = '';
+      if (col === 'id') {
+        val = `<a href="/ui/cases/${CASE_ID}/records/${val}">${val}</a>`;
+      } else if (col === 'ts' && val) {
+        val = `<span class="text-mono" style="font-size:0.75rem;">${val}</span>`;
+      } else if (typeof val === 'object') {
+        val = JSON.stringify(val);
+      }
+      let s = String(val === undefined || val === null ? '' : val);
+      if (s.length > 80 && col !== 'id') val = `<span title="${s.replace(/"/g,'&quot;')}">${s.substring(0,80)}...</span>`;
+      let raw = rec[col];
+      let cellClick = '';
+      if (raw !== null && raw !== undefined && raw !== '' && col !== 'id') {
+        let escaped = String(raw).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        cellClick = ` onclick="addFilterRow('${col}','eq','${escaped}')" style="cursor:pointer;" title="Click to filter"`;
+      }
+      html += `<td${cellClick}><span style="font-size:0.78rem;">${val}</span></td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  document.getElementById('results-table').innerHTML = html;
+  let pagingHtml = '';
+  if (offset > 0) pagingHtml += `<button class="btn" onclick="pageTo(${Math.max(0, offset - limit)})">Previous</button>`;
+  if (offset + limit < total) pagingHtml += `<button class="btn" onclick="pageTo(${offset + limit})">Next</button>`;
+  document.getElementById('results-paging').innerHTML = pagingHtml;
+}
+
+function sortBy(col) {
+  let sortSel = document.getElementById('f-sort-col');
+  let dirSel = document.getElementById('f-sort-dir');
+  if (sortSel.value === col) { dirSel.value = dirSel.value === 'desc' ? 'asc' : 'desc'; }
+  else { sortSel.value = col; dirSel.value = 'asc'; }
+  currentOffset = 0; runQuery();
+}
+
+function pageTo(newOffset) { currentOffset = newOffset; runQuery(); }
+
+function runCorrelate() {
+  let typeA = document.getElementById('corr-type-a').value;
+  let typeB = document.getElementById('corr-type-b').value;
+  if (!typeA || !typeB) return;
+  let window = document.getElementById('corr-window').value;
+  let entityType = document.getElementById('corr-entity-type').value;
+  let limit = document.getElementById('f-limit').value || '100';
+  let p = new URLSearchParams();
+  p.set('case_id', CASE_ID); p.set('type_a', typeA); p.set('type_b', typeB);
+  p.set('window_seconds', window); p.set('limit', limit);
+  if (entityType) p.set('entity_type', entityType);
+  document.getElementById('results-table').innerHTML = '<p class="text-muted">Correlating...</p>';
+  document.getElementById('analytics-results').style.display = '';
+  apiFetch('/api/analytics/correlate?' + p.toString()).then(d => {
+    if (d.error) { document.getElementById('results-table').innerHTML = `<p>${d.error}</p>`; return; }
+    renderCorrelate(d);
+  });
+}
+
+function renderCorrelate(d) {
+  let windowLabel = {60:'1 min', 300:'5 min', 900:'15 min', 3600:'1 hr', 86400:'24 hr'}[d.window_seconds] || d.window_seconds + 's';
+  let entityNote = d.entity_type ? ` shared <strong>${d.entity_type}</strong>` : ' (time proximity only)';
+  document.getElementById('results-meta').innerHTML =
+    `<strong>${d.type_a}</strong> \u2194 <strong>${d.type_b}</strong> within ${windowLabel}${entityNote} | ${d.total_pairs} pairs found`;
+  if (d.rows.length === 0) {
+    document.getElementById('results-table').innerHTML = '<p class="text-muted">No correlated events found.</p>';
+    document.getElementById('results-paging').innerHTML = '';
+    return;
+  }
+  let hasEntity = d.entity_type !== null;
+  let html = '<table><thead><tr><th>Record A</th><th>Time A</th><th>Record B</th><th>Time B</th><th>\u0394 Time</th>';
+  if (hasEntity) html += '<th>Shared Entity</th>';
+  html += '</tr></thead><tbody>';
+  for (let row of d.rows) {
+    let tsA = row.ts_a ? row.ts_a.replace('T',' ').substring(0,19) : '';
+    let tsB = row.ts_b ? row.ts_b.replace('T',' ').substring(0,19) : '';
+    let delta = row.delta_seconds;
+    let deltaLabel = delta < 60 ? delta + 's' : delta < 3600 ? Math.round(delta/60) + 'm' : Math.round(delta/3600) + 'h';
+    html += `<tr>`;
+    html += `<td><a href="/ui/cases/${CASE_ID}/records/${row.id_a}">${row.type_a} #${row.id_a}</a></td>`;
+    html += `<td class="text-mono" style="font-size:0.75rem;">${tsA}</td>`;
+    html += `<td><a href="/ui/cases/${CASE_ID}/records/${row.id_b}">${row.type_b} #${row.id_b}</a></td>`;
+    html += `<td class="text-mono" style="font-size:0.75rem;">${tsB}</td>`;
+    html += `<td class="text-mono">${deltaLabel}</td>`;
+    if (hasEntity) {
+      let eVal = row.shared_entity_value || '';
+      let eType = row.shared_entity_type || '';
+      html += `<td><a href="/ui/cases/${CASE_ID}/entities/pivot?value=${encodeURIComponent(eVal)}&type=${encodeURIComponent(eType)}">${eType}: ${eVal}</a></td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  document.getElementById('results-table').innerHTML = html;
+  document.getElementById('results-paging').innerHTML = '';
+}
+
+function clearFilters() {
+  document.getElementById('filter-rows').innerHTML = '';
+  document.getElementById('f-limit').value = '200';
+  currentOffset = 0;
+  if (currentType) runQuery();
+}
+
+document.addEventListener('DOMContentLoaded', () => { loadSummary(); });
+</script>
+{% endif %}
+{% endblock %}

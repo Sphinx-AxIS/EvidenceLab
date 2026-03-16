@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% block title %}Data Management{% endblock %}
+
+{% block help %}
+<h3>Data Management</h3>
+<p>This page provides administrative tools for deleting evidence, cases, and ingest job data. All deletions are permanent and cannot be undone.</p>
+
+<h4>Deletion Options</h4>
+<ul>
+  <li><strong>Delete Records by Ingest Job</strong> — Remove all evidence records that were created by a specific PCAP or file ingest job. Useful when an ingest produced bad data and needs to be re-run. The job record itself is kept (marked as "deleted") for audit purposes.</li>
+  <li><strong>Delete Case Evidence</strong> — Remove all evidence from a case (records, entities, findings, tasks, worklog, jobs) but keep the case itself. Use this to reset a case for re-investigation.</li>
+  <li><strong>Delete Entire Case</strong> — Permanently remove a case and everything tied to it: evidence, tasks, findings, notes, user assignments, and the case record itself.</li>
+</ul>
+
+<h4>Important Notes</h4>
+<ul>
+  <li>Detection rules generated from a case's findings are <strong>not deleted</strong> — they are independent global assets.</li>
+  <li>Only jobs with linked records show the "Delete Records" button. Jobs without the link (ingested before job tracking was added) can only be cleaned up via the case-level options.</li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Data Management</h2>
+  <p style="color:var(--muted);margin:0;">Delete evidence records, case data, or entire cases. These actions are irreversible.</p>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+{% if success %}
+<div class="alert alert-success">{{ success }}</div>
+{% endif %}
+
+<!-- Section 1: Delete by Ingest Job -->
+<div class="card mb-2">
+  <h3>Delete Records by Ingest Job</h3>
+  <p style="color:var(--muted);font-size:0.85rem;margin-top:0;">
+    Remove all records that were created by a specific ingest job. Only jobs with linked records can be deleted this way.
+  </p>
+
+  {% if jobs %}
+  <div class="table-wrap" style="margin-top:0.75rem;">
+    <table>
+      <thead>
+        <tr>
+          <th>Job ID</th>
+          <th>Case</th>
+          <th>Type</th>
+          <th>Input</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th>Records</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for j in jobs %}
+        <tr>
+          <td class="text-mono">{{ j.id }}</td>
+          <td>{{ j.case_name }}</td>
+          <td class="text-mono" style="font-size:0.8rem;">{{ j.job_type }}</td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ j.input_name or '—' }}</td>
+          <td>
+            <span class="badge {% if j.status == 'done' %}badge-success{% elif j.status == 'failed' %}badge-danger{% elif j.status == 'running' %}badge-warning{% elif j.status == 'deleted' %}badge-muted{% else %}badge-info{% endif %}">{{ j.status }}</span>
+          </td>
+          <td class="text-mono" style="font-size:0.78rem;">{{ j.created_at[:19] if j.created_at else '—' }}</td>
+          <td class="text-mono">{{ j.record_count }}</td>
+          <td>
+            {% if j.record_count > 0 and j.status != 'deleted' %}
+            <form method="POST" action="/ui/admin/data/delete-job-records" style="margin:0;"
+                  onsubmit="return confirm('Delete {{ j.record_count }} records from job #{{ j.id }} ({{ j.input_name or j.job_type }})? This cannot be undone.');">
+              <input type="hidden" name="job_id" value="{{ j.id }}">
+              <button type="submit" class="btn btn-sm btn-danger">Delete Records</button>
+            </form>
+            {% elif j.status == 'deleted' %}
+            <span class="badge badge-muted">deleted</span>
+            {% else %}
+            <span style="color:var(--muted);font-size:0.8rem;">no linked records</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p style="color:var(--muted);">No ingest jobs found.</p>
+  {% endif %}
+</div>
+
+<!-- Section 2: Delete Case Evidence -->
+<div class="card mb-2">
+  <h3>Delete Case Evidence</h3>
+  <p style="color:var(--muted);font-size:0.85rem;margin-top:0;">
+    Remove all evidence (records, entities, findings, tasks, worklog, jobs) from a case while keeping the case itself.
+  </p>
+
+  {% if cases %}
+  <div class="table-wrap" style="margin-top:0.75rem;">
+    <table>
+      <thead>
+        <tr>
+          <th>Case</th>
+          <th>Status</th>
+          <th>Records</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in cases %}
+        <tr>
+          <td>{{ c.name }}</td>
+          <td><span class="badge {% if c.status == 'open' %}badge-success{% elif c.status == 'closed' %}badge-muted{% else %}badge-info{% endif %}">{{ c.status }}</span></td>
+          <td class="text-mono">{{ c.record_count }}</td>
+          <td>
+            {% if c.record_count > 0 %}
+            <form method="POST" action="/ui/admin/data/delete-case-evidence" style="margin:0;"
+                  onsubmit="return confirm('Delete ALL evidence from case \'{{ c.name }}\'? This removes records, entities, findings, tasks, and jobs. The case itself will remain. This cannot be undone.');">
+              <input type="hidden" name="case_id" value="{{ c.id }}">
+              <button type="submit" class="btn btn-sm btn-danger">Purge Evidence</button>
+            </form>
+            {% else %}
+            <span style="color:var(--muted);font-size:0.8rem;">no records</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p style="color:var(--muted);">No cases found.</p>
+  {% endif %}
+</div>
+
+<!-- Section 3: Delete Entire Case -->
+<div class="card mb-2">
+  <h3>Delete Entire Case</h3>
+  <p style="color:var(--muted);font-size:0.85rem;margin-top:0;">
+    Permanently delete a case and everything tied to it: evidence, tasks, findings, notes, assignments, and the case record itself.
+  </p>
+
+  {% if cases %}
+  <div class="table-wrap" style="margin-top:0.75rem;">
+    <table>
+      <thead>
+        <tr>
+          <th>Case</th>
+          <th>Status</th>
+          <th>Records</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in cases %}
+        <tr>
+          <td>{{ c.name }}</td>
+          <td><span class="badge {% if c.status == 'open' %}badge-success{% elif c.status == 'closed' %}badge-muted{% else %}badge-info{% endif %}">{{ c.status }}</span></td>
+          <td class="text-mono">{{ c.record_count }}</td>
+          <td>
+            <form method="POST" action="/ui/admin/data/delete-case" style="margin:0;"
+                  onsubmit="return confirm('PERMANENTLY DELETE case \'{{ c.name }}\' and ALL associated data? This cannot be undone.');">
+              <input type="hidden" name="case_id" value="{{ c.id }}">
+              <button type="submit" class="btn btn-sm btn-danger">Delete Case</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p style="color:var(--muted);">No cases found.</p>
+  {% endif %}
+</div>
+
+<!-- Section 4: Detection Rules -->
+<div class="card mb-2">
+  <h3>Detection Rules</h3>
+  <p style="color:var(--muted);font-size:0.85rem;margin-top:0;">
+    Manage all detection rules across the platform. Deleting a deployed rule also removes it from the active Suricata rules file.
+  </p>
+
+  <!-- Import rules from file -->
+  <div style="margin:0.75rem 0; padding:0.75rem; border:1px solid var(--border); border-radius:6px;">
+    <form method="POST" action="/ui/admin/data/import-rules" enctype="multipart/form-data" style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+      <label style="font-size:0.85rem; color:var(--muted);">Import rules file:</label>
+      <input type="file" name="file" accept=".rules,.yml,.yaml" required style="font-size:0.85rem;">
+      <button type="submit" class="btn btn-sm btn-primary">Import</button>
+      <span style="font-size:0.78rem; color:var(--muted);">Suricata (.rules) or Sigma (.yml/.yaml)</span>
+    </form>
+  </div>
+
+  {% if detection_rules %}
+  <div class="table-wrap" style="margin-top:0.75rem;">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Title</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>SID</th>
+          <th>Origin Case</th>
+          <th>Created</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in detection_rules %}
+        <tr>
+          <td class="text-mono">{{ r.id }}</td>
+          <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            <a href="/ui/admin/data/rules/{{ r.id }}">{{ r.title }}</a>
+          </td>
+          <td>
+            <span class="badge {% if r.rule_type == 'sigma' %}badge-info{% else %}badge-warning{% endif %}">{{ r.rule_type }}</span>
+          </td>
+          <td>
+            {% if r.status == 'deployed' %}
+            <span class="badge badge-success" style="background:var(--green);">deployed</span>
+            {% elif r.status == 'approved' %}
+            <span class="badge badge-success">approved</span>
+            {% elif r.status == 'pending_review' %}
+            <span class="badge" style="background:var(--blue);">review</span>
+            {% else %}
+            <span class="badge badge-muted">{{ r.status }}</span>
+            {% endif %}
+          </td>
+          <td class="text-mono" style="font-size:0.78rem;">{{ r.sid or '—' }}</td>
+          <td style="font-size:0.78rem;">{{ r.case_name or '—' }}</td>
+          <td class="text-mono" style="font-size:0.78rem;">{{ r.created_at[:10] if r.created_at else '—' }}</td>
+          <td class="flex gap-1">
+            <a href="/ui/admin/data/rules/{{ r.id }}" class="btn btn-sm">Edit</a>
+            <form method="POST" action="/ui/admin/data/delete-rule" style="margin:0;"
+                  onsubmit="return confirm('Delete rule #{{ r.id }} ({{ r.title }})? If deployed, it will be removed from the active rules file.');">
+              <input type="hidden" name="rule_id" value="{{ r.id }}">
+              <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p style="color:var(--muted);">No detection rules found.</p>
+  {% endif %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,192 @@
+# ==========================================================================
+# Suricata configuration for RLM CI Forensics — offline PCAP analysis mode
+# ==========================================================================
+#
+# This config is optimised for batch PCAP processing, not live capture.
+# It produces eve.json (alerts + protocol logs) and extracts files via
+# file-store. The output is then ingested into the records table.
+#
+# On air-gapped systems: place ET Open rules in /app/data/suricata-rules/
+# and they will be picked up automatically.
+
+%YAML 1.1
+---
+
+# Network variables (required by ET Open rules)
+vars:
+  address-groups:
+    HOME_NET: "[192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,214.0.0.0/8]"
+    EXTERNAL_NET: "!$HOME_NET"
+    HTTP_SERVERS: "$HOME_NET"
+    SMTP_SERVERS: "$HOME_NET"
+    SQL_SERVERS: "$HOME_NET"
+    DNS_SERVERS: "$HOME_NET"
+    TELNET_SERVERS: "$HOME_NET"
+    AIM_SERVERS: "$EXTERNAL_NET"
+    DC_SERVERS: "$HOME_NET"
+    DNP3_SERVER: "$HOME_NET"
+    DNP3_CLIENT: "$HOME_NET"
+    MODBUS_CLIENT: "$HOME_NET"
+    MODBUS_SERVER: "$HOME_NET"
+    ENIP_CLIENT: "$HOME_NET"
+    ENIP_SERVER: "$HOME_NET"
+  port-groups:
+    HTTP_PORTS: "80"
+    SHELLCODE_PORTS: "!80"
+    ORACLE_PORTS: 1521
+    SSH_PORTS: 22
+    DNP3_PORTS: 20000
+    MODBUS_PORTS: 502
+    FILE_DATA_PORTS: "[$HTTP_PORTS,110,143]"
+    FTP_PORTS: 21
+    GENEVE_PORTS: 6081
+    VXLAN_PORTS: 4789
+    TEREDO_PORTS: 3544
+
+# Rule files
+default-rule-path: /app/data/suricata-rules/
+rule-files:
+  - "*.rules"
+
+# Logging / output
+stats:
+  enabled: no
+
+outputs:
+  - eve-log:
+      enabled: yes
+      filetype: regular
+      filename: eve.json
+      pcap-file: false
+      community-id: true
+      types:
+        - alert:
+            payload: yes
+            payload-printable: yes
+            tagged-packets: yes
+            metadata: yes
+        - http:
+            extended: yes
+        - dns:
+            version: 2
+        - tls:
+            extended: yes
+        - flow
+        - smtp:
+            extended: yes
+        - ssh
+        - stats:
+            enabled: no
+
+  - file-store:
+      version: 2
+      enabled: yes
+      dir: file-store
+      write-fileinfo: yes
+      stream-depth: 0
+      force-hash:
+        - sha256
+        - md5
+
+# No live capture — we only use -r (read pcap)
+af-packet: []
+pcap: []
+
+# App-layer protocol detection
+app-layer:
+  protocols:
+    http:
+      enabled: yes
+      memcap: 64mb
+      request-body-limit: 4096
+      response-body-limit: 4096
+    tls:
+      enabled: yes
+      detection-ports:
+        dp: 443
+      ja3-fingerprints: yes
+    dns:
+      enabled: yes
+      tcp:
+        enabled: yes
+      udp:
+        enabled: yes
+    smtp:
+      enabled: yes
+      raw-extraction: no
+      mime:
+        decode-mime: yes
+        body-md5: yes
+    ssh:
+      enabled: yes
+      hassh: yes
+    ftp:
+      enabled: yes
+    smb:
+      enabled: yes
+    dcerpc:
+      enabled: yes
+    rdp:
+      enabled: yes
+    dhcp:
+      enabled: yes
+    ntp:
+      enabled: yes
+    ikev2:
+      enabled: yes
+
+# Stream engine
+stream:
+  memcap: 256mb
+  reassembly:
+    memcap: 512mb
+    depth: 1mb
+    toserver-chunk-size: 2560
+    toclient-chunk-size: 2560
+
+# Detection engine
+detect:
+  profile: medium
+  sgh-mpm-context: auto
+
+# Defrag
+defrag:
+  memcap: 32mb
+  max-frags: 65535
+
+# Flow settings
+flow:
+  memcap: 128mb
+  hash-size: 65536
+  prealloc: 10000
+
+flow-timeouts:
+  default:
+    new: 30
+    established: 300
+    closed: 0
+    bypassed: 100
+  tcp:
+    new: 60
+    established: 600
+    closed: 60
+    bypassed: 100
+  udp:
+    new: 30
+    established: 300
+    bypassed: 100
+  icmp:
+    new: 30
+    established: 300
+
+# Host mode (auto for pcap analysis)
+host-mode: auto
+
+# Logging
+logging:
+  default-log-level: notice
+  outputs:
+    - console:
+        enabled: yes
+    - file:
+        enabled: no

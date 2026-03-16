@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign In — Sphinx AI IR</title>
+  <link rel="stylesheet" href="/static/css/sphinx.css">
+  <style>
+    body { display: flex; align-items: center; justify-content: center; }
+    .login-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      width: 360px;
+      box-shadow: var(--shadow);
+    }
+    .login-box h1 { font-size: 1.2rem; margin-bottom: 0.3rem; color: var(--accent); }
+    .login-box .subtitle { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1.5rem; }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <h1>Sphinx AI</h1>
+    <div class="subtitle">INCIDENT RESPONSE ASSISTANT</div>
+
+    {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/ui/login">
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" required autofocus>
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">
+        Sign In
+      </button>
+    </form>
+  </div>
+</body>
+</html>

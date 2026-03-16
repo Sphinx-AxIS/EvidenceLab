@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}User Management{% endblock %}
+
+{% block help %}
+<h3>User Management</h3>
+<p>Create and manage user accounts. Each user has a role that determines what they can access.</p>
+
+<h4>Roles</h4>
+<ul>
+  <li><strong>Admin</strong> — Full platform access. User management, system configuration, data management.</li>
+  <li><strong>Case Manager</strong> — Create and manage cases, assign analysts, view all cases.</li>
+  <li><strong>Analyst</strong> — Investigate assigned cases, run tasks, create findings. Must be assigned to specific cases.</li>
+  <li><strong>LLM Agent</strong> — Service account for automated LLM processes. Scoped to assigned cases only.</li>
+</ul>
+
+<h4>Actions</h4>
+<ul>
+  <li><strong>Manage</strong> — View user details, change role, reset password, assign/unassign cases.</li>
+  <li><strong>Deactivate</strong> — Disable a user account without deleting it. They can no longer log in.</li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>User Management</h2>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+{% if success %}
+<div class="alert alert-success">{{ success }}</div>
+{% endif %}
+
+<!-- Create User -->
+<div class="card mb-2">
+  <h3>Create User</h3>
+  <form method="POST" action="/ui/admin/users" class="flex gap-1" style="flex-wrap:wrap; align-items:flex-end;">
+    <div>
+      <label class="form-label">Username</label>
+      <input type="text" name="username" class="form-control" required minlength="1" maxlength="64" style="width:180px;">
+    </div>
+    <div>
+      <label class="form-label">Password</label>
+      <input type="password" name="password" class="form-control" required minlength="8" style="width:180px;">
+    </div>
+    <div>
+      <label class="form-label">Role</label>
+      <select name="role" class="form-control" style="width:160px;">
+        <option value="analyst">analyst</option>
+        <option value="case_manager">case_manager</option>
+        <option value="admin">admin</option>
+        <option value="llm_agent">llm_agent</option>
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Create</button>
+  </form>
+</div>
+
+<!-- Users Table -->
+<div class="table-wrap">
+  <div class="table-title">Users ({{ users|length }})</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Username</th>
+        <th>Role</th>
+        <th>Status</th>
+        <th>Created</th>
+        <th>Cases</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td class="text-mono">{{ u.username }}</td>
+        <td>
+          <span class="badge {% if u.role == 'admin' %}badge-danger{% elif u.role == 'case_manager' %}badge-warning{% elif u.role == 'llm_agent' %}badge-purple{% else %}badge-info{% endif %}">{{ u.role }}</span>
+        </td>
+        <td>
+          {% if u.active %}
+          <span class="badge badge-success">active</span>
+          {% else %}
+          <span class="badge badge-muted">inactive</span>
+          {% endif %}
+        </td>
+        <td class="text-mono" style="font-size:0.78rem;">{{ u.created_at[:19] if u.created_at else '—' }}</td>
+        <td class="text-mono">{{ u.case_count or 0 }}</td>
+        <td class="flex gap-1">
+          <a href="/ui/admin/users/{{ u.id }}" class="btn btn-sm">Manage</a>
+          {% if u.role != 'admin' %}
+          <form method="POST" action="/ui/admin/users/{{ u.id }}/toggle" style="margin:0;">
+            <button type="submit" class="btn btn-sm {% if u.active %}btn-danger{% else %}btn-primary{% endif %}">
+              {{ 'Deactivate' if u.active else 'Activate' }}
+            </button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

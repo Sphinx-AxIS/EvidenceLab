@@ -1,0 +1,90 @@
+# Sphinx-AI-IR-Assistant — Three-container stack
+#
+# Network topology:
+#   sphinx_internal  (no external access)
+#     ├── db    — PostgreSQL, reachable only from api + repl
+#     └── repl  — Sandboxed REPL, reachable only from api
+#   sphinx_external  (host-exposed)
+#     └── api   — FastAPI server, also on sphinx_internal
+#
+# The REPL container has NO route to the internet.
+# The DB container has NO route to the internet.
+# Only the API container bridges both networks.
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: sphinx
+      POSTGRES_USER: sphinx
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - sphinx_pgdata:/var/lib/postgresql/data
+    networks:
+      - sphinx_internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sphinx"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    command: ["--api"]
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${SPHINX_PORT:-8000}:8000"
+    env_file: ../.env
+    environment:
+      DATABASE_URL: postgresql://sphinx:${POSTGRES_PASSWORD:-changeme}@db:5432/sphinx
+      PGPASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      SPHINX_RUN_BOOTSTRAP: "1"
+      PYTHONUNBUFFERED: "1"
+      REPL_SOCKET: /tmp/repl/sphinx_repl.sock
+    volumes:
+      - ..:/app
+      - repl_socket:/tmp/repl
+    networks:
+      - sphinx_internal
+      - sphinx_external
+    restart: unless-stopped
+
+  repl:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.repl
+    command: ["--repl"]
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: ../.env
+    environment:
+      DATABASE_URL: postgresql://sphinx:${POSTGRES_PASSWORD:-changeme}@db:5432/sphinx
+      PGPASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      PYTHONUNBUFFERED: "1"
+      REPL_SOCKET: /tmp/repl/sphinx_repl.sock
+      # LM Studio on host machine
+      LM_STUDIO_URL: http://host.docker.internal:1234/v1
+    volumes:
+      - ..:/app
+      - repl_socket:/tmp/repl
+    networks:
+      - sphinx_internal
+    # No ports exposed — API communicates with REPL over shared socket
+    restart: unless-stopped
+
+volumes:
+  sphinx_pgdata:
+  repl_socket:
+
+networks:
+  sphinx_internal:
+    driver: bridge
+    internal: true    # No external/internet access
+  sphinx_external:
+    driver: bridge

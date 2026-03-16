@@ -1,0 +1,50 @@
+# Sphinx REPL Sandbox — isolated Python execution environment
+# Contains forensic tools (Suricata, Zeek, tshark, Volatility deps).
+# No external network access at runtime (enforced by docker-compose network config).
+#
+# Forensic tool install is best-effort — packages may not exist for
+# all architectures (e.g. ARM64) or Debian versions. The REPL still
+# functions without them; plugins that need them will report missing tools.
+
+FROM python:3.12-slim
+
+# Core build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libpq-dev gcc postgresql-client ca-certificates curl bash gnupg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Forensic tools — best-effort install (may fail on ARM64 or newer Debian)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        suricata tshark libyara-dev 2>/dev/null \
+    || echo "[sphinx-repl] WARN: some forensic packages unavailable for this platform" \
+    ; rm -rf /var/lib/apt/lists/*
+
+# Zeek — from upstream OBS repo
+RUN echo 'deb http://download.opensuse.org/repositories/security:/zeek/Debian_12/ /' \
+        > /etc/apt/sources.list.d/zeek.list \
+    && curl -fsSL 'https://download.opensuse.org/repositories/security:zeek/Debian_12/Release.key' \
+        | gpg --dearmor -o /etc/apt/trusted.gpg.d/zeek.gpg \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends zeek \
+    && rm -rf /var/lib/apt/lists/* \
+    || echo "[sphinx-repl] WARN: Zeek install failed — skipping"
+
+ENV PATH="/opt/zeek/bin:${PATH}"
+
+WORKDIR /app
+
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+# Suricata config and custom detection rules (LOTL post-compromise)
+COPY config/suricata/suricata.yaml /etc/suricata/suricata.yaml
+COPY data/suricata-rules/ /app/data/suricata-rules/
+
+# REPL does not expose any ports — it is called by the API container
+# over the internal network via an RPC mechanism or direct invocation.
+
+ENTRYPOINT ["./docker/entrypoint.sh"]
+CMD ["--repl"]

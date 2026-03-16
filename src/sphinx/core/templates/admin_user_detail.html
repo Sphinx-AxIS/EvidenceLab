@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}User: {{ target_user.username }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>User: {{ target_user.username }}</h2>
+  <a href="/ui/admin/users" class="btn">Back to Users</a>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+{% if success %}
+<div class="alert alert-success">{{ success }}</div>
+{% endif %}
+
+<!-- User Info -->
+<div class="card-grid mb-2">
+  <div class="card">
+    <h3>Role</h3>
+    <span class="badge {% if target_user.role == 'admin' %}badge-danger{% elif target_user.role == 'case_manager' %}badge-warning{% elif target_user.role == 'llm_agent' %}badge-purple{% else %}badge-info{% endif %}">{{ target_user.role }}</span>
+  </div>
+  <div class="card">
+    <h3>Status</h3>
+    {% if target_user.active %}
+    <span class="badge badge-success">active</span>
+    {% else %}
+    <span class="badge badge-muted">inactive</span>
+    {% endif %}
+  </div>
+  <div class="card">
+    <h3>Created</h3>
+    <span class="text-mono" style="font-size:0.85rem;">{{ target_user.created_at[:19] if target_user.created_at else '—' }}</span>
+  </div>
+</div>
+
+<!-- Change Role -->
+<div class="card mb-2">
+  <h3>Change Role</h3>
+  <form method="POST" action="/ui/admin/users/{{ target_user.id }}/role" class="flex gap-1" style="align-items:flex-end;">
+    <div>
+      <label class="form-label">New Role</label>
+      <select name="role" class="form-control" style="width:180px;">
+        {% for r in ['analyst', 'case_manager', 'admin', 'llm_agent'] %}
+        <option value="{{ r }}" {% if r == target_user.role %}selected{% endif %}>{{ r }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Update</button>
+  </form>
+</div>
+
+<!-- Reset Password -->
+<div class="card mb-2">
+  <h3>Reset Password</h3>
+  <form method="POST" action="/ui/admin/users/{{ target_user.id }}/password" class="flex gap-1" style="align-items:flex-end;">
+    <div>
+      <label class="form-label">New Password</label>
+      <input type="password" name="password" class="form-control" required minlength="8" style="width:220px;">
+    </div>
+    <button type="submit" class="btn btn-primary">Reset</button>
+  </form>
+</div>
+
+<!-- Case Assignments -->
+{% if target_user.role in ('analyst', 'llm_agent') %}
+<div class="card mb-2">
+  <h3>Assign to Case</h3>
+  <form method="POST" action="/ui/admin/users/{{ target_user.id }}/assign" class="flex gap-1" style="align-items:flex-end;">
+    <div>
+      <label class="form-label">Case</label>
+      <select name="case_id" class="form-control" style="width:280px;">
+        {% for c in available_cases %}
+        <option value="{{ c.id }}">{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Assign</button>
+  </form>
+</div>
+
+{% if assignments %}
+<div class="table-wrap mb-2">
+  <div class="table-title">Assigned Cases ({{ assignments|length }})</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Case</th>
+        <th>Assigned</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in assignments %}
+      <tr>
+        <td>{{ a.case_name or a.case_id }}</td>
+        <td class="text-mono" style="font-size:0.78rem;">{{ a.assigned_at[:19] if a.assigned_at else '—' }}</td>
+        <td>
+          <form method="POST" action="/ui/admin/users/{{ target_user.id }}/unassign" style="margin:0;">
+            <input type="hidden" name="case_id" value="{{ a.case_id }}">
+            <button type="submit" class="btn btn-sm btn-danger">Remove</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card mb-2">
+  <p class="text-muted">No case assignments. Admin and case_manager roles have access to all cases automatically.</p>
+</div>
+{% endif %}
+{% else %}
+<div class="card mb-2">
+  <p class="text-muted">Role "{{ target_user.role }}" has access to all cases — no assignments needed.</p>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Tasks{% endblock %}
+
+{% block help %}
+<h3>Investigation Tasks</h3>
+<p>Tasks are investigation questions that the LLM answers by writing and executing Python code against the evidence database.</p>
+
+<h4>How Tasks Work</h4>
+<ul>
+  <li>Click <strong>New Task</strong> to create an investigation question (e.g., "What happened on this host and what techniques were used?").</li>
+  <li>The system runs pre-computation (analytics shortcuts), then starts the LLM investigation loop.</li>
+  <li>The LLM writes Python code, executes it in a sandbox, reads the results, and iterates — up to the max steps you set.</li>
+  <li>Each step is logged in the <strong>worklog</strong> (click a task to see the full trace).</li>
+  <li>When done, the LLM produces a <strong>finding</strong> with a summary and evidence citations.</li>
+</ul>
+
+<h4>Task Status</h4>
+<ul>
+  <li><strong>Pending</strong> — Created but not yet started.</li>
+  <li><strong>Running</strong> — LLM investigation is in progress.</li>
+  <li><strong>Done</strong> — Investigation complete. Check Findings for results.</li>
+  <li><strong>Failed</strong> — Something went wrong. Click the task to see the worklog for error details.</li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Tasks</h2>
+  <a href="/ui/cases/{{ case_id }}/tasks/new" class="btn btn-primary">+ New Task</a>
+</div>
+
+{% if tasks|length == 0 %}
+<div class="empty-state">
+  <div class="icon">&#9881;</div>
+  <p>No tasks yet. Create one to start an LLM investigation.</p>
+</div>
+{% else %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Title</th><th>Status</th><th>Steps</th><th>Created</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for t in tasks %}
+      <tr>
+        <td style="max-width:400px;">{{ t.title[:120] }}{% if t.title|length > 120 %}...{% endif %}</td>
+        <td>
+          {% if t.status == 'done' %}
+          <span class="badge badge-success">done</span>
+          {% elif t.status == 'running' %}
+          <span class="badge badge-warning">running</span>
+          {% elif t.status == 'error' %}
+          <span class="badge badge-danger">error</span>
+          {% else %}
+          <span class="badge badge-muted">{{ t.status }}</span>
+          {% endif %}
+        </td>
+        <td class="text-mono">{{ t.step_count|default(0) }}</td>
+        <td class="text-muted" style="font-size:0.78rem;">{{ t.created_at[:19] if t.created_at else '' }}</td>
+        <td><a href="/ui/cases/{{ case_id }}/tasks/{{ t.id }}" class="btn btn-sm">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

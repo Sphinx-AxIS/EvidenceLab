@@ -1,0 +1,102 @@
+[
+  {
+    "timestamp": "2026-03-10T14:23:01.123456+0000",
+    "event_type": "alert",
+    "src_ip": "10.0.1.50",
+    "src_port": 49821,
+    "dest_ip": "185.143.223.47",
+    "dest_port": 443,
+    "proto": "TCP",
+    "alert": {
+      "action": "allowed",
+      "gid": 1,
+      "signature_id": 2024897,
+      "rev": 3,
+      "signature": "ET MALWARE CobaltStrike Beacon Activity",
+      "category": "A Network Trojan was detected",
+      "severity": 1
+    },
+    "app_proto": "tls",
+    "flow_id": 1234567890
+  },
+  {
+    "timestamp": "2026-03-10T14:23:02.456789+0000",
+    "event_type": "alert",
+    "src_ip": "10.0.1.50",
+    "src_port": 49822,
+    "dest_ip": "185.143.223.47",
+    "dest_port": 443,
+    "proto": "TCP",
+    "alert": {
+      "action": "allowed",
+      "gid": 1,
+      "signature_id": 2024897,
+      "rev": 3,
+      "signature": "ET MALWARE CobaltStrike Beacon Activity",
+      "category": "A Network Trojan was detected",
+      "severity": 1
+    },
+    "app_proto": "tls",
+    "flow_id": 1234567891
+  },
+  {
+    "timestamp": "2026-03-10T14:25:15.789012+0000",
+    "event_type": "alert",
+    "src_ip": "10.0.1.50",
+    "src_port": 52100,
+    "dest_ip": "91.215.85.200",
+    "dest_port": 8080,
+    "proto": "TCP",
+    "alert": {
+      "action": "allowed",
+      "gid": 1,
+      "signature_id": 2025431,
+      "rev": 1,
+      "signature": "ET TROJAN Possible Metasploit Meterpreter Reverse HTTPS",
+      "category": "A Network Trojan was detected",
+      "severity": 1
+    },
+    "app_proto": "http",
+    "flow_id": 1234567900
+  },
+  {
+    "timestamp": "2026-03-10T14:30:00.111222+0000",
+    "event_type": "alert",
+    "src_ip": "10.0.1.105",
+    "src_port": 445,
+    "dest_ip": "10.0.1.50",
+    "dest_port": 55123,
+    "proto": "TCP",
+    "alert": {
+      "action": "allowed",
+      "gid": 1,
+      "signature_id": 2001569,
+      "rev": 7,
+      "signature": "ET SCAN Potential SMB Brute Force",
+      "category": "Detection of a Network Scan",
+      "severity": 2
+    },
+    "app_proto": "smb",
+    "flow_id": 1234568000
+  },
+  {
+    "timestamp": "2026-03-10T15:01:30.333444+0000",
+    "event_type": "alert",
+    "src_ip": "10.0.1.50",
+    "src_port": 49900,
+    "dest_ip": "185.143.223.47",
+    "dest_port": 53,
+    "proto": "UDP",
+    "alert": {
+      "action": "allowed",
+      "gid": 1,
+      "signature_id": 2027863,
+      "rev": 2,
+      "signature": "ET DNS Query to Suspicious .xyz Domain",
+      "category": "Potentially Bad Traffic",
+      "severity": 2
+    },
+    "app_proto": "dns",
+    "flow_id": 1234568100
+  }
+]

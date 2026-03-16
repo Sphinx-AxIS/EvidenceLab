@@ -1,0 +1,14 @@
+.git/
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+*.tar.gz
+.env
+.env.*
+*.log
+.vscode/
+.idea/
+data/cases/
+data/evidence/
+data/pcap_uploads/
