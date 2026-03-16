@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+{% block title %}User Manual{% endblock %}
+
+{% block head %}
+<style>
+  .manual-search {
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 10;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1rem;
+  }
+  .manual-search input {
+    width: 100%;
+    max-width: 500px;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card-bg);
+    color: var(--fg);
+    font-size: 0.95rem;
+  }
+  .manual-search input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(99,102,241,0.15);
+  }
+  .manual-search-meta {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 0.35rem;
+  }
+  .manual-toc {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card-bg);
+  }
+  .manual-toc h3 { margin-top: 0; }
+  .manual-toc ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    columns: 2;
+    column-gap: 2rem;
+  }
+  @media (max-width: 800px) {
+    .manual-toc ul { columns: 1; }
+  }
+  .manual-toc li {
+    padding: 0.2rem 0;
+    break-inside: avoid;
+  }
+  .manual-toc a {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.9rem;
+  }
+  .manual-toc a:hover { text-decoration: underline; }
+  .manual-toc .toc-indent { padding-left: 1.25rem; font-size: 0.85rem; }
+
+  .manual-content h1 {
+    font-size: 1.6rem;
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 0.4rem;
+    margin-top: 2rem;
+  }
+  .manual-content h2 {
+    font-size: 1.3rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.3rem;
+    margin-top: 2rem;
+  }
+  .manual-content h3 {
+    font-size: 1.1rem;
+    margin-top: 1.5rem;
+    color: var(--fg);
+  }
+  .manual-content h4 {
+    font-size: 0.95rem;
+    margin-top: 1.25rem;
+    color: var(--muted);
+  }
+  .manual-content p,
+  .manual-content li {
+    line-height: 1.65;
+    font-size: 0.92rem;
+  }
+  .manual-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.75rem 0;
+    font-size: 0.88rem;
+  }
+  .manual-content th,
+  .manual-content td {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--border);
+    text-align: left;
+  }
+  .manual-content th {
+    background: var(--card-bg);
+    font-weight: 600;
+  }
+  .manual-content code {
+    background: var(--card-bg);
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    font-size: 0.85em;
+  }
+  .manual-content hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+  .manual-content ul,
+  .manual-content ol {
+    padding-left: 1.5rem;
+  }
+  .manual-content strong { color: var(--fg); }
+
+  .manual-section { scroll-margin-top: 5rem; }
+
+  mark {
+    background: rgba(250,204,21,0.3);
+    color: inherit;
+    padding: 0.05rem 0.15rem;
+    border-radius: 2px;
+  }
+
+  .no-results {
+    text-align: center;
+    padding: 2rem;
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>User Manual</h2>
+  <p style="color:var(--muted);margin:0;">Complete guide to using EvidenceLab.</p>
+</div>
+
+<!-- Search bar -->
+<div class="manual-search">
+  <input type="text" id="manual-search" placeholder="Search the manual... (e.g., &quot;ingest pcap&quot;, &quot;correlator mode&quot;, &quot;detection rules&quot;)" autocomplete="off">
+  <div class="manual-search-meta" id="search-meta"></div>
+</div>
+
+<!-- Table of Contents -->
+<div class="manual-toc" id="toc">
+  <h3>Table of Contents</h3>
+  <ul id="toc-list"></ul>
+</div>
+
+<!-- Manual content (rendered from markdown on server) -->
+<div class="manual-content" id="manual-content">
+  {{ manual_html | safe }}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  // ── Build Table of Contents from headings ──
+  var content = document.getElementById('manual-content');
+  var tocList = document.getElementById('toc-list');
+  var headings = content.querySelectorAll('h1, h2, h3');
+  var tocItems = [];
+
+  headings.forEach(function(h, i) {
+    // Create anchor id
+    var id = 'section-' + i;
+    h.id = id;
+    h.classList.add('manual-section');
+
+    var li = document.createElement('li');
+    if (h.tagName === 'H3') li.className = 'toc-indent';
+    var a = document.createElement('a');
+    a.href = '#' + id;
+    a.textContent = h.textContent;
+    li.appendChild(a);
+    tocList.appendChild(li);
+    tocItems.push({ el: h, li: li, text: h.textContent.toLowerCase() });
+  });
+
+  // ── Search ──
+  var searchInput = document.getElementById('manual-search');
+  var searchMeta = document.getElementById('search-meta');
+  var toc = document.getElementById('toc');
+  var allSections = [];
+
+  // Build section list: each heading and its content until the next heading
+  var nodes = content.children;
+  var currentSection = null;
+  for (var i = 0; i < nodes.length; i++) {
+    var node = nodes[i];
+    if (node.tagName === 'H1' || node.tagName === 'H2' || node.tagName === 'H3') {
+      if (currentSection) allSections.push(currentSection);
+      currentSection = { heading: node, elements: [node] };
+    } else if (currentSection) {
+      currentSection.elements.push(node);
+    }
+  }
+  if (currentSection) allSections.push(currentSection);
+
+  var debounceTimer;
+  searchInput.addEventListener('input', function() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(doSearch, 200);
+  });
+
+  // Clear search on Escape
+  searchInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      searchInput.value = '';
+      doSearch();
+    }
+  });
+
+  function doSearch() {
+    var query = searchInput.value.trim().toLowerCase();
+
+    // Remove existing highlights
+    content.querySelectorAll('mark').forEach(function(m) {
+      var parent = m.parentNode;
+      parent.replaceChild(document.createTextNode(m.textContent), m);
+      parent.normalize();
+    });
+
+    if (!query) {
+      // Show everything
+      allSections.forEach(function(s) {
+        s.elements.forEach(function(el) { el.style.display = ''; });
+      });
+      toc.style.display = '';
+      searchMeta.textContent = '';
+      // Reset TOC visibility
+      tocItems.forEach(function(t) { t.li.style.display = ''; });
+      return;
+    }
+
+    var terms = query.split(/\s+/).filter(function(t) { return t.length > 0; });
+    var matchCount = 0;
+    var sectionCount = 0;
+
+    // Hide TOC during search
+    toc.style.display = 'none';
+
+    allSections.forEach(function(s) {
+      var sectionText = '';
+      s.elements.forEach(function(el) { sectionText += ' ' + el.textContent.toLowerCase(); });
+
+      var allMatch = terms.every(function(term) {
+        return sectionText.indexOf(term) !== -1;
+      });
+
+      if (allMatch) {
+        sectionCount++;
+        s.elements.forEach(function(el) { el.style.display = ''; });
+        // Highlight matches
+        s.elements.forEach(function(el) {
+          if (el.tagName === 'TABLE') {
+            // Highlight in table cells
+            el.querySelectorAll('td, th').forEach(function(cell) {
+              highlightTextNodes(cell, terms);
+            });
+          } else {
+            highlightTextNodes(el, terms);
+          }
+        });
+        // Count highlights
+        matchCount += s.elements.reduce(function(sum, el) {
+          return sum + el.querySelectorAll('mark').length;
+        }, 0);
+      } else {
+        s.elements.forEach(function(el) { el.style.display = 'none'; });
+      }
+    });
+
+    searchMeta.textContent = matchCount > 0
+      ? matchCount + ' match' + (matchCount !== 1 ? 'es' : '') + ' in ' + sectionCount + ' section' + (sectionCount !== 1 ? 's' : '')
+      : 'No results found for "' + searchInput.value.trim() + '"';
+  }
+
+  function highlightTextNodes(el, terms) {
+    var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+    var textNodes = [];
+    while (walker.nextNode()) textNodes.push(walker.currentNode);
+
+    textNodes.forEach(function(node) {
+      var text = node.textContent;
+      var lower = text.toLowerCase();
+      var hasMatch = terms.some(function(t) { return lower.indexOf(t) !== -1; });
+      if (!hasMatch) return;
+
+      // Build regex for all terms
+      var escaped = terms.map(function(t) {
+        return t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      });
+      var regex = new RegExp('(' + escaped.join('|') + ')', 'gi');
+      var parts = text.split(regex);
+      if (parts.length <= 1) return;
+
+      var frag = document.createDocumentFragment();
+      parts.forEach(function(part) {
+        if (regex.test(part) || terms.indexOf(part.toLowerCase()) !== -1) {
+          var mark = document.createElement('mark');
+          mark.textContent = part;
+          frag.appendChild(mark);
+        } else {
+          frag.appendChild(document.createTextNode(part));
+        }
+      });
+      node.parentNode.replaceChild(frag, node);
+    });
+  }
+
+  // Focus search on Ctrl+F / Cmd+F (optional convenience)
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+      // Don't override if already focused
+      if (document.activeElement !== searchInput) {
+        // Let browser handle native find too, but focus our search
+        searchInput.focus();
+        searchInput.select();
+      }
+    }
+  });
+})();
+</script>
+{% endblock %}

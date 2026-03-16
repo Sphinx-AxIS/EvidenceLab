@@ -1287,6 +1287,39 @@ async def report_download(request: Request, case_id: str):
     )
 
 
+# ── User Manual ──────────────────────────────────────
+
+_MANUAL_HTML: str | None = None
+
+
+def _load_manual_html() -> str:
+    """Load and convert the user manual markdown to HTML (cached)."""
+    global _MANUAL_HTML
+    if _MANUAL_HTML is not None:
+        return _MANUAL_HTML
+    try:
+        import markdown as _md
+
+        manual_path = _HERE.parent.parent.parent / "docs" / "user_manual.md"
+        md_text = manual_path.read_text(encoding="utf-8")
+        _MANUAL_HTML = _md.markdown(md_text, extensions=["tables", "fenced_code"])
+    except Exception as e:
+        log.error("Failed to load user manual: %s", e)
+        _MANUAL_HTML = "<p>User manual could not be loaded.</p>"
+    return _MANUAL_HTML
+
+
+@router.get("/manual", response_class=HTMLResponse)
+async def user_manual_page(request: Request):
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+    manual_html = _load_manual_html()
+    return templates.TemplateResponse("user_manual.html", _ctx(
+        request, user, "user_manual", manual_html=manual_html,
+    ))
+
+
 # ── Admin: User Management ───────────────────────────
 
 def _require_admin(request: Request):

@@ -64,6 +64,11 @@
           </a>
         </div>
         {% endif %}
+        <div style="border-top:1px solid var(--border); margin-top:0.5rem; padding-top:0.5rem;">
+          <a href="/ui/manual" class="{% if active_page == 'user_manual' %}active{% endif %}">
+            <span class="icon">&#128214;</span> User Manual
+          </a>
+        </div>
       </nav>
       <div class="sidebar-footer">
         {% if user %}

@@ -24,6 +24,7 @@ LLM inference runs on the host via [LM Studio](https://lmstudio.ai/) (OpenAI-com
 - **Plugin System** -- Evidence types are handled by plugins (`pcap`, `winevt`, `memory`, `threat-hunter`), each with their own ingest handlers, analytics, and prompts.
 - **RBAC** -- Role-based access control (admin, case_manager, analyst) with JWT authentication. Admins can manage users, delete evidence, cases, individual tasks, and detection rules from the Admin pages.
 - **Report Generation** -- Structured reports with evidence citations and MITRE ATT&CK mapping.
+- **User Manual** -- Searchable in-app user manual accessible from the sidebar, covering every page and feature.
 
 ## Quick Start
 
@@ -92,7 +93,8 @@ EvidenceLab/
 │   ├── Dockerfile.repl     # REPL sandbox (Suricata, Zeek, tshark)
 │   └── docker-compose.yml
 ├── docs/
-│   └── plans/              # Design documents
+│   ├── plans/              # Design documents
+│   └── user_manual.md      # Searchable user manual (also served in-app)
 ├── sample_data/            # Example evidence files for testing
 ├── sql/                    # Database migrations (run at startup)
 ├── src/
