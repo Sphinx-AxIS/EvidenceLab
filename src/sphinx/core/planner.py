@@ -75,13 +75,11 @@ def build_system_prompt(
     sections.append("## Rules\n")
     sections.append(
         "- Write ONLY fenced Python code blocks. No prose outside code.\n"
-        "- Do NOT simulate or predict output — the REPL executes your code.\n"
-        "- Use `sql()` for queries. Fields are in `raw` JSONB: use `raw->>'field'` in SQL.\n"
+        "- Do NOT simulate or predict output — the REPL executes your code "
+        "and shows you real results.\n"
         "- Set `result` at the end of every step.\n"
-        "- When done: `result = {'status': 'done', 'summary': '...', 'citations': [record_ids]}`\n"
-        "- Citations: ONLY include the most relevant record IDs (max 50). Do NOT cite all records.\n"
-        "- MITRE ATT&CK: use `get_precomputed('mitre_detections')` — it returns "
-        "[{technique_id, technique_name, tactic, evidence_count, sample_record_ids}].\n"
+        "- When done, set `result = {'status': 'done', 'summary': '...', "
+        "'citations': [record_ids]}`\n"
     )
 
     sections.append("## Available Tools\n")
@@ -95,14 +93,6 @@ def build_system_prompt(
         "- `trunc(text)` — truncate long output\n"
         "- `stash(key, value)` — save intermediate results to scratch DB\n"
         "- `recall(key)` — retrieve a previously stashed value\n"
-        "- `stash_list()` — list all stashed keys\n"
-        "\n### Scratch Storage (IMPORTANT)\n"
-        "Use `stash(key, data)` to save large intermediate results (query outputs, "
-        "filtered lists, aggregations) to the database. Then use `recall(key)` in "
-        "later steps. This keeps context small and prevents data loss between steps. "
-        "Do NOT hold large datasets in Python variables or result dicts — stash them.\n"
-        "Example: `stash('suspicious_ips', suspicious_ips)`\n"
-        "Later: `suspicious_ips = recall('suspicious_ips') or []`\n"
     )
 
     # Mode context
@@ -171,12 +161,7 @@ def build_first_step_message(task_text: str) -> str:
         "Reply with ONLY a fenced Python code block. "
         "Do NOT simulate or predict output — the REPL will execute "
         "your code and show you the real results.\n\n"
-        "IMPORTANT: This is step 1 of a multi-step investigation. "
-        "After discovery, you MUST continue with analysis steps. "
-        "Do NOT set `result = {'status': 'done', ...}` on the discovery step. "
-        "For discovery, set `result = {'status': 'discovery_complete'}` instead. "
-        "Only set `status: 'done'` on your FINAL step when you have fully "
-        "answered the task with evidence and citations."
+        "Remember to set `result` at the end of every step."
     )
 
 
@@ -199,19 +184,16 @@ def build_step_message(step_num: int, stdout: str, error: str | None, result_val
             parts.append("*Step produced a result but no printed output. Use `print()` to see data.*\n")
     if error:
         parts.append(f"**Error:**\n```\n{error}\n```\n")
-        parts.append(
-            "Fix the error. Use `describe('type')` to check field names. "
-            "Do NOT give up — fix and continue.\n\n"
-        )
 
     # Show stash contents so the model knows what intermediate data is available
     if stash_keys:
         parts.append(f"\n**Stash:** {', '.join(stash_keys)}\n")
 
     parts.append(
-        "\nContinue the investigation. Write your next code block.\n\n"
-        "When done: `result = {'status': 'done', 'summary': '...', "
-        "'citations': [max 50 relevant record IDs as integers]}`"
+        "\nAnalyze the output above. Write your next code block to continue "
+        "the investigation. Set `result` at the end.\n\n"
+        "If you have enough evidence to answer the task, set:\n"
+        "`result = {'status': 'done', 'summary': '...', 'citations': [...]}`"
     )
 
     return "".join(parts)
