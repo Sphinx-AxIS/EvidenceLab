@@ -10,25 +10,27 @@ This case contains network traffic evidence from one or more of:
 - **tshark streams** (record_type: tshark_stream) — TCP stream reconstructions
 
 ### Suricata Alert Fields
-Key fields in raw JSONB:
-- src_ip, src_port, dest_ip, dest_port, proto
-- alert.signature, alert.severity (1=high, 2=medium, 3=low), alert.category
-- alert.signature_id, alert.action
-- app_proto (http, tls, dns, ssh, etc.)
-- community_id (flow correlation)
+Top-level: `raw->>'src_ip'`, `raw->>'dest_ip'`, `raw->>'proto'`, `raw->>'timestamp'`
+Nested alert fields (use `->` then `->>` for the leaf):
+- `raw->'alert'->>'signature'` — rule name that triggered
+- `raw->'alert'->>'severity'` — 1=high, 2=medium, 3=low
+- `raw->'alert'->>'category'` — alert category
+- `raw->'alert'->>'signature_id'` — rule SID
+Other: `raw->>'app_proto'`, `raw->>'community_id'`
 
 ### Zeek Conn Fields
-- id.orig_h, id.orig_p, id.resp_h, id.resp_p (or src_ip/dest_ip format)
-- uid (unique connection ID), proto, service, duration
-- orig_bytes, resp_bytes, conn_state
-- community_id
+Nested ID fields (use `->` then `->>` for the leaf):
+- `raw->'id'->>'orig_h'`, `raw->'id'->>'orig_p'` — source IP/port
+- `raw->'id'->>'resp_h'`, `raw->'id'->>'resp_p'` — dest IP/port
+Top-level: `raw->>'uid'`, `raw->>'proto'`, `raw->>'service'`, `raw->>'duration'`
+- `raw->>'orig_bytes'`, `raw->>'resp_bytes'`, `raw->>'conn_state'`
+- `raw->>'community_id'`
 
 ### Query Tips
-- Use `sql()` for direct SQL against the records table
 - Filter by case_id AND record_type in every query
-- Use `raw->>'field_name'` for JSONB text extraction
-- Use `(raw->>'field_name')::int` for numeric casting
-- Use `raw->'nested'->'field'` for nested JSONB access
+- Top-level fields: `raw->>'field_name'`
+- Nested fields: `raw->'parent'->>'child'` (use `->` for intermediate, `->>` for leaf)
+- Numeric cast: `(raw->>'field')::int`
 - Check `get_precomputed('top_talkers')` before writing your own aggregation
 """
 
