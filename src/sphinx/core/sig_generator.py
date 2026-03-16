@@ -154,7 +154,7 @@ def generate_sigma_rule(
         rule_content = "\n".join(lines).strip()
 
     return {
-        "title": finding.get("title", "Untitled")[:200],
+        "title": None,  # set by caller with case context
         "description": finding.get("body", "")[:500],
         "rule_content": rule_content,
     }
@@ -248,7 +248,7 @@ def generate_suricata_rule(
         rule_content = "\n".join(lines).strip()
 
     return {
-        "title": finding.get("title", "Untitled")[:200],
+        "title": None,  # set by caller with case context
         "description": finding.get("body", "")[:500],
         "rule_content": rule_content,
         "sid": sid,
@@ -289,6 +289,9 @@ def generate_rules_for_findings(
                 else:
                     result = generate_suricata_rule(settings, finding, evidence)
 
+                # Build title from case name + finding ID
+                rule_title = f"{case_name}_finding-{fid}" if case_name else f"finding-{fid}"
+
                 # Store in DB
                 with get_cursor() as cur:
                     cur.execute(
@@ -302,7 +305,7 @@ def generate_rules_for_findings(
                             case_name,
                             fid,
                             rule_type,
-                            result["title"],
+                            rule_title,
                             result.get("description", ""),
                             result["rule_content"],
                             finding.get("evidence_ids", []),
@@ -349,8 +352,9 @@ def _rebuild_suricata_rules_file(rules_dir: str = "/app/data/suricata-rules") ->
     ]
 
     for rule in deployed:
-        lines.append(f"# Rule ID: {rule['id']} | Finding: {rule['finding_id']} | Generated: {rule['created_at']}")
-        lines.append(f"# {rule['title']}")
+        # Use only the first line of the title (may contain multi-line markdown)
+        title_line = rule["title"].split("\n")[0].strip()[:100]
+        lines.append(f"# Rule ID: {rule['id']} | Finding: {rule['finding_id']} | {title_line}")
         lines.append(rule["rule_content"])
         lines.append("")
 
