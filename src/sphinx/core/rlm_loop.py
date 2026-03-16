@@ -214,9 +214,13 @@ def run_task(
         # Add to conversation
         messages.append({"role": "assistant", "content": f"```python\n{code}\n```"})
 
-        # Check if done
+        # Check if done (never accept 'done' on the first 2 steps — force deeper analysis)
         result_val = step_result.get("result")
-        if isinstance(result_val, dict) and result_val.get("status") == "done":
+        if isinstance(result_val, dict) and result_val.get("status") == "done" and step <= 2:
+            log.info("Task %d: ignoring premature 'done' at step %d", task_id, step)
+            # Don't break — fall through to build next step message
+
+        elif isinstance(result_val, dict) and result_val.get("status") == "done":
             # Validate citations are real integers, not placeholders
             citations = result_val.get("citations", [])
             if citations and all(isinstance(c, int) for c in citations):
