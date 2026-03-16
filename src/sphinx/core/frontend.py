@@ -1704,18 +1704,22 @@ async def detection_rules_list(request: Request, case_id: str, filter: str = "",
         return RedirectResponse(url="/ui/login", status_code=303)
 
     with get_cursor() as cur:
+        # Show rules for this case + detached rules (global assets)
+        case_filter = "(case_id = %s OR case_id = '' OR case_id IS NULL)"
+        case_params = [case_id]
+
         # Counts for filter tabs
-        cur.execute("SELECT count(*) AS n FROM detection_rules WHERE case_id = %s", (case_id,))
+        cur.execute(f"SELECT count(*) AS n FROM detection_rules WHERE {case_filter}", case_params)
         count_all = cur.fetchone()["n"]
-        cur.execute("SELECT count(*) AS n FROM detection_rules WHERE case_id = %s AND status = 'pending_review'", (case_id,))
+        cur.execute(f"SELECT count(*) AS n FROM detection_rules WHERE {case_filter} AND status = 'pending_review'", case_params)
         count_pending = cur.fetchone()["n"]
-        cur.execute("SELECT count(*) AS n FROM detection_rules WHERE case_id = %s AND status = 'approved'", (case_id,))
+        cur.execute(f"SELECT count(*) AS n FROM detection_rules WHERE {case_filter} AND status = 'approved'", case_params)
         count_approved = cur.fetchone()["n"]
-        cur.execute("SELECT count(*) AS n FROM detection_rules WHERE case_id = %s AND status = 'deployed'", (case_id,))
+        cur.execute(f"SELECT count(*) AS n FROM detection_rules WHERE {case_filter} AND status = 'deployed'", case_params)
         count_deployed = cur.fetchone()["n"]
 
-        where = "case_id = %s"
-        params = [case_id]
+        where = case_filter
+        params = list(case_params)
         if filter:
             where += " AND status = %s"
             params.append(filter)
@@ -1844,7 +1848,7 @@ async def detection_rule_detail(request: Request, case_id: str, rule_id: int, su
     with get_cursor() as cur:
         cur.execute(
             """SELECT *, created_at::text AS created_at, updated_at::text AS updated_at
-               FROM detection_rules WHERE id = %s AND case_id = %s""",
+               FROM detection_rules WHERE id = %s AND (case_id = %s OR case_id = '' OR case_id IS NULL)""",
             (rule_id, case_id),
         )
         rule = cur.fetchone()
@@ -1871,7 +1875,7 @@ async def detection_rule_edit(request: Request, case_id: str, rule_id: int, rule
 
     with get_cursor() as cur:
         cur.execute(
-            "UPDATE detection_rules SET rule_content = %s, updated_at = now() WHERE id = %s AND case_id = %s",
+            "UPDATE detection_rules SET rule_content = %s, updated_at = now() WHERE id = %s AND (case_id = %s OR case_id = '' OR case_id IS NULL)",
             (rule_content, rule_id, case_id),
         )
         cur.connection.commit()
@@ -1887,7 +1891,7 @@ async def detection_rule_approve(request: Request, case_id: str, rule_id: int):
 
     with get_cursor() as cur:
         cur.execute(
-            "UPDATE detection_rules SET status = 'approved', reviewed_by = %s, updated_at = now() WHERE id = %s AND case_id = %s",
+            "UPDATE detection_rules SET status = 'approved', reviewed_by = %s, updated_at = now() WHERE id = %s AND (case_id = %s OR case_id = '' OR case_id IS NULL)",
             (user.get("sub", ""), rule_id, case_id),
         )
         cur.connection.commit()
@@ -1903,7 +1907,7 @@ async def detection_rule_reject(request: Request, case_id: str, rule_id: int):
 
     with get_cursor() as cur:
         cur.execute(
-            "UPDATE detection_rules SET status = 'rejected', reviewed_by = %s, updated_at = now() WHERE id = %s AND case_id = %s",
+            "UPDATE detection_rules SET status = 'rejected', reviewed_by = %s, updated_at = now() WHERE id = %s AND (case_id = %s OR case_id = '' OR case_id IS NULL)",
             (user.get("sub", ""), rule_id, case_id),
         )
         cur.connection.commit()
@@ -1918,7 +1922,7 @@ async def detection_rule_deploy(request: Request, case_id: str, rule_id: int):
         return RedirectResponse(url="/ui/login", status_code=303)
 
     with get_cursor() as cur:
-        cur.execute("SELECT rule_type, status FROM detection_rules WHERE id = %s AND case_id = %s", (rule_id, case_id))
+        cur.execute("SELECT rule_type, status FROM detection_rules WHERE id = %s AND (case_id = %s OR case_id = '' OR case_id IS NULL)", (rule_id, case_id))
         rule = cur.fetchone()
         if not rule:
             return RedirectResponse(url=f"/ui/cases/{case_id}/detection-rules?error=Rule+not+found", status_code=303)
@@ -1950,7 +1954,7 @@ async def detection_rule_regenerate(request: Request, case_id: str, rule_id: int
         return RedirectResponse(url="/ui/login", status_code=303)
 
     with get_cursor() as cur:
-        cur.execute("SELECT finding_id, rule_type FROM detection_rules WHERE id = %s AND case_id = %s", (rule_id, case_id))
+        cur.execute("SELECT finding_id, rule_type FROM detection_rules WHERE id = %s AND (case_id = %s OR case_id = '' OR case_id IS NULL)", (rule_id, case_id))
         rule = cur.fetchone()
         if not rule or not rule["finding_id"]:
             return RedirectResponse(url=f"/ui/cases/{case_id}/detection-rules/{rule_id}?error=Cannot+regenerate", status_code=303)
@@ -1986,7 +1990,7 @@ async def detection_rule_export(request: Request, case_id: str, rule_id: int):
 
     with get_cursor() as cur:
         cur.execute(
-            "SELECT title, rule_type, rule_content FROM detection_rules WHERE id = %s AND case_id = %s",
+            "SELECT title, rule_type, rule_content FROM detection_rules WHERE id = %s AND (case_id = %s OR case_id = '' OR case_id IS NULL)",
             (rule_id, case_id),
         )
         rule = cur.fetchone()
