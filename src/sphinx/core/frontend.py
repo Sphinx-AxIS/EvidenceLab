@@ -189,19 +189,34 @@ async def dashboard(request: Request, case_id: str = "", mode: str = ""):
             # Background jobs
             bg_jobs = []
             try:
-                # Mark stale running jobs as failed before fetching.
-                # Only mark as stale after 60 minutes — PCAP conversion can
-                # legitimately take a long time. The conversion process itself
-                # sets terminal status (ok/partial/failed) when it finishes;
-                # this is just a safety net for truly abandoned jobs.
+                # Mark stale running jobs as failed — but ONLY if they have
+                # no results. Jobs that actually produced records finished
+                # successfully even if the in-memory status update was lost
+                # (e.g. API container restarted). 4-hour threshold for true
+                # abandonment (no records, no progress at all).
                 cur.execute(
                     """UPDATE background_jobs
                        SET status = 'failed',
                            summary = COALESCE(summary, '{}'::jsonb)
-                                     || '{"error": "Timed out (no progress after 60 min)"}'::jsonb,
+                                     || '{"error": "Abandoned (no progress after 4 hours)"}'::jsonb,
                            updated_at = now()
                        WHERE case_id = %s AND status = 'running'
-                         AND LEAST(created_at, updated_at) < now() - interval '60 minutes'""",
+                         AND LEAST(created_at, updated_at) < now() - interval '4 hours'
+                         AND (summary->>'total_inserted' IS NULL
+                              OR (summary->>'total_inserted')::int = 0)""",
+                    (case_id,),
+                )
+                cur.connection.commit()
+
+                # Auto-fix jobs that have results but are stuck as 'running'
+                # (conversion finished but API restarted before status update)
+                cur.execute(
+                    """UPDATE background_jobs
+                       SET status = 'done', updated_at = now()
+                       WHERE case_id = %s AND status = 'running'
+                         AND LEAST(created_at, updated_at) < now() - interval '60 minutes'
+                         AND summary->>'total_inserted' IS NOT NULL
+                         AND (summary->>'total_inserted')::int > 0""",
                     (case_id,),
                 )
                 cur.connection.commit()
