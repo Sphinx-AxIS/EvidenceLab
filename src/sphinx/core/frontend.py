@@ -58,18 +58,30 @@ def _get_user(request: Request) -> Optional[dict]:
 def _fix_stale_jobs(cur, case_id: str | None = None) -> None:
     """Auto-fix stale background jobs.
 
-    - Jobs with results stuck as 'running' → 'done' (after 60 min)
+    - Jobs with linked records stuck as 'running' → 'done' (after 10 min)
     - Jobs with no results stuck as 'running' → 'failed' (after 4 hours)
     """
-    case_filter = "case_id = %s AND" if case_id else ""
+    case_filter = "AND j.case_id = %s" if case_id else ""
     params = [case_id] if case_id else []
 
-    # Auto-fix jobs that finished but status was never updated
+    # Auto-fix jobs that have linked records in the DB (the actual source of truth)
+    cur.execute(
+        f"""UPDATE background_jobs j
+            SET status = 'done', updated_at = now()
+            WHERE j.status = 'running'
+              AND LEAST(j.created_at, j.updated_at) < now() - interval '10 minutes'
+              {case_filter}
+              AND EXISTS (SELECT 1 FROM records r WHERE r.job_id = j.id)""",
+        params,
+    )
+
+    # Also fix jobs where summary says records were inserted
     cur.execute(
         f"""UPDATE background_jobs
             SET status = 'done', updated_at = now()
-            WHERE {case_filter} status = 'running'
-              AND LEAST(created_at, updated_at) < now() - interval '60 minutes'
+            WHERE status = 'running'
+              AND LEAST(created_at, updated_at) < now() - interval '10 minutes'
+              {"AND case_id = %s" if case_id else ""}
               AND summary->>'total_inserted' IS NOT NULL
               AND (summary->>'total_inserted')::int > 0""",
         params,
@@ -77,15 +89,17 @@ def _fix_stale_jobs(cur, case_id: str | None = None) -> None:
 
     # Mark truly abandoned jobs as failed
     cur.execute(
-        f"""UPDATE background_jobs
+        f"""UPDATE background_jobs j
             SET status = 'failed',
-                summary = COALESCE(summary, '{{}}'::jsonb)
+                summary = COALESCE(j.summary, '{{}}'::jsonb)
                           || '{{"error": "Abandoned (no progress after 4 hours)"}}'::jsonb,
                 updated_at = now()
-            WHERE {case_filter} status = 'running'
-              AND LEAST(created_at, updated_at) < now() - interval '4 hours'
-              AND (summary->>'total_inserted' IS NULL
-                   OR (summary->>'total_inserted')::int = 0)""",
+            WHERE j.status = 'running'
+              AND LEAST(j.created_at, j.updated_at) < now() - interval '4 hours'
+              {case_filter}
+              AND NOT EXISTS (SELECT 1 FROM records r WHERE r.job_id = j.id)
+              AND (j.summary->>'total_inserted' IS NULL
+                   OR (j.summary->>'total_inserted')::int = 0)""",
         params,
     )
     cur.connection.commit()
