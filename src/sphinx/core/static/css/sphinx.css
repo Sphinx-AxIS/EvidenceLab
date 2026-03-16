@@ -434,23 +434,29 @@ pre code {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  font-size: 0.85rem;
+  border: none;
+  background: linear-gradient(135deg, #58a6ff 0%, #388bfd 50%, #1f6feb 100%);
+  color: #fff;
+  font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.15s;
-  margin-left: 0.5rem;
+  transition: all 0.2s;
+  box-shadow: 0 2px 6px rgba(56, 139, 253, 0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+  text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 500;
 }
 
 .help-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: rgba(88, 166, 255, 0.08);
+  background: linear-gradient(135deg, #79c0ff 0%, #58a6ff 50%, #388bfd 100%);
+  box-shadow: 0 3px 10px rgba(56, 139, 253, 0.5), inset 0 1px 0 rgba(255,255,255,0.3);
+  transform: translateX(-50%) scale(1.1);
 }
 
 .help-overlay {

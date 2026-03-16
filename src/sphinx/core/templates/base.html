@@ -92,15 +92,12 @@
     var body = document.getElementById('help-modal-body');
     // Only show ? button if the page defined help content (more than just the close button)
     if (body && body.children.length > 1) {
-      var hdr = document.querySelector('.page-header h2');
-      if (hdr) {
-        var btn = document.createElement('button');
-        btn.className = 'help-btn';
-        btn.textContent = '?';
-        btn.title = 'Page help';
-        btn.onclick = function(){ document.getElementById('help-overlay').classList.add('active'); };
-        hdr.appendChild(btn);
-      }
+      var btn = document.createElement('button');
+      btn.className = 'help-btn';
+      btn.textContent = '?';
+      btn.title = 'Page help';
+      btn.onclick = function(e){ e.preventDefault(); document.getElementById('help-overlay').classList.add('active'); };
+      document.body.appendChild(btn);
     }
   })();
   </script>
