@@ -98,6 +98,7 @@ class ReplClient:
     def pcap_convert(
         self, case_id: str, pcap_path: str,
         work_dir: str | None = None, job_id: int | None = None,
+        home_net: str | None = None,
     ) -> dict[str, Any]:
         """Run PCAP conversion pipeline (tshark + Suricata + Zeek)."""
         # PCAP conversion can take 10+ minutes — extend the socket timeout.
@@ -108,4 +109,6 @@ class ReplClient:
             msg["work_dir"] = work_dir
         if job_id:
             msg["job_id"] = job_id
+        if home_net:
+            msg["home_net"] = home_net
         return self._send(msg)

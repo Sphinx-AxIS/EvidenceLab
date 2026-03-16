@@ -164,6 +164,16 @@ async def dashboard(request: Request, case_id: str = "", mode: str = ""):
             """)
         cases = cur.fetchall()
 
+        # Current case metadata
+        case_meta = None
+        if case_id:
+            cur.execute(
+                """SELECT id, name, description, home_net, victim_ips, status
+                   FROM cases WHERE id = %s""",
+                (case_id,),
+            )
+            case_meta = cur.fetchone()
+
         summary = {}
         if case_id:
             # Record counts by type
@@ -279,6 +289,7 @@ async def dashboard(request: Request, case_id: str = "", mode: str = ""):
     return templates.TemplateResponse("dashboard.html", _ctx(
         request, user, "dashboard", case_id=case_id,
         cases=cases, summary=summary, correlator_summary=correlator_summary,
+        case_meta=case_meta,
     ))
 
 
@@ -317,6 +328,34 @@ async def case_new_submit(request: Request, name: str = Form(...), description: 
         cur.execute(
             "INSERT INTO cases (id, name, description, status) VALUES (%s, %s, %s, 'open')",
             (case_id, name, description),
+        )
+        cur.connection.commit()
+
+    return RedirectResponse(url=f"/ui/?case_id={case_id}", status_code=303)
+
+
+@router.post("/cases/{case_id}/settings")
+async def case_settings_submit(
+    request: Request, case_id: str,
+    home_net: str = Form(""),
+    victim_ips: str = Form(""),
+    description: str = Form(""),
+):
+    """Save case-specific settings (HOME_NET, victim IPs, description)."""
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    # Parse comma-separated values into arrays
+    home_net_list = [x.strip() for x in home_net.split(",") if x.strip()]
+    victim_ips_list = [x.strip() for x in victim_ips.split(",") if x.strip()]
+
+    with get_cursor() as cur:
+        cur.execute(
+            """UPDATE cases
+               SET home_net = %s, victim_ips = %s, description = %s, updated_at = now()
+               WHERE id = %s""",
+            (home_net_list, victim_ips_list, description, case_id),
         )
         cur.connection.commit()
 
@@ -628,6 +667,17 @@ async def ingest_pcap_submit(
     except Exception as e:
         log.warning("Could not create job record (table may not exist yet): %s", e)
 
+    # Fetch case-specific HOME_NET for Suricata
+    _case_home_net = None
+    try:
+        with get_cursor() as cur:
+            cur.execute("SELECT home_net FROM cases WHERE id = %s", (case_id,))
+            row = cur.fetchone()
+            if row and row["home_net"]:
+                _case_home_net = "[" + ",".join(row["home_net"]) + "]"
+    except Exception:
+        pass
+
     # Launch background conversion via REPL with in-memory progress tracking
     _job_id = job_id
 
@@ -709,7 +759,7 @@ async def ingest_pcap_submit(
                 _LIVE_JOBS[_job_id]["pct"] = 5
 
             try:
-                result = client.pcap_convert(case_id, str(pcap_path), job_id=_job_id)
+                result = client.pcap_convert(case_id, str(pcap_path), job_id=_job_id, home_net=_case_home_net)
                 log.info("PCAP convert result: %s", result)
                 elapsed = round(time.time() - _LIVE_JOBS[_job_id]["_start"], 1)
 

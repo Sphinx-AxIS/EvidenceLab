@@ -143,6 +143,7 @@ def _find_suricata_config() -> str:
 def run_suricata(
     suri_bin: str, pcap_path: Path, output_dir: Path,
     config_path: str | None = None,
+    home_net: str | None = None,
 ) -> subprocess.CompletedProcess:
     output_dir.mkdir(parents=True, exist_ok=True)
     if not config_path:
@@ -153,9 +154,10 @@ def run_suricata(
         cmd += ["-c", config_path]
     cmd += ["--set", "outputs.0.eve-log.filename=eve.json"]
 
-    home_net = os.environ.get("SURICATA_HOME_NET")
-    if home_net:
-        cmd += ["--set", f"vars.address-groups.HOME_NET={home_net}"]
+    # Case-specific HOME_NET takes priority over environment variable
+    effective_home_net = home_net or os.environ.get("SURICATA_HOME_NET")
+    if effective_home_net:
+        cmd += ["--set", f"vars.address-groups.HOME_NET={effective_home_net}"]
 
     log.info("Suricata command: %s", " ".join(cmd))
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
@@ -382,6 +384,7 @@ def convert_pcap(
     pcap_path: str,
     work_dir: str | None = None,
     job_id: int | None = None,
+    home_net: str | None = None,
 ) -> dict[str, Any]:
     """Run tshark, Suricata, and Zeek against a PCAP file, ingest all outputs.
 
@@ -390,6 +393,7 @@ def convert_pcap(
         pcap_path: Absolute path to the PCAP file.
         work_dir: Directory for intermediate outputs. Auto-created if None.
         job_id: Optional background_jobs row ID for progress updates.
+        home_net: Case-specific HOME_NET override for Suricata.
 
     Returns:
         Summary dict with tool statuses and record counts.
@@ -482,7 +486,7 @@ def convert_pcap(
         try:
             _progress("running Suricata", pct_base)
             suri_dir = base_dir / "suricata"
-            result = run_suricata(suri_bin, pcap, suri_dir)
+            result = run_suricata(suri_bin, pcap, suri_dir, home_net=home_net)
             summary["tools_run"].append("suricata")
 
             if result.returncode != 0:
