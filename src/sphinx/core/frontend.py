@@ -1442,13 +1442,23 @@ def _delete_case_all(cur, case_id: str) -> dict:
     cur.execute("DELETE FROM case_notes WHERE case_id = %s", (case_id,))
     counts["case_notes"] = cur.rowcount
 
-    # Background jobs
+    # Background jobs (records FK must be cleared first — handled by _delete_case_evidence)
     cur.execute("DELETE FROM background_jobs WHERE case_id = %s", (case_id,))
     counts["background_jobs"] = cur.rowcount
 
     # Case assignments
     cur.execute("DELETE FROM case_assignments WHERE case_id = %s", (case_id,))
     counts["case_assignments"] = cur.rowcount
+
+    # Detection rules — don't delete, just clear the case_id (rules are global assets)
+    try:
+        cur.execute(
+            "UPDATE detection_rules SET case_id = '' WHERE case_id = %s",
+            (case_id,),
+        )
+        counts["detection_rules_detached"] = cur.rowcount
+    except Exception:
+        pass  # table may not exist yet
 
     # The case itself
     cur.execute("DELETE FROM cases WHERE id = %s", (case_id,))
@@ -1567,18 +1577,24 @@ async def admin_delete_case(request: Request, case_id: str = Form(...)):
     if not user:
         return RedirectResponse(url="/ui/login", status_code=303)
 
-    with get_cursor() as cur:
-        cur.execute("SELECT name FROM cases WHERE id = %s", (case_id,))
-        case = cur.fetchone()
-        if not case:
-            return RedirectResponse(url="/ui/admin/data?error=Case+not+found", status_code=303)
+    try:
+        with get_cursor() as cur:
+            cur.execute("SELECT name FROM cases WHERE id = %s", (case_id,))
+            case = cur.fetchone()
+            if not case:
+                return RedirectResponse(url="/ui/admin/data?error=Case+not+found", status_code=303)
 
-        counts = _delete_case_all(cur, case_id)
-        cur.connection.commit()
+            counts = _delete_case_all(cur, case_id)
+            cur.connection.commit()
 
-    total = sum(counts.values())
-    msg = f"Deleted case '{case['name']}' and {total - 1} related rows"
-    return RedirectResponse(url=f"/ui/admin/data?success={msg.replace(' ', '+')}", status_code=303)
+        total = sum(counts.values())
+        from urllib.parse import quote
+        msg = f"Deleted case and {total - 1} related rows"
+        return RedirectResponse(url=f"/ui/admin/data?success={quote(msg)}", status_code=303)
+    except Exception as e:
+        log.error("Case deletion failed: %s", e)
+        from urllib.parse import quote
+        return RedirectResponse(url=f"/ui/admin/data?error={quote(str(e)[:100])}", status_code=303)
 
 
 # ── Admin: Query Learning ──────────────────────────
