@@ -10,6 +10,7 @@
   <li><strong>Delete Records by Ingest Job</strong> — Remove all evidence records that were created by a specific PCAP or file ingest job. Useful when an ingest produced bad data and needs to be re-run. The job record itself is kept (marked as "deleted") for audit purposes.</li>
   <li><strong>Delete Case Evidence</strong> — Remove all evidence from a case (records, entities, findings, tasks, worklog, jobs) but keep the case itself. Use this to reset a case for re-investigation.</li>
   <li><strong>Delete Entire Case</strong> — Permanently remove a case and everything tied to it: evidence, tasks, findings, notes, user assignments, and the case record itself.</li>
+  <li><strong>Delete Tasks</strong> — Remove individual investigation tasks and their worklog steps. Running tasks cannot be deleted until they finish or are cancelled.</li>
 </ul>
 
 <h4>Important Notes</h4>
@@ -175,7 +176,58 @@
   {% endif %}
 </div>
 
-<!-- Section 4: Detection Rules -->
+<!-- Section 4: Delete Individual Tasks -->
+<div class="card mb-2">
+  <h3>Delete Tasks</h3>
+  <p style="color:var(--muted);font-size:0.85rem;margin-top:0;">
+    Delete individual investigation tasks and their worklog steps. Running tasks should be cancelled before deletion.
+  </p>
+
+  {% if tasks %}
+  <div class="table-wrap" style="margin-top:0.75rem;">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Case</th>
+          <th>Title</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in tasks %}
+        <tr>
+          <td class="text-mono">{{ t.id }}</td>
+          <td>{{ t.case_name }}</td>
+          <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ t.title }}</td>
+          <td>
+            <span class="badge {% if t.status == 'done' %}badge-success{% elif t.status == 'failed' %}badge-danger{% elif t.status == 'running' %}badge-warning{% elif t.status == 'cancelled' %}badge-muted{% else %}badge-info{% endif %}">{{ t.status }}</span>
+          </td>
+          <td class="text-mono" style="font-size:0.78rem;">{{ t.created_at[:19] if t.created_at else '—' }}</td>
+          <td>
+            {% if t.status != 'running' %}
+            <form method="POST" action="/ui/admin/data/delete-task" style="margin:0;"
+                  onsubmit="return confirm('Delete task #{{ t.id }} ({{ t.title }}) and all its worklog steps? This cannot be undone.');">
+              <input type="hidden" name="task_id" value="{{ t.id }}">
+              <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+            </form>
+            {% else %}
+            <span class="badge badge-warning">running</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p style="color:var(--muted);">No tasks found.</p>
+  {% endif %}
+</div>
+
+<!-- Section 5: Detection Rules -->
 <div class="card mb-2">
   <h3>Detection Rules</h3>
   <p style="color:var(--muted);font-size:0.85rem;margin-top:0;">

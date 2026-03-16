@@ -16,13 +16,13 @@ LLM inference runs on the host via [LM Studio](https://lmstudio.ai/) (OpenAI-com
 
 ## Features
 
-- **Evidence Ingest** -- Upload PCAPs, Windows Event Logs (.evtx), or Volatility 3 output. Deterministic parsers extract structured records into PostgreSQL.
+- **Evidence Ingest** -- Upload PCAPs, Windows Event Logs (.evtx), Volatility3 output or use the built in Volatility3 tool to generate the outputs from a memory image. Deterministic parsers extract structured records into PostgreSQL.
 - **Suricata + Zeek + tshark** -- PCAP files are automatically processed by all three tools during ingest.
 - **Detection Rules** -- Import, create, edit, and deploy Suricata and Sigma rules through the web UI. LLM can also generate rules from investigation findings.
 - **RLM Investigation Loop** -- Step-bounded reasoning loop where the LLM writes and executes Python in a sandboxed REPL to investigate evidence.
-- **Dashboard & Analytics** -- Pre-computed SQL analytics, entity extraction, record browsing, and OCSF-mapped views.
+- **Dashboard & Analytics** -- Pre-computed SQL analytics, entity extraction, and record browsing.
 - **Plugin System** -- Evidence types are handled by plugins (`pcap`, `winevt`, `memory`, `threat-hunter`), each with their own ingest handlers, analytics, and prompts.
-- **RBAC** -- Role-based access control (admin, case_manager, analyst) with JWT authentication.
+- **RBAC** -- Role-based access control (admin, case_manager, analyst) with JWT authentication. Admins can manage users, delete evidence, cases, individual tasks, and detection rules from the Admin pages.
 - **Report Generation** -- Structured reports with evidence citations and MITRE ATT&CK mapping.
 
 ## Quick Start

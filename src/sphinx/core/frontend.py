@@ -1601,6 +1601,18 @@ async def admin_data_page(request: Request, success: str = "", error: str = ""):
         """)
         jobs = cur.fetchall()
 
+        # All tasks with case names
+        cur.execute("""
+            SELECT t.id, t.case_id, t.title, t.status,
+                   t.created_at::text AS created_at,
+                   c.name AS case_name
+            FROM tasks t
+            JOIN cases c ON c.id = t.case_id
+            ORDER BY t.created_at DESC
+            LIMIT 100
+        """)
+        tasks = cur.fetchall()
+
         # All detection rules
         try:
             cur.execute("""
@@ -1615,7 +1627,7 @@ async def admin_data_page(request: Request, success: str = "", error: str = ""):
 
     return templates.TemplateResponse("admin_data.html", _ctx(
         request, user, "admin_data",
-        cases=cases, jobs=jobs, detection_rules=detection_rules,
+        cases=cases, jobs=jobs, tasks=tasks, detection_rules=detection_rules,
         success=success, error=error,
     ))
 
@@ -1707,6 +1719,40 @@ async def admin_delete_case(request: Request, case_id: str = Form(...)):
         return RedirectResponse(url=f"/ui/admin/data?success={quote(msg)}", status_code=303)
     except Exception as e:
         log.error("Case deletion failed: %s", e)
+        from urllib.parse import quote
+        return RedirectResponse(url=f"/ui/admin/data?error={quote(str(e)[:100])}", status_code=303)
+
+
+@router.post("/admin/data/delete-task")
+async def admin_delete_task(request: Request, task_id: int = Form(...)):
+    """Delete a single task and its worklog steps."""
+    user = _require_admin(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    try:
+        with get_cursor() as cur:
+            cur.execute("SELECT id, title, case_id FROM tasks WHERE id = %s", (task_id,))
+            task = cur.fetchone()
+            if not task:
+                return RedirectResponse(url="/ui/admin/data?error=Task+not+found", status_code=303)
+
+            # Delete scratch precomputed referencing this task
+            cur.execute("DELETE FROM scratch_precomputed WHERE task_id = %s", (task_id,))
+
+            # Delete worklog steps
+            cur.execute("DELETE FROM worklog_steps WHERE task_id = %s", (task_id,))
+            steps_deleted = cur.rowcount
+
+            # Delete the task itself
+            cur.execute("DELETE FROM tasks WHERE id = %s", (task_id,))
+            cur.connection.commit()
+
+        from urllib.parse import quote
+        msg = f"Deleted task #{task_id} '{task['title']}' and {steps_deleted} worklog steps"
+        return RedirectResponse(url=f"/ui/admin/data?success={quote(msg)}", status_code=303)
+    except Exception as e:
+        log.error("Task deletion failed: %s", e)
         from urllib.parse import quote
         return RedirectResponse(url=f"/ui/admin/data?error={quote(str(e)[:100])}", status_code=303)
 
