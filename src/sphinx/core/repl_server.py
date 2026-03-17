@@ -55,7 +55,9 @@ def _init_namespace(
     def _get_conn(row_factory=psycopg.rows.dict_row):
         """Open a DB connection with RLS session variable set."""
         conn = psycopg.connect(DB_URL, row_factory=row_factory)
-        conn.execute("SET app.readable_case_ids = %s", (_rls_case_ids,))
+        conn.execute(psycopg.sql.SQL("SET app.readable_case_ids = {}").format(
+            psycopg.sql.Literal(_rls_case_ids)
+        ))
         return conn
 
     # Build tool functions
