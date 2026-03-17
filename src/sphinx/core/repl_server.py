@@ -220,6 +220,7 @@ def _init_namespace(
         "stash": stash,
         "recall": recall,
         "stash_list": stash_list,
+        "trunc": lambda text, limit=64000: text[:limit] + "\n... [truncated]" if len(text) > limit else text,
         "result": None,
     })
 
