@@ -34,7 +34,7 @@ async def lifespan(app: FastAPI):
 
 
 def _ensure_admin(settings):
-    """Create a default admin user if the users table is empty."""
+    """Create default admin user and llm_agent service account if needed."""
     from sphinx.core.auth import hash_password
     from sphinx.core.db import get_cursor
 
@@ -50,6 +50,22 @@ def _ensure_admin(settings):
             )
             cur.connection.commit()
             log.info("Created default admin user (username: admin, password: admin1234)")
+
+    # Ensure llm_agent service account exists (used for scoped task JWTs)
+    with get_cursor() as cur:
+        cur.execute("SELECT id FROM users WHERE username = 'llm_agent'")
+        if not cur.fetchone():
+            import secrets
+            import uuid
+            agent_pw = secrets.token_hex(32)  # random, never used for login
+            pw_hash = hash_password(agent_pw)
+            cur.execute(
+                """INSERT INTO users (id, username, password_hash, role)
+                   VALUES (%s, 'llm_agent', %s, 'llm_agent')""",
+                (str(uuid.uuid4()), pw_hash),
+            )
+            cur.connection.commit()
+            log.info("Created llm_agent service account")
 
 
 def create_app() -> FastAPI:

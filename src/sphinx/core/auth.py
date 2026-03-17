@@ -117,6 +117,51 @@ class CurrentUser:
         return user
 
 
+def create_llm_task_token(
+    settings: Settings,
+    *,
+    case_id: str,
+    task_id: int,
+    mode: str = "investigator",
+    source_case_ids: list[str] | None = None,
+) -> str:
+    """Mint a short-lived JWT for the llm_agent service account, scoped to
+    the cases required by this task.
+
+    - Investigator mode: case_ids = [case_id]
+    - Correlator mode:  case_ids = source_case_ids
+    """
+    from sphinx.core.db import get_cursor
+
+    # Look up the llm_agent user id
+    with get_cursor() as cur:
+        cur.execute("SELECT id FROM users WHERE username = 'llm_agent'")
+        row = cur.fetchone()
+        if not row:
+            raise RuntimeError("llm_agent service account not found — run bootstrap first")
+        agent_user_id = row["id"]
+
+    if mode == "correlator" and source_case_ids:
+        scoped_case_ids = source_case_ids
+    else:
+        scoped_case_ids = [case_id]
+
+    # Short-lived token — expires after max task duration (30 min default)
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": agent_user_id,
+        "role": "llm_agent",
+        "case_ids": scoped_case_ids,
+        "mode": mode,
+        "correlation_case_id": case_id if mode == "correlator" else "",
+        "source_case_ids": source_case_ids or [],
+        "task_id": task_id,
+        "iat": now,
+        "exp": now + timedelta(minutes=30),
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
 def check_case_access(user: dict[str, Any], case_id: str) -> None:
     """Raise 403 if the user's JWT doesn't grant access to this case."""
     role = user.get("role", "")

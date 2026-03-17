@@ -88,6 +88,19 @@ async def run_task_endpoint(
         if task["status"] == "running":
             raise HTTPException(status_code=409, detail="Task already running")
 
+    # Mint a scoped JWT for the LLM agent
+    from sphinx.core.auth import create_llm_task_token
+    llm_token = create_llm_task_token(
+        settings,
+        case_id=case_id,
+        task_id=task_id,
+        mode=task_mode,
+        source_case_ids=task_source_case_ids,
+    )
+    log.info("Minted scoped LLM JWT for task %d (mode=%s, cases=%s)",
+             task_id, task_mode,
+             task_source_case_ids if task_mode == "correlator" else [case_id])
+
     # Run in background thread
     def _run():
         from sphinx.core.precompute import run_precompute

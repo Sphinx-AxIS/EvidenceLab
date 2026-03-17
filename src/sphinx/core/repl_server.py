@@ -49,15 +49,24 @@ def _init_namespace(
     else:
         readable_ids = [case_id]
 
+    # RLS session variable value — comma-separated case IDs
+    _rls_case_ids = ",".join(readable_ids)
+
+    def _get_conn(row_factory=psycopg.rows.dict_row):
+        """Open a DB connection with RLS session variable set."""
+        conn = psycopg.connect(DB_URL, row_factory=row_factory)
+        conn.execute("SET app.readable_case_ids = %s", (_rls_case_ids,))
+        return conn
+
     # Build tool functions
     def sql(query: str, params: tuple = ()) -> list[dict]:
-        with psycopg.connect(DB_URL, row_factory=psycopg.rows.dict_row) as conn:
+        with _get_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(query, params)
                 return cur.fetchall()
 
     def describe(record_type: str | None = None) -> str:
-        with psycopg.connect(DB_URL, row_factory=psycopg.rows.dict_row) as conn:
+        with _get_conn() as conn:
             with conn.cursor() as cur:
                 if record_type is None:
                     cur.execute(
@@ -89,7 +98,7 @@ def _init_namespace(
                     return "\n".join(lines)
 
     def get_precomputed(name: str) -> Any:
-        with psycopg.connect(DB_URL, row_factory=psycopg.rows.dict_row) as conn:
+        with _get_conn() as conn:
             with conn.cursor() as cur:
                 if len(readable_ids) == 1:
                     cur.execute(
@@ -109,7 +118,7 @@ def _init_namespace(
                     return {r["case_id"]: r["data"] for r in rows}
 
     def get_docs(topic: str) -> str:
-        with psycopg.connect(DB_URL, row_factory=psycopg.rows.dict_row) as conn:
+        with _get_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT content FROM rlm_docs WHERE topic = %s", (topic,))
                 row = cur.fetchone()
@@ -129,13 +138,13 @@ def _init_namespace(
             sql_params.extend(params)
         full_sql = f"SELECT {fields} FROM records WHERE {sql_where} LIMIT %s"
         sql_params.append(limit)
-        with psycopg.connect(DB_URL, row_factory=psycopg.rows.dict_row) as conn:
+        with _get_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(full_sql, sql_params)
                 return cur.fetchall()
 
     def search(query: str, limit: int = 20) -> list[dict]:
-        with psycopg.connect(DB_URL, row_factory=psycopg.rows.dict_row) as conn:
+        with _get_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     "SELECT id, case_id, record_type, ts, raw::text AS raw_text FROM records WHERE case_id = ANY(%s) AND raw::text ILIKE %s LIMIT %s",
@@ -150,7 +159,7 @@ def _init_namespace(
         import json as _json
         data_str = _json.dumps(value, default=str)
         meta = _json.dumps({"description": description, "size": len(data_str)})
-        with psycopg.connect(DB_URL) as conn:
+        with _get_conn(row_factory=None) as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     "DELETE FROM scratch_precomputed WHERE case_id = %s AND name = %s",
@@ -166,7 +175,7 @@ def _init_namespace(
 
     def recall(key: str):
         """Retrieve a previously stashed value by key. Returns None if not found."""
-        with psycopg.connect(DB_URL, row_factory=psycopg.rows.dict_row) as conn:
+        with _get_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     "SELECT data FROM scratch_precomputed WHERE case_id = %s AND name = %s ORDER BY created_at DESC LIMIT 1",
@@ -177,7 +186,7 @@ def _init_namespace(
 
     def stash_list() -> list:
         """List all stashed keys for the current task."""
-        with psycopg.connect(DB_URL, row_factory=psycopg.rows.dict_row) as conn:
+        with _get_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """SELECT name, created_at::text AS written_at,
@@ -374,7 +383,7 @@ def main():
     if args.db_url:
         DB_URL = args.db_url
     elif not DB_URL:
-        DB_URL = "postgresql://sphinx:changeme@sphinx-db:5432/sphinx"
+        DB_URL = "postgresql://sphinx_repl:repl_changeme@sphinx-db:5432/sphinx"
 
     # Clean up old socket
     import pathlib

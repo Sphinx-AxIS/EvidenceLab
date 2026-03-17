@@ -139,9 +139,15 @@ class ReplRunner:
             "result": None,
         }
 
+    def _set_rls_context(self, cur) -> None:
+        """Set the RLS session variable for case scoping."""
+        case_ids_csv = ",".join(self._readable_case_ids())
+        cur.execute("SET app.readable_case_ids = %s", (case_ids_csv,))
+
     def _tool_sql(self, query: str, params: tuple = ()) -> list[dict]:
         """Execute a read-only SQL query against the case data."""
         with get_cursor() as cur:
+            self._set_rls_context(cur)
             cur.execute(query, params)
             return cur.fetchall()
 

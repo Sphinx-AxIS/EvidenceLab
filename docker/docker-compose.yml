@@ -43,6 +43,7 @@ services:
     environment:
       DATABASE_URL: postgresql://sphinx:${POSTGRES_PASSWORD:-changeme}@db:5432/sphinx
       PGPASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      REPL_DB_PASSWORD: ${REPL_DB_PASSWORD:-repl_changeme}
       SPHINX_RUN_BOOTSTRAP: "1"
       PYTHONUNBUFFERED: "1"
       REPL_SOCKET: /tmp/repl/sphinx_repl.sock
@@ -64,8 +65,8 @@ services:
         condition: service_healthy
     env_file: ../.env
     environment:
-      DATABASE_URL: postgresql://sphinx:${POSTGRES_PASSWORD:-changeme}@db:5432/sphinx
-      PGPASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      DATABASE_URL: postgresql://sphinx_repl:${REPL_DB_PASSWORD:-repl_changeme}@db:5432/sphinx
+      PGPASSWORD: ${REPL_DB_PASSWORD:-repl_changeme}
       PYTHONUNBUFFERED: "1"
       REPL_SOCKET: /tmp/repl/sphinx_repl.sock
       # LM Studio on host machine
