@@ -108,7 +108,23 @@ JWT validation happens at the API layer (middleware). Every API endpoint checks:
 2. Role has permission for the action
 3. Case ID in the request matches `case_ids` claim
 
-The REPL sandbox receives a scoped database connection that can only access the case(s) in the JWT.
+### LLM Task Authentication
+
+When an investigation task starts, the system:
+1. Looks up the `llm_agent` service account (auto-created at startup)
+2. Mints a short-lived JWT (30-minute expiry) scoped to the task's case(s):
+   - **Investigator mode**: `case_ids = [case_id]`
+   - **Correlator mode**: `case_ids = source_case_ids`
+3. Initializes the REPL session with the scoped case IDs
+
+### Database-Level Security
+
+The REPL container connects as `sphinx_repl`, a restricted PostgreSQL role:
+- **SELECT-only** on evidence tables (`records`, `entities`, `findings`, `cases`, `tasks`, `worklog_steps`, `detection_rules`)
+- **INSERT/UPDATE/DELETE** on `scratch_precomputed` only (for `stash`/`recall`)
+- **No access** to admin tables (`users`, `case_assignments`, `plugin_migrations`, `background_jobs`)
+
+**Row-Level Security (RLS)** policies enforce case-scoping at the database level. The REPL sets `app.readable_case_ids` as a session variable on every connection, and PostgreSQL ensures queries only return rows from authorized cases — even for raw `sql()` calls.
 
 ---
 

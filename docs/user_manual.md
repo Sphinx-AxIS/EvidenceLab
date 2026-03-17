@@ -31,7 +31,7 @@ EvidenceLab has four roles, each with increasing levels of access:
 
 | Role | What You Can Do |
 |------|-----------------|
-| **LLM Agent** | Lowest privilege. Used by the system for background AI tasks. Cannot access admin pages. |
+| **LLM Agent** | Lowest privilege. Service account for AI investigation tasks. Receives a short-lived JWT scoped to the task's case(s). Connects to the database via a restricted role with row-level security. Cannot access admin pages. |
 | **Analyst** | Create and investigate cases, run tasks, ingest evidence, manage findings and rules. Can only access cases assigned to you. |
 | **Case Manager** | Everything an Analyst can do, plus access to all cases (not just assigned ones). |
 | **Admin** | Full access. Everything above, plus user management, data management, and query learning administration. |
@@ -579,6 +579,18 @@ From the user detail page, you can:
 
 Note: Admin and Case Manager roles automatically have access to all cases, so the case assignment section is not shown for these roles.
 
+### LLM Agent Service Account
+
+An `llm_agent` service account is automatically created when the platform starts for the first time. This account is used internally by the investigation system:
+
+- When an analyst runs a task, the system mints a **short-lived JWT** (30-minute expiry) for the `llm_agent`, scoped to the case(s) being investigated.
+- In **Investigator mode**, the JWT is scoped to the single active case.
+- In **Correlator mode**, the JWT is scoped to all selected source cases.
+- The REPL container connects to the database as `sphinx_repl`, a restricted PostgreSQL role with SELECT-only access to evidence tables and row-level security (RLS) enforcing case boundaries.
+- The `llm_agent` account cannot be used for interactive login — it has a random password that is never exposed.
+
+You do not need to manage this account manually. It appears in the users list for visibility.
+
 ---
 
 ## Admin: Data
@@ -781,6 +793,42 @@ Findings in the correlation case represent cross-case conclusions. These might r
 | **dlllist** | `vol_dlllist` | Loaded DLLs per process |
 | **handles** | `vol_handles` | Open file/registry/mutex handles |
 | **malfind** | `vol_malfind` | Suspicious memory regions (RWX permissions, injected code) |
+
+---
+
+## Security Model
+
+EvidenceLab enforces security at multiple layers:
+
+### Network Isolation
+
+The Docker Compose stack uses two networks:
+
+- **sphinx_internal** (no internet access) — Database and REPL containers are isolated here. The REPL container where LLM-generated code executes has no route to the internet.
+- **sphinx_external** — Only the API container is exposed to the host network.
+
+### Database Security
+
+- **API container** connects as the `sphinx` PostgreSQL user (full access, used for migrations, user management, and ingest).
+- **REPL container** connects as `sphinx_repl`, a restricted PostgreSQL role with:
+  - SELECT-only on evidence tables (`records`, `entities`, `findings`, `cases`, `tasks`, `worklog_steps`, `detection_rules`)
+  - INSERT/UPDATE/DELETE on `scratch_precomputed` only (needed for the `stash`/`recall` tool functions)
+  - No access to admin tables (`users`, `case_assignments`, `plugin_migrations`, `background_jobs`)
+- **Row-Level Security (RLS)** policies on all evidence tables enforce case-scoping at the database level. The REPL sets a session variable (`app.readable_case_ids`) at connection time, and PostgreSQL ensures queries only return rows matching the authorized case IDs.
+
+### LLM Authentication
+
+When an investigation task starts:
+
+1. The system looks up the `llm_agent` service account.
+2. A short-lived JWT (30-minute expiry) is minted, scoped to the relevant case(s).
+3. The REPL session is initialized with the scoped case IDs, which are set as the RLS session variable on every database connection.
+
+This ensures that even if LLM-generated code attempts to query data from other cases (e.g., via the raw `sql()` function), the database-level RLS policies prevent unauthorized access.
+
+### Configuration
+
+The REPL database password is configured via the `REPL_DB_PASSWORD` environment variable (default: `repl_changeme`). In production, set this to a strong random value in your `.env` file.
 
 ---
 

@@ -113,20 +113,34 @@ Key environment variables (see `.env.example`):
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `POSTGRES_PASSWORD` | Database password | `changeme` |
+| `POSTGRES_PASSWORD` | Database password (API container) | `changeme` |
+| `REPL_DB_PASSWORD` | Database password (REPL container, restricted role) | `repl_changeme` |
 | `JWT_SECRET` | Secret for signing auth tokens | `changeme-...` |
 | `LM_STUDIO_URL` | LM Studio API endpoint | `http://localhost:1234/v1` |
 | `LLM_MODEL` | Model name for LM Studio | `qwen2.5-coder-32b-instruct` |
 | `RLM_MAX_STEPS` | Max steps per investigation task | `15` |
 | `SPHINX_PORT` | Host port for the web UI | `8000` |
 
-## Network Security Model
+## Security Model
 
-The Docker network topology enforces isolation:
+### Network Isolation
 
 - The **REPL** container (where LLM-generated code executes) has **no internet access** -- it can only reach the database and communicate with the API via a Unix socket.
 - The **database** has **no internet access** -- only the API and REPL containers can connect.
 - Only the **API** container is exposed to the host network.
+
+### Database Role Separation
+
+- The **API** container connects as `sphinx` (full access) for migrations, user management, and ingest.
+- The **REPL** container connects as `sphinx_repl`, a restricted PostgreSQL role with SELECT-only access to evidence tables and no access to admin tables (`users`, `case_assignments`, etc.).
+
+### Row-Level Security (RLS)
+
+PostgreSQL RLS policies enforce case-scoping at the database level. The REPL sets `app.readable_case_ids` at connection time, and the database ensures LLM-generated queries only return data from authorized cases.
+
+### LLM Authentication
+
+An `llm_agent` service account is auto-created at startup. When a task runs, a short-lived JWT (30-minute expiry) is minted, scoped to the task's case (Investigator mode) or source cases (Correlator mode).
 
 ## License
 
