@@ -51,11 +51,9 @@
     <div style="display:grid;grid-template-columns:auto 1fr auto 120px;gap:1rem;">
       <!-- Delete button -->
       <div style="display:flex;align-items:center;">
-        {% if user.role == 'admin' or (user.role != 'llm_agent' and f.owner_id == user.sub) %}
-        <form method="POST" action="/ui/cases/{{ case_id }}/findings/{{ f.id }}/delete" style="margin:0;"
-              onsubmit="return confirm('Delete this finding? This cannot be undone.');">
-          <button type="submit" class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:0.3rem 0.45rem;font-size:1rem;cursor:pointer;line-height:1;" title="Delete finding">&#128465;</button>
-        </form>
+        {% if user.role == 'admin' or (user.role != 'llm_agent' and (f.owner_id == user.sub or f.owner_id is none)) %}
+        <button type="button" class="btn btn-sm delete-finding-btn" data-url="/ui/cases/{{ case_id }}/findings/{{ f.id }}/delete"
+                style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:0.3rem 0.45rem;font-size:1rem;cursor:pointer;line-height:1;" title="Delete finding">&#128465;</button>
         {% endif %}
       </div>
       <!-- Finding content -->
@@ -113,6 +111,21 @@
     counter.textContent = n > 0 ? n + ' finding(s) selected' : '';
   }
   checkboxes.forEach(function(cb) { cb.addEventListener('change', updateCount); });
+
+  // Delete finding buttons (can't use nested forms, so submit via JS)
+  document.querySelectorAll('.delete-finding-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!confirm('Delete this finding? This cannot be undone.')) return;
+      var form = document.createElement('form');
+      form.method = 'POST';
+      form.action = btn.getAttribute('data-url');
+      form.style.display = 'none';
+      document.body.appendChild(form);
+      form.submit();
+    });
+  });
 })();
 </script>
 {% endblock %}
