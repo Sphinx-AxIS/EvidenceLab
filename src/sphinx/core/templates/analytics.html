@@ -7,8 +7,8 @@
 
 <h4>ATT&amp;CK Starter Filters</h4>
 <ul>
-  <li>The <strong>Windows ATT&amp;CK Starter Filters</strong> panel gives you official MITRE ATT&amp;CK-inspired starting points for common Windows hunting scenarios.</li>
-  <li>Each preset applies a record type plus starter EventID and channel filters to the existing analytics query tools.</li>
+  <li>The <strong>Windows ATT&amp;CK Starter Filters</strong> panel is a guided selector that narrows from <strong>Tactic</strong> to <strong>Technique</strong> to a specific <strong>EventID starter</strong>.</li>
+  <li>Each final EventID choice applies a record type plus starter EventID and channel filters to the existing analytics query tools.</li>
   <li>These presets are starting points, not finished detections. Inspect the resulting records carefully before deciding to create a Sigma rule.</li>
 </ul>
 
@@ -64,14 +64,32 @@
     <div>
       <h3 style="margin-bottom:0.35rem;">Windows ATT&amp;CK Starter Filters</h3>
       <p class="text-muted" style="max-width:70rem;font-size:0.9rem;">
-        Use official MITRE ATT&amp;CK detection-strategy starter filters to begin a Windows hunt. A preset selects a Windows record type and applies starter channel/EventID filters into the existing analytics workflow.
+        Use official MITRE ATT&amp;CK detection-strategy starter filters to begin a Windows hunt. Start with a tactic, narrow to a technique, then choose the EventID starter that best matches the evidence source you want to inspect.
       </p>
     </div>
     <div class="text-muted" style="font-size:0.78rem;max-width:20rem;">
       Hunt here first, inspect the resulting records, and only then decide whether a Sigma rule is justified.
     </div>
   </div>
-  <div id="attack-preset-groups" style="margin-top:0.75rem;"></div>
+  <div class="flex gap-1" style="align-items:flex-end;flex-wrap:wrap;margin-top:0.75rem;">
+    <div>
+      <label class="form-label">Tactic</label>
+      <select id="attack-tactic" class="form-control" style="width:240px;"></select>
+    </div>
+    <div>
+      <label class="form-label">Technique</label>
+      <select id="attack-technique" class="form-control" style="width:280px;" disabled></select>
+    </div>
+    <div>
+      <label class="form-label">EventID Starter</label>
+      <select id="attack-eventid" class="form-control" style="width:320px;" disabled></select>
+    </div>
+    <div class="flex gap-1">
+      <button type="button" id="attack-apply-btn" class="btn btn-primary" onclick="applySelectedAttackPreset()" disabled>Apply Filter</button>
+      <button type="button" class="btn" onclick="resetAttackSelector()">Reset</button>
+    </div>
+  </div>
+  <div id="attack-selection-summary" class="text-muted" style="margin-top:0.75rem;font-size:0.84rem;"></div>
 </div>
 
 <!-- Summary cards -->
@@ -246,20 +264,6 @@
 .filter-row .filter-val { flex: 2; }
 .filter-row .filter-rm { flex: 0; min-width: 2rem; padding: 0.25rem 0.5rem; }
 .bar-cell { background: var(--accent); height: 1rem; border-radius: 3px; min-width: 2px; opacity: 0.6; }
-.attack-group { margin-top: 0.75rem; }
-.attack-preset-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:0.75rem; }
-.attack-preset-card {
-  border:1px solid var(--border); background:var(--bg-card); border-radius:8px;
-  padding:0.85rem; display:flex; flex-direction:column; gap:0.5rem;
-}
-.attack-preset-card h4 { margin:0; font-size:0.95rem; }
-.attack-meta { font-size:0.76rem; color:var(--text-muted); }
-.attack-summary { font-size:0.84rem; color:var(--text); min-height:2.5rem; }
-.attack-tags { display:flex; gap:0.4rem; flex-wrap:wrap; }
-.attack-tag {
-  display:inline-block; border:1px solid var(--border); border-radius:999px;
-  padding:0.1rem 0.45rem; font-size:0.72rem; color:var(--text-muted);
-}
 </style>
 
 <script>
@@ -365,44 +369,112 @@ function selectType(btn, recordType) {
     });
 }
 
-function renderAttackPresets() {
-  let container = document.getElementById('attack-preset-groups');
-  if (!container) return;
+function uniqueSorted(values) {
+  return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
+}
+
+function populateSelect(selectEl, options, placeholder, disabled=false) {
+  selectEl.innerHTML = `<option value="">${placeholder}</option>`;
+  for (let opt of options) {
+    let option = document.createElement('option');
+    option.value = opt.value;
+    option.textContent = opt.label;
+    selectEl.appendChild(option);
+  }
+  selectEl.disabled = disabled;
+}
+
+function updateAttackSummary(message='') {
+  let summary = document.getElementById('attack-selection-summary');
+  if (summary) summary.innerHTML = message;
+}
+
+function initAttackSelector() {
+  let tacticSel = document.getElementById('attack-tactic');
+  let techniqueSel = document.getElementById('attack-technique');
+  let eventSel = document.getElementById('attack-eventid');
+  if (!tacticSel || !techniqueSel || !eventSel) return;
+
   if (!ATTACK_PRESETS || ATTACK_PRESETS.length === 0) {
-    container.innerHTML = '<p class="text-muted">No ATT&CK starter filters are available.</p>';
+    populateSelect(tacticSel, [], 'No ATT&CK starter filters available', true);
+    populateSelect(techniqueSel, [], 'Select tactic first', true);
+    populateSelect(eventSel, [], 'Select technique first', true);
+    updateAttackSummary('No ATT&CK starter filters are available.');
     return;
   }
 
-  let groups = {};
-  for (let preset of ATTACK_PRESETS) {
-    if (!groups[preset.tactic]) groups[preset.tactic] = [];
-    groups[preset.tactic].push(preset);
+  let tactics = uniqueSorted(ATTACK_PRESETS.map(p => p.tactic)).map(v => ({ value: v, label: v }));
+  populateSelect(tacticSel, tactics, 'Select tactic...');
+  populateSelect(techniqueSel, [], 'Select tactic first', true);
+  populateSelect(eventSel, [], 'Select technique first', true);
+  updateAttackSummary('Choose a tactic to begin narrowing ATT&CK starter filters for Windows hunting.');
+}
+
+function onAttackTacticChange() {
+  let tactic = document.getElementById('attack-tactic').value;
+  let techniqueSel = document.getElementById('attack-technique');
+  let eventSel = document.getElementById('attack-eventid');
+  document.getElementById('attack-apply-btn').disabled = true;
+
+  if (!tactic) {
+    populateSelect(techniqueSel, [], 'Select tactic first', true);
+    populateSelect(eventSel, [], 'Select technique first', true);
+    updateAttackSummary('Choose a tactic to begin narrowing ATT&CK starter filters for Windows hunting.');
+    return;
   }
 
-  let html = '';
-  for (let tactic of Object.keys(groups).sort()) {
-    html += `<div class="attack-group"><h4 style="margin-bottom:0.5rem;">${tactic}</h4><div class="attack-preset-grid">`;
-    for (let preset of groups[tactic]) {
-      let eventList = (preset.event_ids || []).join(', ');
-      html += `<div class="attack-preset-card">
-        <div>
-          <h4>${preset.title}</h4>
-          <div class="attack-meta">${preset.technique_id} ${preset.technique_name} | ${preset.detection_strategy_id}</div>
-        </div>
-        <div class="attack-summary">${preset.summary}</div>
-        <div class="attack-tags">
-          <span class="attack-tag">${preset.record_type}</span>
-          ${eventList ? `<span class="attack-tag">EventID ${eventList}</span>` : ''}
-        </div>
-        <div class="flex gap-1" style="margin-top:auto;flex-wrap:wrap;">
-          <button type="button" class="btn btn-primary btn-sm" onclick="applyAttackPreset('${preset.id}')">Apply Filter</button>
-          <a class="btn btn-sm" href="${preset.source_url}" target="_blank" rel="noopener noreferrer">MITRE</a>
-        </div>
-      </div>`;
-    }
-    html += '</div></div>';
+  let techniques = uniqueSorted(
+    ATTACK_PRESETS.filter(p => p.tactic === tactic).map(p => `${p.technique_id} ${p.technique_name}`)
+  ).map(v => ({ value: v, label: v }));
+
+  populateSelect(techniqueSel, techniques, 'Select technique...');
+  populateSelect(eventSel, [], 'Select technique first', true);
+  updateAttackSummary(`Tactic selected: <strong>${tactic}</strong>. Now choose the technique you want to hunt.`);
+}
+
+function onAttackTechniqueChange() {
+  let tactic = document.getElementById('attack-tactic').value;
+  let technique = document.getElementById('attack-technique').value;
+  let eventSel = document.getElementById('attack-eventid');
+  document.getElementById('attack-apply-btn').disabled = true;
+
+  if (!tactic || !technique) {
+    populateSelect(eventSel, [], 'Select technique first', true);
+    updateAttackSummary('Choose a technique to see matching EventID starters.');
+    return;
   }
-  container.innerHTML = html;
+
+  let matching = ATTACK_PRESETS.filter(p => p.tactic === tactic && `${p.technique_id} ${p.technique_name}` === technique);
+  let eventOptions = matching.map(p => ({
+    value: p.id,
+    label: `${(p.event_ids || []).join(', ')} | ${p.record_type}${p.channels && p.channels.length ? ' | ' + p.channels.join(', ') : ''}`,
+  }));
+
+  populateSelect(eventSel, eventOptions, 'Select EventID starter...');
+  updateAttackSummary(`Technique selected: <strong>${technique}</strong>. Choose the EventID starter that matches the evidence source you want to inspect.`);
+}
+
+function onAttackEventChange() {
+  let presetId = document.getElementById('attack-eventid').value;
+  let applyBtn = document.getElementById('attack-apply-btn');
+  applyBtn.disabled = !presetId;
+
+  if (!presetId) {
+    updateAttackSummary('Choose an EventID starter to apply the ATT&CK filter to Analytics.');
+    return;
+  }
+
+  let preset = ATTACK_PRESETS.find(p => p.id === presetId);
+  if (!preset) return;
+  updateAttackSummary(
+    `<strong>${preset.title}</strong> | ${preset.technique_id} ${preset.technique_name} | ` +
+    `${preset.record_type} | EventID ${(preset.event_ids || []).join(', ')} | ` +
+    `<a href="${preset.source_url}" target="_blank" rel="noopener noreferrer">MITRE reference</a>`
+  );
+}
+
+function resetAttackSelector() {
+  initAttackSelector();
 }
 
 function findTypeTab(recordType) {
@@ -433,6 +505,12 @@ function applyAttackPreset(presetId) {
       filtersPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   });
+}
+
+function applySelectedAttackPreset() {
+  let presetId = document.getElementById('attack-eventid').value;
+  if (!presetId) return;
+  applyAttackPreset(presetId);
 }
 
 function addFilterRow(col, op, val) {
@@ -816,7 +894,10 @@ function clearFilters(run=true) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  renderAttackPresets();
+  initAttackSelector();
+  document.getElementById('attack-tactic').addEventListener('change', onAttackTacticChange);
+  document.getElementById('attack-technique').addEventListener('change', onAttackTechniqueChange);
+  document.getElementById('attack-eventid').addEventListener('change', onAttackEventChange);
   loadSummary();
 });
 </script>
