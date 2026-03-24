@@ -215,6 +215,139 @@ def _build_sigma_starter(source_record: dict | None, selected_channel: str, sele
     ])
 
 
+def _record_highlights(record_type: str, raw: dict[str, Any] | None) -> list[dict[str, str]]:
+    raw = raw or {}
+    highlights: list[dict[str, str]] = []
+
+    def add(label: str, value: Any) -> None:
+        if value is None:
+            return
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return
+        highlights.append({"label": label, "value": str(value)})
+
+    if record_type.startswith("win_evt_"):
+        event_data = raw.get("EventData") if isinstance(raw.get("EventData"), dict) else {}
+        add("Channel", raw.get("Channel"))
+        add("EventID", raw.get("EventID"))
+        add("Provider", raw.get("Provider"))
+        add("Computer", raw.get("Computer"))
+        for label, key in (
+            ("Target User", "TargetUserName"),
+            ("Subject User", "SubjectUserName"),
+            ("Image", "Image"),
+            ("Parent Image", "ParentImage"),
+            ("Command Line", "CommandLine"),
+            ("Source IP", "IpAddress"),
+            ("Workstation", "WorkstationName"),
+            ("Script Block", "ScriptBlockText"),
+        ):
+            add(label, event_data.get(key))
+    else:
+        for label, key in (
+            ("Alert Signature", "alert_signature"),
+            ("Service", "service"),
+            ("Protocol", "proto"),
+            ("Query", "query"),
+            ("Host", "host"),
+            ("URI", "uri"),
+            ("Method", "method"),
+            ("Source IP", "src_ip"),
+            ("Destination IP", "dest_ip"),
+            ("Orig Host", "id.orig_h"),
+            ("Resp Host", "id.resp_h"),
+        ):
+            add(label, raw.get(key))
+
+    return highlights[:10]
+
+
+def _record_context_counts(case_id: str, record_type: str, raw: dict[str, Any] | None) -> list[dict[str, str]]:
+    raw = raw or {}
+    counts: list[dict[str, str]] = []
+
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT count(*) AS n FROM records WHERE case_id = %s AND record_type = %s",
+            (case_id, record_type),
+        )
+        counts.append({"label": "Records of this type in case", "value": str(cur.fetchone()["n"])})
+
+        if record_type.startswith("win_evt_"):
+            channel = raw.get("Channel")
+            event_id = raw.get("EventID")
+            if channel:
+                cur.execute(
+                    "SELECT count(*) AS n FROM records WHERE case_id = %s AND COALESCE(raw->>'Channel', '') = %s",
+                    (case_id, str(channel)),
+                )
+                counts.append({"label": f"Records in channel {channel}", "value": str(cur.fetchone()["n"])})
+            if event_id not in (None, ""):
+                cur.execute(
+                    "SELECT count(*) AS n FROM records WHERE case_id = %s AND COALESCE(raw->>'EventID', '') = %s",
+                    (case_id, str(event_id)),
+                )
+                counts.append({"label": f"Records with EventID {event_id}", "value": str(cur.fetchone()["n"])})
+            if channel and event_id not in (None, ""):
+                cur.execute(
+                    """SELECT count(*) AS n FROM records
+                       WHERE case_id = %s
+                         AND COALESCE(raw->>'Channel', '') = %s
+                         AND COALESCE(raw->>'EventID', '') = %s""",
+                    (case_id, str(channel), str(event_id)),
+                )
+                counts.append({"label": f"{channel} events with EventID {event_id}", "value": str(cur.fetchone()["n"])})
+
+            event_data = raw.get("EventData") if isinstance(raw.get("EventData"), dict) else {}
+            for label, key in (
+                ("Same target user", "TargetUserName"),
+                ("Same image", "Image"),
+                ("Same source IP", "IpAddress"),
+            ):
+                value = event_data.get(key)
+                if isinstance(value, str) and value.strip():
+                    cur.execute(
+                        f"""SELECT count(*) AS n FROM records
+                            WHERE case_id = %s
+                              AND COALESCE(raw->'EventData'->>'{key}', '') = %s""",
+                        (case_id, value.strip()),
+                    )
+                    counts.append({"label": f"{label}: {value.strip()}", "value": str(cur.fetchone()["n"])})
+        else:
+            for label, key in (
+                ("Same alert signature", "alert_signature"),
+                ("Same service", "service"),
+                ("Same query", "query"),
+                ("Same host", "host"),
+            ):
+                value = raw.get(key)
+                if isinstance(value, str) and value.strip():
+                    cur.execute(
+                        f"SELECT count(*) AS n FROM records WHERE case_id = %s AND COALESCE(raw->>'{key}', '') = %s",
+                        (case_id, value.strip()),
+                    )
+                    counts.append({"label": f"{label}: {value.strip()}", "value": str(cur.fetchone()["n"])})
+
+    return counts[:8]
+
+
+def _record_interpretation(record_type: str, raw: dict[str, Any] | None) -> str:
+    raw = raw or {}
+    if record_type == "win_evt_security":
+        return "Windows Security events are often useful for authentication, privilege use, and account activity detections."
+    if record_type == "win_evt_sysmon":
+        return "Sysmon events are often strong Sigma candidates because they capture process, network, and registry behavior with stable field names."
+    if record_type == "win_evt_powershell":
+        return "PowerShell events can be detection-worthy when they show script execution, encoded commands, or suspicious automation patterns."
+    if record_type.startswith("win_evt_"):
+        return "Windows event records should usually be evaluated by channel, EventID, and stable EventData fields before creating a Sigma rule."
+    if record_type.startswith(("suricata_", "zeek_", "tshark_")):
+        return "Network-derived records should be reviewed for packet-visible behavior before writing a Suricata signature."
+    return "Inspect the key fields and case context to decide whether this record represents stable, repeatable behavior worth detecting."
+
+
 # ── Auth pages ──────────────────────────────────────
 
 @router.get("/login", response_class=HTMLResponse)
@@ -577,11 +710,21 @@ async def record_detail(request: Request, case_id: str, record_id: str):
         )
         entities = cur.fetchall()
 
+    highlights = _record_highlights(record["record_type"], record.get("raw"))
+    context_counts = _record_context_counts(case_id, record["record_type"], record.get("raw"))
+    interpretation = _record_interpretation(record["record_type"], record.get("raw"))
+    can_build_sigma = record["record_type"].startswith("win_evt_")
+    can_build_suricata = record["record_type"].startswith(("suricata_", "zeek_", "tshark_"))
+
     raw_json = json.dumps(record["raw"], indent=2, default=str) if record["raw"] else "{}"
 
     return templates.TemplateResponse(request, "record_detail.html", _ctx(
         request, user, "records", case_id=case_id,
         record=record, entities=entities, raw_json=raw_json,
+        highlights=highlights, context_counts=context_counts,
+        interpretation=interpretation,
+        can_build_sigma=can_build_sigma,
+        can_build_suricata=can_build_suricata,
     ))
 
 

@@ -5,6 +5,14 @@
 <h3>Evidence Records</h3>
 <p>Records are the raw evidence data ingested into this case. Each record is a single event or log entry stored as structured JSON.</p>
 
+<h4>Hunt First, Build Second</h4>
+<ul>
+  <li>The <strong>Records</strong> page is an evidence browser for narrowing to candidate events and opening them for inspection.</li>
+  <li>For Sigma authoring, start with <code>win_evt_*</code> records and use the <strong>Windows Channel</strong>, <strong>EventID</strong>, and <strong>Search Raw Data</strong> filters.</li>
+  <li>Once you find a promising event, open <strong>Detail</strong> first and use the event context there to decide whether a detection is justified.</li>
+  <li>Rule-building actions appear on the detail page after the event is understandable in context.</li>
+</ul>
+
 <h4>Record Types</h4>
 <ul>
   <li><strong>suricata_alert</strong> — IDS alerts triggered by Suricata rules against PCAP data.</li>
@@ -33,6 +41,10 @@
 </div>
 
 <div class="card mb-2">
+  <div class="alert alert-info" style="margin-bottom:0.75rem;">
+    <strong>Where do I hunt for Sigma candidates?</strong>
+    Start here on <strong>Records</strong>. Filter to <code>win_evt_*</code>, narrow by <strong>Windows Channel</strong> or <strong>EventID</strong>, then open <strong>Detail</strong> on suspicious events to review their context before deciding whether to create a Sigma rule.
+  </div>
   <form method="get" action="/ui/cases/{{ case_id }}/records" class="flex gap-1" style="flex-wrap:wrap;align-items:end;">
     <div>
       <label for="type" style="display:block;font-size:0.75rem;color:var(--text-muted);margin-bottom:0.25rem;">Record Type</label>
@@ -101,14 +113,7 @@
           {% endif %}
         </td>
         <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.8rem;" title="{{ r.summary_hint }}">{{ r.summary_hint if r.summary_hint else '—' }}</td>
-        <td class="flex gap-1">
-          {% if r.record_type.startswith('win_evt_') %}
-          <a href="/ui/cases/{{ case_id }}/detection-rules/builder/sigma?record_id={{ r.id }}" class="btn btn-sm btn-primary">Build Sigma</a>
-          {% elif r.record_type.startswith('suricata_') or r.record_type.startswith('zeek_') or r.record_type.startswith('tshark_') %}
-          <a href="/ui/cases/{{ case_id }}/detection-rules/builder/suricata?record_id={{ r.id }}" class="btn btn-sm btn-primary">Build Rule</a>
-          {% endif %}
-          <a href="/ui/cases/{{ case_id }}/records/{{ r.id }}" class="btn btn-sm">Detail</a>
-        </td>
+        <td><a href="/ui/cases/{{ case_id }}/records/{{ r.id }}" class="btn btn-sm">Detail</a></td>
       </tr>
       {% endfor %}
     </tbody>

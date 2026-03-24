@@ -130,6 +130,16 @@ The new case is created and you are redirected to its Dashboard. From there, you
 
 The Records page shows all evidence records stored in the current case. A "record" is a single parsed event — a Suricata alert, a Zeek connection log, a Windows security event, a Volatility process entry, etc.
 
+### Where To Hunt For Rule Candidates
+
+The **Records** page is the evidence browser you use to narrow to candidate events and inspect them in detail before creating a detection rule.
+
+- For **Sigma** rules, start with Windows event records (`win_evt_security`, `win_evt_sysmon`, `win_evt_powershell`, etc.).
+- Use the **Windows Channel**, **EventID**, and **Search Raw Data** filters to narrow to the specific event family you care about.
+- When you find a promising event, open its **Detail** page first.
+- The detail page explains the event, shows important fields, and gives case-level context so you can decide whether a detection is justified.
+- If the event still looks rule-worthy after inspection, use **Build Sigma Rule From Event** or **Build Suricata Rule From Record** from the detail page.
+
 ### Browsing Records
 
 Records are displayed in a paginated table showing:
@@ -137,13 +147,22 @@ Records are displayed in a paginated table showing:
 - **ID** — Unique identifier
 - **Type** — The record type (e.g., `suricata_alert`, `zeek_conn`, `win_evt_security`)
 - **Timestamp** — When the event occurred
+- **Channel / Event** — For Windows logs, the channel name and EventID
+- **Summary Hint** — A quick preview of a useful field such as username, image path, command line, or other high-signal content
 - **Detail** — Link to view the full record
 
 Use the **Previous** and **Next** buttons at the bottom to navigate through pages.
 
-### Filtering by Type
+### Filtering and Hunting
 
-Use the **Type** dropdown at the top to filter records by their type. This is useful when you have thousands of records and want to focus on a specific evidence source.
+Use the filters at the top of the page to narrow the dataset before opening a record:
+
+- **Type** — filter to a specific evidence source
+- **Windows Channel** — focus on Security, Sysmon, PowerShell, Application, or System
+- **EventID** — search for a specific Windows event ID such as `4624`, `4625`, `4688`, or `4104`
+- **Search Raw Data** — free-text search across the record JSON for usernames, process names, command lines, IP addresses, and other indicators
+
+This is the intended starting point for narrowing to a Windows event that may become a Sigma candidate after inspection.
 
 Common record types include:
 
@@ -179,6 +198,9 @@ Click **Detail** on any record to view its full contents:
 - **Record metadata** — ID, type, and timestamp in summary cards.
 - **Extracted Entities** — Any IOCs (IP addresses, domains, hashes, emails, URLs, usernames) automatically extracted from this record.
 - **Raw Data** — The complete JSON data for the record, displayed in a formatted viewer.
+
+If the record is a Windows event, the detail page includes a **Build Sigma Rule From Event** button that pivots directly into the guided Sigma authoring flow.
+That button appears alongside summary context so the analyst can make the decision with more confidence.
 
 ---
 

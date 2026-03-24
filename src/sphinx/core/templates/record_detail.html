@@ -1,15 +1,20 @@
 {% extends "base.html" %}
 {% block title %}Record Detail{% endblock %}
 
+{% block help %}
+<h3>Record Detail</h3>
+<p>Use this page to understand what a record means before deciding whether to create a detection from it.</p>
+<ul>
+  <li><strong>What Am I Looking At?</strong> highlights the most important fields from the event.</li>
+  <li><strong>Case Context</strong> shows how common this event pattern is in the case.</li>
+  <li>Only after reviewing those sections should you pivot into Sigma or Suricata authoring.</li>
+</ul>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <h2>Record Detail</h2>
   <div class="flex gap-1">
-    {% if record.record_type.startswith('win_evt_') %}
-    <a href="/ui/cases/{{ case_id }}/detection-rules/builder/sigma?record_id={{ record.id }}" class="btn btn-sm btn-primary">Build Sigma Rule From Event</a>
-    {% elif record.record_type.startswith('suricata_') or record.record_type.startswith('zeek_') or record.record_type.startswith('tshark_') %}
-    <a href="/ui/cases/{{ case_id }}/detection-rules/builder/suricata?record_id={{ record.id }}" class="btn btn-sm btn-primary">Build Suricata Rule From Record</a>
-    {% endif %}
     <a href="/ui/cases/{{ case_id }}/records?type={{ record.record_type }}" class="btn btn-sm">&laquo; Back to list</a>
   </div>
 </div>
@@ -29,6 +34,50 @@
   </div>
 </div>
 
+<div class="card mb-2">
+  <h3>What Am I Looking At?</h3>
+  <p style="color:var(--text-muted);font-size:0.9rem;">{{ interpretation }}</p>
+  {% if highlights %}
+  <div class="table-wrap" style="margin-top:0.75rem;">
+    <table>
+      <thead><tr><th>Field</th><th>Value</th></tr></thead>
+      <tbody>
+        {% for item in highlights %}
+        <tr>
+          <td>{{ item.label }}</td>
+          <td class="text-mono" style="font-size:0.8rem;">{{ item.value }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-muted">No high-signal summary fields were identified automatically for this record.</div>
+  {% endif %}
+</div>
+
+{% if context_counts %}
+<div class="card mb-2">
+  <h3>Case Context</h3>
+  <p style="color:var(--text-muted);font-size:0.9rem;">
+    Before writing a rule, check whether this event is rare, repeated, noisy, or tied to a stable behavior in the case.
+  </p>
+  <div class="table-wrap" style="margin-top:0.75rem;">
+    <table>
+      <thead><tr><th>Context Metric</th><th>Count</th></tr></thead>
+      <tbody>
+        {% for item in context_counts %}
+        <tr>
+          <td>{{ item.label }}</td>
+          <td class="text-mono">{{ item.value }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 {% if entities %}
 <div class="table-wrap">
   <div class="table-title">Extracted Entities</div>
@@ -45,6 +94,21 @@
   </table>
 </div>
 {% endif %}
+
+<div class="card mb-2">
+  <h3>Detection Decision</h3>
+  <p style="color:var(--text-muted);font-size:0.9rem;">
+    Ask whether this record reflects a stable behavior worth detecting, whether the necessary fields are consistently present, and whether the resulting rule would likely be useful rather than noisy.
+  </p>
+  <div class="flex gap-1" style="flex-wrap:wrap;">
+    {% if can_build_sigma %}
+    <a href="/ui/cases/{{ case_id }}/detection-rules/builder/sigma?record_id={{ record.id }}" class="btn btn-primary">Build Sigma Rule From Event</a>
+    {% endif %}
+    {% if can_build_suricata %}
+    <a href="/ui/cases/{{ case_id }}/detection-rules/builder/suricata?record_id={{ record.id }}" class="btn btn-primary">Build Suricata Rule From Record</a>
+    {% endif %}
+  </div>
+</div>
 
 <div class="table-wrap">
   <div class="table-title">Raw Data (JSON)</div>

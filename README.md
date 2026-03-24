@@ -59,9 +59,11 @@ LLM inference runs on the host via [LM Studio](https://lmstudio.ai/) (OpenAI-com
 
 1. Create a case from the **Cases** page
 2. Navigate to **Ingest** and upload a PCAP, EVTX, or Volatility JSON file
-3. Browse ingested records from the **Records** page
-4. Create an investigation task from the **Tasks** page
-5. Review LLM findings and generate a report
+3. Narrow to interesting evidence from the **Records** page using type/channel/EventID/text filters
+4. Open a record detail page to inspect the event context and decide whether it is detection-worthy
+5. Pivot from that inspected event or packet into the guided Sigma or Suricata rule builder
+6. Create an investigation task from the **Tasks** page
+7. Review LLM findings and generate a report
 
 ## Suricata Rules
 
