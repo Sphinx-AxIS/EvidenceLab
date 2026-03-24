@@ -197,6 +197,7 @@ Click **Detail** on any record to view its full contents:
 
 - **Record metadata** — ID, type, and timestamp in summary cards.
 - **Extracted Entities** — Any IOCs (IP addresses, domains, hashes, emails, URLs, usernames) automatically extracted from this record.
+- Entity extraction is heuristic. The platform filters common false positives such as browser version strings and time-only values where possible.
 - **Raw Data** — The complete JSON data for the record, displayed in a formatted viewer.
 
 If the record is a Windows event, the detail page includes a **Build Sigma Rule From Event** button that pivots directly into the guided Sigma authoring flow.
@@ -288,9 +289,21 @@ This is used for:
 - **Windows Event Logs** — Export from EVTX files using standard tools, then upload as JSON.
 - **Volatility 3 Output** — Export process lists, network scans, DLL lists, etc. as JSON.
 
+#### EVTX Files (Native Windows Event Logs)
+
+File type: `.evtx`
+
+When you upload a native EVTX file:
+
+1. EvidenceLab parses the Windows event XML directly.
+2. It auto-detects the event channel and routes supported events to the appropriate `win_evt_*` record type.
+3. It preserves the original event time and stores it in the record timestamp field used throughout the UI and analytics.
+
+This is the simplest way to ingest Windows event logs because it keeps the original event timing intact for Records, Analytics, and correlations.
+
 ### How to Ingest Evidence
 
-1. Select the **Ingest Mode** — either "JSON" or "PCAP".
+1. Select the **Ingest Mode** — "JSON", "Windows Event Log (EVTX)", or "PCAP".
 2. For JSON mode, select the appropriate **Record Type**.
 3. Click **Choose File** and select your evidence file.
 4. Click **Upload & Ingest**.
@@ -308,6 +321,8 @@ The bottom of the Ingest page lists all registered ingest handlers and their acc
 **Sidebar:** Entities | **URL:** `/ui/cases/{case_id}/entities`
 
 Entities are indicators of compromise (IOCs) automatically extracted from your evidence records. The platform uses pattern matching to identify IP addresses, domains, email addresses, URLs, file hashes, and usernames.
+
+Entity extraction is heuristic rather than perfect parsing. EvidenceLab applies false-positive filtering for common mistakes such as browser version strings that resemble IPv4 addresses and bare time values that resemble IPv6 addresses.
 
 ### Entity Types
 

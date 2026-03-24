@@ -160,6 +160,7 @@ def _parse_event_xml(xml_text: str) -> dict[str, Any]:
         "Computer": computer,
         "Provider": provider_name,
         "SystemTime": system_time,
+        "timestamp": system_time,
         "System": system_data,
     }
     if "EventRecordID" in system_data:

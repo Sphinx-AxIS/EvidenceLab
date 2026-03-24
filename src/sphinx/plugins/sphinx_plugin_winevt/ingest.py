@@ -13,26 +13,73 @@ from sphinx.core.entity_extractor import extract_and_store
 log = logging.getLogger(__name__)
 
 
+def _coerce_datetime(value: Any) -> datetime | None:
+    """Parse common Windows event timestamp strings into aware UTC datetimes."""
+    if not isinstance(value, str):
+        return None
+
+    text = value.strip()
+    if not text:
+        return None
+
+    # Handle the common EVTX format "...Z" directly.
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+
+    try:
+        dt = datetime.fromisoformat(text)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+    except ValueError:
+        pass
+
+    for fmt in (
+        "%Y-%m-%d %H:%M:%S.%f%z",
+        "%Y-%m-%d %H:%M:%S%z",
+        "%Y-%m-%d %H:%M:%S.%f",
+        "%Y-%m-%d %H:%M:%S",
+    ):
+        try:
+            dt = datetime.strptime(text, fmt)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.astimezone(timezone.utc)
+        except ValueError:
+            continue
+
+    return None
+
+
 def _parse_evt_timestamp(raw: dict) -> datetime | None:
     """Extract timestamp from Windows event record."""
-    for key in ("TimeCreated", "timestamp", "SystemTime", "ts"):
-        val = raw.get(key)
-        if val is None:
-            # Check nested System.TimeCreated
-            system = raw.get("System", {})
-            tc = system.get("TimeCreated", {})
-            val = tc.get("SystemTime") or tc.get("#text")
-        if val and isinstance(val, str):
-            for fmt in (
-                "%Y-%m-%dT%H:%M:%S.%f%z",
-                "%Y-%m-%dT%H:%M:%S%z",
-                "%Y-%m-%dT%H:%M:%S.%fZ",
-                "%Y-%m-%dT%H:%M:%SZ",
-            ):
-                try:
-                    return datetime.strptime(val, fmt).replace(tzinfo=timezone.utc)
-                except ValueError:
-                    continue
+    candidates: list[Any] = [
+        raw.get("timestamp"),
+        raw.get("SystemTime"),
+        raw.get("TimeCreated"),
+        raw.get("ts"),
+    ]
+
+    system = raw.get("System", {})
+    if isinstance(system, dict):
+        candidates.extend([
+            system.get("SystemTime"),
+            system.get("timestamp"),
+        ])
+        tc = system.get("TimeCreated", {})
+        if isinstance(tc, dict):
+            candidates.extend([
+                tc.get("SystemTime"),
+                tc.get("#text"),
+            ])
+        else:
+            candidates.append(tc)
+
+    for candidate in candidates:
+        dt = _coerce_datetime(candidate)
+        if dt is not None:
+            return dt
+
     return None
 
 

@@ -8,7 +8,7 @@
 <h4>Supported Formats</h4>
 <ul>
   <li><strong>PCAP / PCAPNG</strong> — Network capture files. Automatically processed by Suricata (IDS alerts), Zeek (connection metadata, protocol logs), and tshark (TCP stream reconstruction). Select "PCAP Upload" and choose your capture file.</li>
-  <li><strong>EVTX</strong> — Native Windows Event Log files. Select "Windows Event Log (EVTX)" and upload a `.evtx` file; the system will auto-detect channel and route events to the existing Windows log record types.</li>
+  <li><strong>EVTX</strong> — Native Windows Event Log files. Select "Windows Event Log (EVTX)" and upload a `.evtx` file; the system will auto-detect channel, preserve the original event timestamp as the record timestamp, and route events to the existing Windows log record types.</li>
   <li><strong>JSON / JSONL</strong> — Structured log files. Select the appropriate record type (e.g., win_evt_security for Windows Security logs) and upload a JSON array or newline-delimited JSON file.</li>
 </ul>
 
@@ -83,8 +83,9 @@
           style="padding:0.4rem; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); width:100%;">
         <div class="text-muted mt-1" style="font-size:0.75rem;">
           Upload a native Windows Event Log file. EvidenceLab will parse the EVTX,
-          detect the channel, and ingest supported events as Security, PowerShell,
-          Sysmon, Application, or System records.
+          detect the channel, preserve the original event timestamp, and ingest
+          supported events as Security, PowerShell, Sysmon, Application, or
+          System records.
         </div>
       </div>
     </div>

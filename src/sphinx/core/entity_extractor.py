@@ -23,6 +23,9 @@ _RE_IPV4 = re.compile(
 # IPv6 (simplified — matches common forms)
 _RE_IPV6 = re.compile(r"\b(?:[0-9a-fA-F]{1,4}:){2,7}[0-9a-fA-F]{1,4}\b")
 
+# Times such as 23:30:13 can look vaguely IPv6-like to permissive regexes.
+_RE_TIME_LIKE = re.compile(r"^\d{1,2}:\d{2}:\d{2}(?:\.\d+)?$")
+
 # Domain (basic, avoids matching IPs)
 _RE_DOMAIN = re.compile(
     r"\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+"
@@ -95,6 +98,20 @@ def _is_user_agent_version(text: str, start: int, end: int) -> bool:
     return False
 
 
+def _is_false_positive_ipv6(value: str) -> bool:
+    """Return True when an IPv6-looking match is actually a timestamp or other short token."""
+    if _RE_TIME_LIKE.fullmatch(value):
+        return True
+
+    # Real IPv6 addresses usually contain either '::' compression or at least
+    # four segments. This prevents short clock-like values such as 23:30:13
+    # from being treated as IPv6 entities.
+    if "::" not in value and value.count(":") < 3:
+        return True
+
+    return False
+
+
 def extract_from_text(text: str) -> list[dict[str, str]]:
     """Extract IOCs from a text string. Returns list of {type, value}."""
     results = []
@@ -109,6 +126,9 @@ def extract_from_text(text: str) -> list[dict[str, str]]:
                 if value in _SKIP_IPS:
                     continue
                 if _is_user_agent_version(text, match.start(), match.end()):
+                    continue
+            if entity_type == "ipv6":
+                if _is_false_positive_ipv6(value):
                     continue
             # Skip hex strings that are too short to be meaningful hashes
             if entity_type in ("hash_md5", "hash_sha1", "hash_sha256"):
