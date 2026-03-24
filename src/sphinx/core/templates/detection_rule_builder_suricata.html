@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Suricata Builder{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Guided Suricata Builder</h2>
+  <div class="flex gap-1">
+    <a href="/ui/cases/{{ case_id }}/detection-rules/builder{% if source_record %}?record_id={{ source_record.id }}{% endif %}" class="btn btn-sm">&laquo; Back</a>
+    <a href="/ui/cases/{{ case_id }}/detection-rules" class="btn btn-sm">Detection Rules</a>
+  </div>
+</div>
+
+<div class="card mb-2">
+  <h3>Step 1: Confirm You Are Working From Network Evidence</h3>
+  <p style="color:var(--text-muted);font-size:0.9rem;">
+    Suricata rules should be based on packet-visible behavior: payload content, HTTP metadata, DNS patterns, TLS metadata, or flow directionality. Avoid host-only facts such as Windows usernames unless they are visible on the wire.
+  </p>
+  {% if source_record %}
+  <div class="flex gap-1" style="align-items:center;flex-wrap:wrap;margin-top:0.75rem;">
+    <span class="text-mono">Record {{ source_record.id }}</span>
+    <span class="record-type">{{ source_record.record_type }}</span>
+    <span class="text-muted text-mono">{{ source_record.ts if source_record.ts else '—' }}</span>
+  </div>
+  {% else %}
+  <div class="alert alert-info" style="margin-top:0.75rem;">
+    Tip: start this builder from a network record detail page to carry evidence context into the draft.
+  </div>
+  {% endif %}
+</div>
+
+<div class="card mb-2">
+  <h3>Step 2: Choose The Matching Primitive</h3>
+  <ul>
+    <li>Use <code>content</code> for stable ASCII strings in packet payloads.</li>
+    <li>Use HTTP keywords for web requests and headers.</li>
+    <li>Use flow direction and protocol constraints to reduce false positives.</li>
+    <li>Prefer behavior over one-off IOCs when possible.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>Step 3: Open A Starter Draft</h3>
+  <pre style="font-size:0.8rem;white-space:pre-wrap;background:var(--bg);padding:0.75rem;border:1px solid var(--border);border-radius:4px;">{{ starter_rule }}</pre>
+  <form method="GET" action="/ui/cases/{{ case_id }}/detection-rules/new" style="margin-top:0.75rem;">
+    <input type="hidden" name="title" value="custom_suricata_detection">
+    <input type="hidden" name="rule_type" value="suricata">
+    <input type="hidden" name="description" value="Analyst-authored Suricata rule built from network evidence.">
+    <textarea name="rule_content" style="display:none;">{{ starter_rule }}</textarea>
+    <button type="submit" class="btn btn-primary">Open Prefilled Suricata Draft</button>
+  </form>
+</div>
+{% endblock %}

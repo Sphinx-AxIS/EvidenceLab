@@ -132,6 +132,89 @@ def _ctx(request: Request, user: dict, page: str, case_id: str = "", **extra):
     }
 
 
+def _suggest_rule_type(record_type: str) -> str:
+    if record_type.startswith("win_evt_"):
+        return "sigma"
+    if record_type.startswith(("suricata_", "zeek_", "tshark_")):
+        return "suricata"
+    return ""
+
+
+def _sigma_service_from_channel(channel: str) -> str:
+    value = (channel or "").strip().lower()
+    if value == "security":
+        return "security"
+    if "powershell" in value:
+        return "powershell"
+    if "sysmon" in value:
+        return "sysmon"
+    if value in ("application", "system"):
+        return value
+    return ""
+
+
+def _build_sigma_starter(source_record: dict | None, selected_channel: str, selected_event_id: str) -> str:
+    service = _sigma_service_from_channel(selected_channel)
+    title_stub = "custom_windows_event_detection"
+    if source_record:
+        record_type = source_record.get("record_type", "")
+        if record_type:
+            title_stub = f"{record_type}_event_detection"
+
+    selection_lines = []
+    if selected_event_id:
+        selection_lines.append(f"    EventID: {selected_event_id}")
+
+    event_data = {}
+    if source_record and isinstance(source_record.get("raw"), dict):
+        event_data = source_record["raw"].get("EventData") or {}
+
+    useful_fields = [
+        "TargetUserName",
+        "TargetDomainName",
+        "SubjectUserName",
+        "IpAddress",
+        "WorkstationName",
+        "Image",
+        "ParentImage",
+        "CommandLine",
+        "ProcessId",
+        "ScriptBlockText",
+    ]
+    for field in useful_fields:
+        value = event_data.get(field)
+        if isinstance(value, str) and value.strip():
+            sample = value.strip().replace("\\", "\\\\").replace("'", "")
+            if len(sample) > 80:
+                sample = sample[:77] + "..."
+            selection_lines.append(f"    EventData.{field}: '{sample}'")
+        if len(selection_lines) >= 4:
+            break
+
+    if not selection_lines:
+        selection_lines.append("    EventID: 4624")
+
+    logsource_lines = ["  product: windows"]
+    if service:
+        logsource_lines.append(f"  service: {service}")
+
+    return "\n".join([
+        f"title: {title_stub}",
+        "id: REPLACE-WITH-UUID",
+        "status: experimental",
+        "description: Analyst-authored Sigma rule from EvidenceLab guided builder",
+        "logsource:",
+        *logsource_lines,
+        "detection:",
+        "  selection:",
+        *selection_lines,
+        "  condition: selection",
+        "level: medium",
+        "tags:",
+        "  - attack.execution",
+    ])
+
+
 # ── Auth pages ──────────────────────────────────────
 
 @router.get("/login", response_class=HTMLResponse)
@@ -2205,12 +2288,211 @@ async def detection_rules_list(request: Request, case_id: str, filter: str = "",
 
 
 @router.get("/cases/{case_id}/detection-rules/new", response_class=HTMLResponse)
-async def detection_rule_new_form(request: Request, case_id: str, error: str = ""):
+async def detection_rule_new_form(
+    request: Request,
+    case_id: str,
+    error: str = "",
+    title: str = "",
+    rule_type: str = "",
+    description: str = "",
+    rule_content: str = "",
+):
     user = _get_user(request)
     if not user:
         return RedirectResponse(url="/ui/login", status_code=303)
     return templates.TemplateResponse(request, "detection_rule_new.html", _ctx(
         request, user, "detection_rules", case_id=case_id, error=error,
+        form_title=title,
+        form_rule_type=rule_type or "suricata",
+        form_description=description,
+        form_rule_content=rule_content,
+    ))
+
+
+@router.get("/cases/{case_id}/detection-rules/builder", response_class=HTMLResponse)
+async def detection_rule_builder_entry(request: Request, case_id: str, record_id: str = ""):
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    source_record = None
+    suggested_rule_type = ""
+    if record_id:
+        with get_cursor() as cur:
+            cur.execute(
+                "SELECT id, record_type, ts::text AS ts, raw FROM records WHERE id = %s AND case_id = %s",
+                (record_id, case_id),
+            )
+            source_record = cur.fetchone()
+        if source_record:
+            suggested_rule_type = _suggest_rule_type(source_record["record_type"])
+
+    return templates.TemplateResponse(request, "detection_rule_builder.html", _ctx(
+        request, user, "detection_rules", case_id=case_id,
+        source_record=source_record,
+        suggested_rule_type=suggested_rule_type,
+    ))
+
+
+@router.get("/cases/{case_id}/detection-rules/builder/sigma", response_class=HTMLResponse)
+async def detection_rule_builder_sigma(
+    request: Request,
+    case_id: str,
+    record_id: str = "",
+    channel: str = "",
+):
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    source_record = None
+    source_event_data_items: list[dict] = []
+    source_channel = ""
+    source_event_id = ""
+
+    if record_id:
+        with get_cursor() as cur:
+            cur.execute(
+                "SELECT id, record_type, ts::text AS ts, raw FROM records WHERE id = %s AND case_id = %s",
+                (record_id, case_id),
+            )
+            source_record = cur.fetchone()
+
+    if source_record and isinstance(source_record.get("raw"), dict):
+        raw = source_record["raw"]
+        source_channel = str(raw.get("Channel") or "")
+        source_event_id = str(raw.get("EventID") or "")
+        event_data = raw.get("EventData") or {}
+        if isinstance(event_data, dict):
+            for key in sorted(event_data.keys()):
+                source_event_data_items.append({"key": key, "value": event_data[key]})
+
+    selected_channel = channel or source_channel
+
+    with get_cursor() as cur:
+        cur.execute(
+            """SELECT COALESCE(raw->>'Channel', record_type) AS channel, count(*) AS cnt
+               FROM records
+               WHERE case_id = %s AND record_type LIKE 'win_evt_%%'
+               GROUP BY 1
+               ORDER BY cnt DESC, channel""",
+            (case_id,),
+        )
+        channel_counts = cur.fetchall()
+
+        if selected_channel:
+            cur.execute(
+                """SELECT COALESCE(raw->>'EventID', '?') AS event_id, count(*) AS cnt
+                   FROM records
+                   WHERE case_id = %s
+                     AND record_type LIKE 'win_evt_%%'
+                     AND COALESCE(raw->>'Channel', record_type) = %s
+                   GROUP BY 1
+                   ORDER BY cnt DESC, event_id
+                   LIMIT 25""",
+                (case_id, selected_channel),
+            )
+        else:
+            cur.execute(
+                """SELECT COALESCE(raw->>'EventID', '?') AS event_id, count(*) AS cnt
+                   FROM records
+                   WHERE case_id = %s AND record_type LIKE 'win_evt_%%'
+                   GROUP BY 1
+                   ORDER BY cnt DESC, event_id
+                   LIMIT 25""",
+                (case_id,),
+            )
+        top_event_ids = cur.fetchall()
+
+        if selected_channel:
+            cur.execute(
+                """SELECT k.key AS key_name, count(*) AS cnt
+                   FROM records r
+                   CROSS JOIN LATERAL jsonb_object_keys(COALESCE(r.raw->'EventData', '{}'::jsonb)) AS k(key)
+                   WHERE r.case_id = %s
+                     AND r.record_type LIKE 'win_evt_%%'
+                     AND COALESCE(r.raw->>'Channel', r.record_type) = %s
+                   GROUP BY k.key
+                   ORDER BY cnt DESC, key_name
+                   LIMIT 50""",
+                (case_id, selected_channel),
+            )
+        else:
+            cur.execute(
+                """SELECT k.key AS key_name, count(*) AS cnt
+                   FROM records r
+                   CROSS JOIN LATERAL jsonb_object_keys(COALESCE(r.raw->'EventData', '{}'::jsonb)) AS k(key)
+                   WHERE r.case_id = %s
+                     AND r.record_type LIKE 'win_evt_%%'
+                   GROUP BY k.key
+                   ORDER BY cnt DESC, key_name
+                   LIMIT 50""",
+                (case_id,),
+            )
+        observed_keys = cur.fetchall()
+
+    starter_rule = _build_sigma_starter(source_record, selected_channel, source_event_id)
+
+    return templates.TemplateResponse(request, "detection_rule_builder_sigma.html", _ctx(
+        request, user, "detection_rules", case_id=case_id,
+        source_record=source_record,
+        source_channel=source_channel,
+        source_event_id=source_event_id,
+        source_event_data_items=source_event_data_items,
+        selected_channel=selected_channel,
+        channel_counts=channel_counts,
+        top_event_ids=top_event_ids,
+        observed_keys=observed_keys,
+        starter_rule=starter_rule,
+    ))
+
+
+@router.get("/cases/{case_id}/detection-rules/builder/suricata", response_class=HTMLResponse)
+async def detection_rule_builder_suricata(request: Request, case_id: str, record_id: str = ""):
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    source_record = None
+    if record_id:
+        with get_cursor() as cur:
+            cur.execute(
+                "SELECT id, record_type, ts::text AS ts, raw FROM records WHERE id = %s AND case_id = %s",
+                (record_id, case_id),
+            )
+            source_record = cur.fetchone()
+
+    if source_record and source_record["record_type"].startswith("tshark_"):
+        raw = source_record.get("raw") or {}
+        content = ""
+        if isinstance(raw, dict):
+            for key in ("ascii_printable", "payload", "stream_text", "data"):
+                value = raw.get(key)
+                if isinstance(value, str) and value.strip():
+                    content = value.strip()
+                    break
+        if len(content) > 120:
+            content = content[:117] + "..."
+    else:
+        content = ""
+
+    cleaned_content = content.replace('"', "") if content else ""
+
+    starter_rule = "\n".join([
+        "alert http $HOME_NET any -> $EXTERNAL_NET any (",
+        '  msg:"EvidenceLab analyst-authored detection";',
+        '  flow:established,to_server;',
+        f'  content:"{cleaned_content}";' if cleaned_content else '  content:"replace-me";',
+        "  classtype:trojan-activity;",
+        "  sid:9100001;",
+        "  rev:1;",
+        ")",
+    ])
+
+    return templates.TemplateResponse(request, "detection_rule_builder_suricata.html", _ctx(
+        request, user, "detection_rules", case_id=case_id,
+        source_record=source_record,
+        starter_rule=starter_rule,
     ))
 
 

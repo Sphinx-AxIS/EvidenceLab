@@ -34,14 +34,15 @@
   <div style="margin-bottom:1rem;">
     <label class="form-label">Title</label>
     <input type="text" name="title" class="form-control" required
+           value="{{ form_title|default('') }}"
            placeholder="e.g. ivanti_custom-ssh-tunneling" style="width:100%;">
   </div>
 
   <div style="margin-bottom:1rem;">
     <label class="form-label">Rule Type</label>
     <select name="rule_type" class="form-control" style="width:200px;">
-      <option value="suricata">Suricata</option>
-      <option value="sigma">Sigma</option>
+      <option value="suricata" {% if form_rule_type|default('suricata') == 'suricata' %}selected{% endif %}>Suricata</option>
+      <option value="sigma" {% if form_rule_type == 'sigma' %}selected{% endif %}>Sigma</option>
     </select>
   </div>
 
@@ -49,13 +50,13 @@
     <label class="form-label">Rule Content</label>
     <textarea name="rule_content" class="form-control text-mono" required
               style="width:100%;min-height:250px;font-size:0.8rem;white-space:pre;font-family:monospace;"
-              placeholder="alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:&quot;...&quot;; content:&quot;...&quot;; sid:9100100; rev:1;)"></textarea>
+              placeholder="alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:&quot;...&quot;; content:&quot;...&quot;; sid:9100100; rev:1;)">{{ form_rule_content|default('') }}</textarea>
   </div>
 
   <div style="margin-bottom:1rem;">
     <label class="form-label">Description (optional)</label>
     <textarea name="description" class="form-control" rows="2"
-              style="width:100%;" placeholder="What does this rule detect?"></textarea>
+              style="width:100%;" placeholder="What does this rule detect?">{{ form_description|default('') }}</textarea>
   </div>
 
   <div class="flex gap-1">

@@ -4,7 +4,14 @@
 {% block content %}
 <div class="page-header">
   <h2>Record Detail</h2>
-  <a href="/ui/cases/{{ case_id }}/records?type={{ record.record_type }}" class="btn btn-sm">&laquo; Back to list</a>
+  <div class="flex gap-1">
+    {% if record.record_type.startswith('win_evt_') %}
+    <a href="/ui/cases/{{ case_id }}/detection-rules/builder/sigma?record_id={{ record.id }}" class="btn btn-sm btn-primary">Build Sigma Rule From Event</a>
+    {% elif record.record_type.startswith('suricata_') or record.record_type.startswith('zeek_') or record.record_type.startswith('tshark_') %}
+    <a href="/ui/cases/{{ case_id }}/detection-rules/builder/suricata?record_id={{ record.id }}" class="btn btn-sm btn-primary">Build Suricata Rule From Record</a>
+    {% endif %}
+    <a href="/ui/cases/{{ case_id }}/records?type={{ record.record_type }}" class="btn btn-sm">&laquo; Back to list</a>
+  </div>
 </div>
 
 <div class="card-grid" style="grid-template-columns: repeat(3, 1fr);">

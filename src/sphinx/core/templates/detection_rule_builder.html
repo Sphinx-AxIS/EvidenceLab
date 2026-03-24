@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Guided Rule Builder{% endblock %}
+
+{% block help %}
+<h3>Guided Rule Builder</h3>
+<p>Use this workflow to create a detection rule from evidence already in the case. Start by choosing the rule type that matches the evidence source.</p>
+<ul>
+  <li><strong>Sigma</strong> is for Windows event logs and other host-style logs.</li>
+  <li><strong>Suricata</strong> is for network-facing evidence and packet-derived patterns.</li>
+  <li>When a source record is provided, the builder uses it as the starting context for the draft.</li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Guided Rule Builder</h2>
+  <a href="/ui/cases/{{ case_id }}/detection-rules" class="btn btn-sm">&laquo; Back to Detection Rules</a>
+</div>
+
+{% if source_record %}
+<div class="card mb-2">
+  <h3>Starting Evidence</h3>
+  <div class="flex gap-1" style="align-items:center;flex-wrap:wrap;">
+    <span class="text-mono">Record {{ source_record.id }}</span>
+    <span class="record-type">{{ source_record.record_type }}</span>
+    <span class="text-muted text-mono">{{ source_record.ts if source_record.ts else '—' }}</span>
+  </div>
+  <div style="margin-top:0.75rem;">
+    <a href="/ui/cases/{{ case_id }}/records/{{ source_record.id }}" class="btn btn-sm">Open Source Record</a>
+  </div>
+  {% if suggested_rule_type %}
+  <div class="alert alert-info" style="margin-top:0.75rem;">
+    EvidenceLab suggests a <strong>{{ suggested_rule_type }}</strong> rule for this record.
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="card-grid" style="grid-template-columns:repeat(2, 1fr);">
+  <div class="card">
+    <h3>Sigma Builder</h3>
+    <p style="color:var(--text-muted);font-size:0.9rem;">
+      Best for Windows event logs. Review common channels, top EventIDs, and observed EventData keys before drafting the rule.
+    </p>
+    <a href="/ui/cases/{{ case_id }}/detection-rules/builder/sigma{% if source_record %}?record_id={{ source_record.id }}{% endif %}" class="btn btn-primary">Build Sigma Rule</a>
+  </div>
+
+  <div class="card">
+    <h3>Suricata Builder</h3>
+    <p style="color:var(--text-muted);font-size:0.9rem;">
+      Best for network evidence such as packet payloads, alerts, and protocol metadata. Start from a packet-derived record and build a signature draft.
+    </p>
+    <a href="/ui/cases/{{ case_id }}/detection-rules/builder/suricata{% if source_record %}?record_id={{ source_record.id }}{% endif %}" class="btn btn-primary">Build Suricata Rule</a>
+  </div>
+</div>
+{% endblock %}
