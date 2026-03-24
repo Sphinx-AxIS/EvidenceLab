@@ -15,6 +15,7 @@ from sphinx.core.auth import create_token, verify_password
 from sphinx.core.attack_windows_presets import ATTACK_WINDOWS_PRESETS
 from sphinx.core.db import get_cursor
 from sphinx.core.plugin_loader import get_registry
+from sphinx.core.rule_assistant import build_rule_recommendations
 
 log = logging.getLogger(__name__)
 
@@ -714,6 +715,7 @@ async def record_detail(request: Request, case_id: str, record_id: str):
     highlights = _record_highlights(record["record_type"], record.get("raw"))
     context_counts = _record_context_counts(case_id, record["record_type"], record.get("raw"))
     interpretation = _record_interpretation(record["record_type"], record.get("raw"))
+    rule_recommendations = build_rule_recommendations(case_id, record["record_type"], record.get("raw"))
     can_build_sigma = record["record_type"].startswith("win_evt_")
     can_build_suricata = record["record_type"].startswith(("suricata_", "zeek_", "tshark_"))
 
@@ -724,6 +726,7 @@ async def record_detail(request: Request, case_id: str, record_id: str):
         record=record, entities=entities, raw_json=raw_json,
         highlights=highlights, context_counts=context_counts,
         interpretation=interpretation,
+        rule_recommendations=rule_recommendations,
         can_build_sigma=can_build_sigma,
         can_build_suricata=can_build_suricata,
     ))
@@ -2545,6 +2548,7 @@ async def detection_rule_builder_sigma(
     source_event_data_items: list[dict] = []
     source_channel = ""
     source_event_id = ""
+    source_recommendations = None
 
     if record_id:
         with get_cursor() as cur:
@@ -2562,6 +2566,7 @@ async def detection_rule_builder_sigma(
         if isinstance(event_data, dict):
             for key in sorted(event_data.keys()):
                 source_event_data_items.append({"key": key, "value": event_data[key]})
+        source_recommendations = build_rule_recommendations(case_id, source_record["record_type"], raw)
 
     selected_channel = channel or source_channel
 
@@ -2635,6 +2640,7 @@ async def detection_rule_builder_sigma(
         source_channel=source_channel,
         source_event_id=source_event_id,
         source_event_data_items=source_event_data_items,
+        source_recommendations=source_recommendations,
         selected_channel=selected_channel,
         channel_counts=channel_counts,
         top_event_ids=top_event_ids,
@@ -2650,6 +2656,7 @@ async def detection_rule_builder_suricata(request: Request, case_id: str, record
         return RedirectResponse(url="/ui/login", status_code=303)
 
     source_record = None
+    source_recommendations = None
     if record_id:
         with get_cursor() as cur:
             cur.execute(
@@ -2657,6 +2664,8 @@ async def detection_rule_builder_suricata(request: Request, case_id: str, record
                 (record_id, case_id),
             )
             source_record = cur.fetchone()
+        if source_record:
+            source_recommendations = build_rule_recommendations(case_id, source_record["record_type"], source_record.get("raw"))
 
     if source_record and source_record["record_type"].startswith("tshark_"):
         raw = source_record.get("raw") or {}
@@ -2688,6 +2697,7 @@ async def detection_rule_builder_suricata(request: Request, case_id: str, record
     return templates.TemplateResponse(request, "detection_rule_builder_suricata.html", _ctx(
         request, user, "detection_rules", case_id=case_id,
         source_record=source_record,
+        source_recommendations=source_recommendations,
         starter_rule=starter_rule,
     ))
 

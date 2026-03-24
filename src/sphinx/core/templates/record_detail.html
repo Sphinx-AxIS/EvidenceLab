@@ -8,6 +8,7 @@
   <li><strong>What Am I Looking At?</strong> highlights the most important fields from the event.</li>
   <li><strong>Case Context</strong> shows how common this event pattern is in the case.</li>
   <li><strong>Extracted Entities</strong> are heuristic IOC candidates. Common false positives such as browser version strings and bare time values are filtered where possible.</li>
+  <li><strong>Deterministic Rule Hints</strong> rank candidate fields as recommended, optional, or avoid using explicit no-AI heuristics and case-local prevalence checks.</li>
   <li>Only after reviewing those sections should you pivot into Sigma or Suricata authoring.</li>
 </ul>
 {% endblock %}
@@ -76,6 +77,76 @@
       </tbody>
     </table>
   </div>
+</div>
+{% endif %}
+
+{% if rule_recommendations and (rule_recommendations.recommended or rule_recommendations.optional or rule_recommendations.avoid) %}
+<div class="card mb-2">
+  <h3>{{ rule_recommendations.headline }}</h3>
+  <p style="color:var(--text-muted);font-size:0.9rem;">{{ rule_recommendations.summary }}</p>
+
+  {% if rule_recommendations.recommended %}
+  <div class="table-wrap" style="margin-top:0.75rem;">
+    <div class="table-title">Recommended</div>
+    <table>
+      <thead><tr><th>Field</th><th>Value</th><th>Why</th></tr></thead>
+      <tbody>
+        {% for item in rule_recommendations.recommended %}
+        <tr>
+          <td class="text-mono">{{ item.field }}</td>
+          <td class="text-mono" style="font-size:0.8rem;">{{ item.value }}</td>
+          <td>
+            <div>{{ item.reason }}</div>
+            {% if item.prevalence %}<div class="text-muted" style="font-size:0.78rem;">{{ item.prevalence }}</div>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if rule_recommendations.optional %}
+  <div class="table-wrap" style="margin-top:0.75rem;">
+    <div class="table-title">Optional</div>
+    <table>
+      <thead><tr><th>Field</th><th>Value</th><th>Why</th></tr></thead>
+      <tbody>
+        {% for item in rule_recommendations.optional %}
+        <tr>
+          <td class="text-mono">{{ item.field }}</td>
+          <td class="text-mono" style="font-size:0.8rem;">{{ item.value }}</td>
+          <td>
+            <div>{{ item.reason }}</div>
+            {% if item.prevalence %}<div class="text-muted" style="font-size:0.78rem;">{{ item.prevalence }}</div>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if rule_recommendations.avoid %}
+  <div class="table-wrap" style="margin-top:0.75rem;">
+    <div class="table-title">Avoid</div>
+    <table>
+      <thead><tr><th>Field</th><th>Value</th><th>Why</th></tr></thead>
+      <tbody>
+        {% for item in rule_recommendations.avoid %}
+        <tr>
+          <td class="text-mono">{{ item.field }}</td>
+          <td class="text-mono" style="font-size:0.8rem;">{{ item.value }}</td>
+          <td>
+            <div>{{ item.reason }}</div>
+            {% if item.prevalence %}<div class="text-muted" style="font-size:0.78rem;">{{ item.prevalence }}</div>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
 </div>
 {% endif %}
 

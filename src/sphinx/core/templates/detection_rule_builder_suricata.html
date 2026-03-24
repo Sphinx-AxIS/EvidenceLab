@@ -1,6 +1,16 @@
 {% extends "base.html" %}
 {% block title %}Suricata Builder{% endblock %}
 
+{% block help %}
+<h3>Guided Suricata Builder</h3>
+<p>Use this page to turn a selected packet-derived record into a Suricata draft with deterministic, no-AI field guidance.</p>
+<ul>
+  <li><strong>Source Record</strong> keeps the selected network evidence in view.</li>
+  <li><strong>Deterministic Field Recommendations</strong> rank packet-visible fields as recommended, optional, or avoid.</li>
+  <li>Use these hints to keep the draft focused on stable on-wire behavior rather than session-specific metadata.</li>
+</ul>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <h2>Guided Suricata Builder</h2>
@@ -28,8 +38,55 @@
   {% endif %}
 </div>
 
+{% if source_recommendations and (source_recommendations.recommended or source_recommendations.optional or source_recommendations.avoid) %}
 <div class="card mb-2">
-  <h3>Step 2: Choose The Matching Primitive</h3>
+  <h3>Step 2: Deterministic Field Recommendations</h3>
+  <p style="color:var(--text-muted);font-size:0.9rem;">
+    These field rankings use explicit no-AI heuristics to prefer packet-visible, stable anchors and discourage session-specific or tool-generated values.
+  </p>
+  <div class="card-grid" style="grid-template-columns:repeat(3, 1fr);">
+    <div class="card">
+      <h3>Recommended</h3>
+      {% if source_recommendations.recommended %}
+      <ul>
+        {% for item in source_recommendations.recommended %}
+        <li><code>{{ item.field }}</code> — {{ item.reason }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="text-muted">No strong packet-visible anchors were identified automatically.</div>
+      {% endif %}
+    </div>
+    <div class="card">
+      <h3>Optional</h3>
+      {% if source_recommendations.optional %}
+      <ul>
+        {% for item in source_recommendations.optional %}
+        <li><code>{{ item.field }}</code> — {{ item.reason }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="text-muted">No optional packet-visible selectors were identified automatically.</div>
+      {% endif %}
+    </div>
+    <div class="card">
+      <h3>Avoid</h3>
+      {% if source_recommendations.avoid %}
+      <ul>
+        {% for item in source_recommendations.avoid %}
+        <li><code>{{ item.field }}</code> — {{ item.reason }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="text-muted">No obvious avoid-only selectors were identified automatically.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="card mb-2">
+  <h3>Step 3: Choose The Matching Primitive</h3>
   <ul>
     <li>Use <code>content</code> for stable ASCII strings in packet payloads.</li>
     <li>Use HTTP keywords for web requests and headers.</li>
@@ -39,7 +96,7 @@
 </div>
 
 <div class="card">
-  <h3>Step 3: Open A Starter Draft</h3>
+  <h3>Step 4: Open A Starter Draft</h3>
   <pre style="font-size:0.8rem;white-space:pre-wrap;background:var(--bg);padding:0.75rem;border:1px solid var(--border);border-radius:4px;">{{ starter_rule }}</pre>
   <form method="GET" action="/ui/cases/{{ case_id }}/detection-rules/new" style="margin-top:0.75rem;">
     <input type="hidden" name="title" value="custom_suricata_detection">

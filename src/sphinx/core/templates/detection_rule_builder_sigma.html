@@ -1,6 +1,16 @@
 {% extends "base.html" %}
 {% block title %}Sigma Builder{% endblock %}
 
+{% block help %}
+<h3>Guided Sigma Builder</h3>
+<p>Use this page to turn a selected Windows event into a Sigma draft with deterministic assistance rather than AI generation.</p>
+<ul>
+  <li><strong>Source Event Reference</strong> carries the event you selected from Records.</li>
+  <li><strong>Deterministic Field Recommendations</strong> rank candidate fields as recommended, optional, or avoid using explicit heuristics and case-local prevalence.</li>
+  <li>Use the recommendations to decide which fields belong in the final Sigma selector before opening the draft.</li>
+</ul>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <h2>Guided Sigma Builder</h2>
@@ -101,10 +111,57 @@
   </div>
   {% endif %}
 </div>
+
+{% if source_recommendations and (source_recommendations.recommended or source_recommendations.optional or source_recommendations.avoid) %}
+<div class="card mb-2">
+  <h3>Step 5: Deterministic Field Recommendations</h3>
+  <p style="color:var(--text-muted);font-size:0.9rem;">
+    These field rankings use explicit no-AI heuristics plus case-local prevalence to help decide which selectors are stable enough for a Sigma rule.
+  </p>
+  <div class="card-grid" style="grid-template-columns:repeat(3, 1fr);">
+    <div class="card">
+      <h3>Recommended</h3>
+      {% if source_recommendations.recommended %}
+      <ul>
+        {% for item in source_recommendations.recommended %}
+        <li><code>{{ item.field }}</code> — {{ item.reason }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="text-muted">No strong first-choice selectors were identified automatically.</div>
+      {% endif %}
+    </div>
+    <div class="card">
+      <h3>Optional</h3>
+      {% if source_recommendations.optional %}
+      <ul>
+        {% for item in source_recommendations.optional %}
+        <li><code>{{ item.field }}</code> — {{ item.reason }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="text-muted">No optional selectors were identified automatically.</div>
+      {% endif %}
+    </div>
+    <div class="card">
+      <h3>Avoid</h3>
+      {% if source_recommendations.avoid %}
+      <ul>
+        {% for item in source_recommendations.avoid %}
+        <li><code>{{ item.field }}</code> — {{ item.reason }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="text-muted">No obvious avoid-only selectors were identified automatically.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endif %}
 
 <div class="card">
-  <h3>Step 5: Open A Starter Draft</h3>
+  <h3>Step 6: Open A Starter Draft</h3>
   <p style="color:var(--text-muted);font-size:0.9rem;">
     This starter Sigma rule uses the current source event context. Edit it in the manual rule editor, then review and deploy when ready.
   </p>
