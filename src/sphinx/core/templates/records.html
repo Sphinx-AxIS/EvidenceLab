@@ -28,27 +28,63 @@
 <div class="page-header">
   <h2>Records{% if type_filter %} &mdash; <span class="record-type">{{ type_filter }}</span>{% endif %}</h2>
   <div class="flex gap-1">
-    <form method="get" action="/ui/cases/{{ case_id }}/records">
-      <select name="type" onchange="this.form.submit()">
+    <a href="/ui/cases/{{ case_id }}/detection-rules/builder" class="btn btn-sm">Guided Builder</a>
+  </div>
+</div>
+
+<div class="card mb-2">
+  <form method="get" action="/ui/cases/{{ case_id }}/records" class="flex gap-1" style="flex-wrap:wrap;align-items:end;">
+    <div>
+      <label for="type" style="display:block;font-size:0.75rem;color:var(--text-muted);margin-bottom:0.25rem;">Record Type</label>
+      <select id="type" name="type">
         <option value="">All types</option>
         {% for rt in record_types %}
         <option value="{{ rt }}" {% if rt == type_filter %}selected{% endif %}>{{ rt }}</option>
         {% endfor %}
       </select>
-    </form>
+    </div>
+
+    <div>
+      <label for="channel" style="display:block;font-size:0.75rem;color:var(--text-muted);margin-bottom:0.25rem;">Windows Channel</label>
+      <select id="channel" name="channel">
+        <option value="">Any channel</option>
+        {% for c in win_channels %}
+        <option value="{{ c }}" {% if c == channel_filter %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label for="event_id" style="display:block;font-size:0.75rem;color:var(--text-muted);margin-bottom:0.25rem;">EventID</label>
+      <input id="event_id" type="text" name="event_id" value="{{ event_id_filter|default('') }}" placeholder="e.g. 4624">
+    </div>
+
+    <div style="min-width:260px;">
+      <label for="q" style="display:block;font-size:0.75rem;color:var(--text-muted);margin-bottom:0.25rem;">Search Raw Data</label>
+      <input id="q" type="text" name="q" value="{{ search_q|default('') }}" placeholder="username, image path, command line, IP...">
+    </div>
+
+    <div class="flex gap-1">
+      <button type="submit" class="btn btn-primary">Search</button>
+      <a href="/ui/cases/{{ case_id }}/records" class="btn">Reset</a>
+    </div>
+  </form>
+
+  <div class="text-muted" style="font-size:0.8rem;margin-top:0.75rem;">
+    Hunt here first, then pivot into rule creation from a specific event or packet. For Sigma, start with <code>win_evt_*</code> records and narrow by channel, EventID, or search text.
   </div>
 </div>
 
 {% if records|length == 0 %}
 <div class="empty-state">
   <div class="icon">&#9654;</div>
-  <p>No records found{% if type_filter %} for type "{{ type_filter }}"{% endif %}. Ingest evidence to populate.</p>
+  <p>No records found with the current filters. Try broadening the search or clearing a Windows channel/EventID filter.</p>
 </div>
 {% else %}
 <div class="table-wrap">
   <table>
     <thead>
-      <tr><th>ID</th><th>Type</th><th>Timestamp</th><th></th></tr>
+      <tr><th>ID</th><th>Type</th><th>Timestamp</th><th>Channel / Event</th><th>Summary Hint</th><th></th></tr>
     </thead>
     <tbody>
       {% for r in records %}
@@ -56,7 +92,23 @@
         <td class="text-mono" style="font-size:0.75rem;">{{ r.id }}</td>
         <td><span class="record-type">{{ r.record_type }}</span></td>
         <td class="text-muted text-mono" style="font-size:0.78rem;">{{ r.ts if r.ts else '—' }}</td>
-        <td><a href="/ui/cases/{{ case_id }}/records/{{ r.id }}" class="btn btn-sm">Detail</a></td>
+        <td style="font-size:0.8rem;">
+          {% if r.channel %}
+          <div>{{ r.channel }}</div>
+          {% endif %}
+          {% if r.event_id %}
+          <div class="text-mono text-muted">EventID {{ r.event_id }}</div>
+          {% endif %}
+        </td>
+        <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.8rem;" title="{{ r.summary_hint }}">{{ r.summary_hint if r.summary_hint else '—' }}</td>
+        <td class="flex gap-1">
+          {% if r.record_type.startswith('win_evt_') %}
+          <a href="/ui/cases/{{ case_id }}/detection-rules/builder/sigma?record_id={{ r.id }}" class="btn btn-sm btn-primary">Build Sigma</a>
+          {% elif r.record_type.startswith('suricata_') or r.record_type.startswith('zeek_') or r.record_type.startswith('tshark_') %}
+          <a href="/ui/cases/{{ case_id }}/detection-rules/builder/suricata?record_id={{ r.id }}" class="btn btn-sm btn-primary">Build Rule</a>
+          {% endif %}
+          <a href="/ui/cases/{{ case_id }}/records/{{ r.id }}" class="btn btn-sm">Detail</a>
+        </td>
       </tr>
       {% endfor %}
     </tbody>
@@ -67,10 +119,10 @@
   <div>Showing {{ records|length }} of {{ total }} records</div>
   <div class="flex gap-1">
     {% if offset > 0 %}
-    <a href="/ui/cases/{{ case_id }}/records?type={{ type_filter|default('') }}&offset={{ offset - limit }}" class="btn btn-sm">&laquo; Prev</a>
+    <a href="/ui/cases/{{ case_id }}/records?type={{ type_filter|default('') }}&channel={{ channel_filter|default('') }}&event_id={{ event_id_filter|default('') }}&q={{ search_q|default('') }}&offset={{ offset - limit }}" class="btn btn-sm">&laquo; Prev</a>
     {% endif %}
     {% if offset + limit < total %}
-    <a href="/ui/cases/{{ case_id }}/records?type={{ type_filter|default('') }}&offset={{ offset + limit }}" class="btn btn-sm">Next &raquo;</a>
+    <a href="/ui/cases/{{ case_id }}/records?type={{ type_filter|default('') }}&channel={{ channel_filter|default('') }}&event_id={{ event_id_filter|default('') }}&q={{ search_q|default('') }}&offset={{ offset + limit }}" class="btn btn-sm">Next &raquo;</a>
     {% endif %}
   </div>
 </div>

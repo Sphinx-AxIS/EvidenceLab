@@ -468,7 +468,15 @@ async def case_settings_submit(
 # ── Records ─────────────────────────────────────────
 
 @router.get("/cases/{case_id}/records", response_class=HTMLResponse)
-async def records_list(request: Request, case_id: str, type: str = "", offset: int = 0):
+async def records_list(
+    request: Request,
+    case_id: str,
+    type: str = "",
+    offset: int = 0,
+    q: str = "",
+    channel: str = "",
+    event_id: str = "",
+):
     user = _get_user(request)
     if not user:
         return RedirectResponse(url="/ui/login", status_code=303)
@@ -482,18 +490,59 @@ async def records_list(request: Request, case_id: str, type: str = "", offset: i
         )
         record_types = [r["record_type"] for r in cur.fetchall()]
 
+        cur.execute(
+            """SELECT DISTINCT COALESCE(raw->>'Channel', '') AS channel
+               FROM records
+               WHERE case_id = %s
+                 AND record_type LIKE 'win_evt_%%'
+                 AND COALESCE(raw->>'Channel', '') != ''
+               ORDER BY channel""",
+            (case_id,),
+        )
+        win_channels = [r["channel"] for r in cur.fetchall()]
+
         # Query
         where = "case_id = %s AND record_type != 'worklog_step'"
         params = [case_id]
         if type:
             where += " AND record_type = %s"
             params.append(type)
+        if channel:
+            where += " AND COALESCE(raw->>'Channel', '') = %s"
+            params.append(channel)
+        if event_id:
+            where += " AND COALESCE(raw->>'EventID', '') = %s"
+            params.append(event_id)
+        if q:
+            where += " AND raw::text ILIKE %s"
+            params.append(f"%{q}%")
 
         cur.execute(f"SELECT count(*) AS n FROM records WHERE {where}", params)
         total = cur.fetchone()["n"]
 
         cur.execute(
-            f"SELECT id, record_type, ts::text AS ts FROM records WHERE {where} ORDER BY ts DESC NULLS LAST LIMIT %s OFFSET %s",
+            f"""SELECT
+                    id,
+                    record_type,
+                    ts::text AS ts,
+                    COALESCE(raw->>'Channel', '') AS channel,
+                    COALESCE(raw->>'EventID', '') AS event_id,
+                    COALESCE(
+                        raw->'EventData'->>'TargetUserName',
+                        raw->'EventData'->>'SubjectUserName',
+                        raw->'EventData'->>'Image',
+                        raw->'EventData'->>'CommandLine',
+                        raw->'EventData'->>'ScriptBlockText',
+                        raw->'EventData'->>'IpAddress',
+                        raw->>'alert_signature',
+                        raw->>'query',
+                        raw->>'host',
+                        ''
+                    ) AS summary_hint
+               FROM records
+               WHERE {where}
+               ORDER BY ts DESC NULLS LAST
+               LIMIT %s OFFSET %s""",
             params + [limit, offset],
         )
         records = cur.fetchall()
@@ -502,6 +551,8 @@ async def records_list(request: Request, case_id: str, type: str = "", offset: i
         request, user, "records", case_id=case_id,
         records=records, record_types=record_types,
         type_filter=type, total=total, offset=offset, limit=limit,
+        search_q=q, channel_filter=channel, event_id_filter=event_id,
+        win_channels=win_channels,
     ))
 
 
