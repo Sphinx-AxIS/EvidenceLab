@@ -15,7 +15,8 @@ log = logging.getLogger(__name__)
 
 # IPv4
 _RE_IPV4 = re.compile(
-    r"\b(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)\.){3}"
+    r"\b(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d?|[1-9])\."
+    r"(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)\.){2}"
     r"(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)\b"
 )
 
@@ -53,6 +54,14 @@ _RE_HOSTNAME = re.compile(r"\b[A-Z][A-Z0-9_-]{2,14}\b")
 # matching escaped chars like \r \n \t in serialized data.
 _RE_USERNAME = re.compile(r"\b[A-Za-z][A-Za-z0-9_-]{1,}\\[A-Za-z][A-Za-z0-9_.-]{1,}\b")
 
+# Common browser / user-agent tokens that are frequently followed by
+# dotted version strings which can look like IPv4 addresses.
+_RE_UA_TOKEN_BEFORE_SLASH = re.compile(
+    r"(?:chrome|crios|firefox|fxios|safari|version|edg|edge|opr|opera|"
+    r"mozilla|applewebkit|webkit|samsungbrowser|trident|msie|rv)$",
+    re.IGNORECASE,
+)
+
 PATTERNS = {
     "ip": _RE_IPV4,
     "ipv6": _RE_IPV6,
@@ -69,6 +78,23 @@ PATTERNS = {
 _SKIP_IPS = {"0.0.0.0", "127.0.0.1", "255.255.255.255", "169.254.169.254"}
 
 
+def _is_user_agent_version(text: str, start: int, end: int) -> bool:
+    """Return True when an IPv4-looking match is really a UA version string."""
+    if start <= 0 or text[start - 1] != "/":
+        return False
+
+    prefix_window = text[max(0, start - 32): start - 1]
+    token = re.split(r"[\s();\[\]]+", prefix_window)[-1]
+    if _RE_UA_TOKEN_BEFORE_SLASH.search(token):
+        return True
+
+    # Also catch values embedded in common UA fragments like "... Chrome/114.0.0.0 ..."
+    if _RE_UA_TOKEN_BEFORE_SLASH.search(prefix_window):
+        return True
+
+    return False
+
+
 def extract_from_text(text: str) -> list[dict[str, str]]:
     """Extract IOCs from a text string. Returns list of {type, value}."""
     results = []
@@ -79,8 +105,11 @@ def extract_from_text(text: str) -> list[dict[str, str]]:
             value = match.group(0)
 
             # Skip common false positives
-            if entity_type == "ip" and value in _SKIP_IPS:
-                continue
+            if entity_type == "ip":
+                if value in _SKIP_IPS:
+                    continue
+                if _is_user_agent_version(text, match.start(), match.end()):
+                    continue
             # Skip hex strings that are too short to be meaningful hashes
             if entity_type in ("hash_md5", "hash_sha1", "hash_sha256"):
                 # Avoid matching version strings, timestamps, etc.
