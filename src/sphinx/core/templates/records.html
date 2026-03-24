@@ -7,7 +7,8 @@
 
 <h4>Hunt First, Build Second</h4>
 <ul>
-  <li>The <strong>Records</strong> page is an evidence browser for narrowing to candidate events and opening them for inspection.</li>
+  <li>The <strong>Analytics</strong> page is the primary hunting workspace for finding suspicious patterns and candidate events.</li>
+  <li>The <strong>Records</strong> page is the detailed evidence browser for opening specific events and inspecting them closely.</li>
   <li>For Sigma authoring, start with <code>win_evt_*</code> records and use the <strong>Windows Channel</strong>, <strong>EventID</strong>, and <strong>Search Raw Data</strong> filters.</li>
   <li>Once you find a promising event, open <strong>Detail</strong> first and use the event context there to decide whether a detection is justified.</li>
   <li>Rule-building actions appear on the detail page after the event is understandable in context.</li>
@@ -43,7 +44,7 @@
 <div class="card mb-2">
   <div class="alert alert-info" style="margin-bottom:0.75rem;">
     <strong>Where do I hunt for Sigma candidates?</strong>
-    Start here on <strong>Records</strong>. Filter to <code>win_evt_*</code>, narrow by <strong>Windows Channel</strong> or <strong>EventID</strong>, then open <strong>Detail</strong> on suspicious events to review their context before deciding whether to create a Sigma rule.
+    Start on <strong>Analytics</strong> to hunt broadly, including ATT&amp;CK starter filters for Windows events. Then use <strong>Records</strong> to inspect specific events in detail before deciding whether to create a Sigma rule.
   </div>
   <form method="get" action="/ui/cases/{{ case_id }}/records" class="flex gap-1" style="flex-wrap:wrap;align-items:end;">
     <div>
@@ -83,7 +84,7 @@
   </form>
 
   <div class="text-muted" style="font-size:0.8rem;margin-top:0.75rem;">
-    Hunt here first, then pivot into rule creation from a specific event or packet. For Sigma, start with <code>win_evt_*</code> records and narrow by channel, EventID, or search text.
+    Use this page to inspect and narrow specific evidence after hunting in Analytics. For Sigma, focus on <code>win_evt_*</code> records and open Detail to review the event in context.
   </div>
 </div>
 

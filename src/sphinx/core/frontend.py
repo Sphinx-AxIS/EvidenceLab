@@ -12,6 +12,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from sphinx.core.auth import create_token, verify_password
+from sphinx.core.attack_windows_presets import ATTACK_WINDOWS_PRESETS
 from sphinx.core.db import get_cursor
 from sphinx.core.plugin_loader import get_registry
 
@@ -1446,6 +1447,7 @@ async def analytics_page(request: Request, case_id: str):
     return templates.TemplateResponse(request, "analytics.html", _ctx(
         request, user, "analytics", case_id=case_id,
         analytics_enabled=analytics_enabled,
+        attack_windows_presets=ATTACK_WINDOWS_PRESETS,
     ))
 
 

@@ -1,6 +1,26 @@
 {% extends "base.html" %}
 {% block title %}Analytics{% endblock %}
 
+{% block help %}
+<h3>Analytics</h3>
+<p>Use Analytics as your main hunting workspace. Start broad, narrow to suspicious patterns, then pivot to a specific record for detailed inspection before creating a rule.</p>
+
+<h4>ATT&amp;CK Starter Filters</h4>
+<ul>
+  <li>The <strong>Windows ATT&amp;CK Starter Filters</strong> panel gives you official MITRE ATT&amp;CK-inspired starting points for common Windows hunting scenarios.</li>
+  <li>Each preset applies a record type plus starter EventID and channel filters to the existing analytics query tools.</li>
+  <li>These presets are starting points, not finished detections. Inspect the resulting records carefully before deciding to create a Sigma rule.</li>
+</ul>
+
+<h4>Suggested Workflow</h4>
+<ul>
+  <li>Start with an ATT&amp;CK preset or choose a record type manually.</li>
+  <li>Use Browse, Value Counts, Relationships, or Time Series to understand what is rare, repeated, or suspicious.</li>
+  <li>Open a specific record from the results table to inspect it in context.</li>
+  <li>Only after the event is understandable should you pivot into Sigma or Suricata authoring.</li>
+</ul>
+{% endblock %}
+
 {% block content %}
 <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;">
   <h2>Data Analytics</h2>
@@ -38,6 +58,21 @@
   <p style="font-size:0.8rem;color:var(--text-muted);">Disable analytics if ingested data is causing errors. Re-enable when ready.</p>
 </div>
 {% else %}
+
+<div class="card mb-2" id="attack-starter-panel">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
+    <div>
+      <h3 style="margin-bottom:0.35rem;">Windows ATT&amp;CK Starter Filters</h3>
+      <p class="text-muted" style="max-width:70rem;font-size:0.9rem;">
+        Use official MITRE ATT&amp;CK detection-strategy starter filters to begin a Windows hunt. A preset selects a Windows record type and applies starter channel/EventID filters into the existing analytics workflow.
+      </p>
+    </div>
+    <div class="text-muted" style="font-size:0.78rem;max-width:20rem;">
+      Hunt here first, inspect the resulting records, and only then decide whether a Sigma rule is justified.
+    </div>
+  </div>
+  <div id="attack-preset-groups" style="margin-top:0.75rem;"></div>
+</div>
 
 <!-- Summary cards -->
 <div id="analytics-summary" class="card mb-2">Loading evidence type counts...</div>
@@ -211,10 +246,25 @@
 .filter-row .filter-val { flex: 2; }
 .filter-row .filter-rm { flex: 0; min-width: 2rem; padding: 0.25rem 0.5rem; }
 .bar-cell { background: var(--accent); height: 1rem; border-radius: 3px; min-width: 2px; opacity: 0.6; }
+.attack-group { margin-top: 0.75rem; }
+.attack-preset-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:0.75rem; }
+.attack-preset-card {
+  border:1px solid var(--border); background:var(--bg-card); border-radius:8px;
+  padding:0.85rem; display:flex; flex-direction:column; gap:0.5rem;
+}
+.attack-preset-card h4 { margin:0; font-size:0.95rem; }
+.attack-meta { font-size:0.76rem; color:var(--text-muted); }
+.attack-summary { font-size:0.84rem; color:var(--text); min-height:2.5rem; }
+.attack-tags { display:flex; gap:0.4rem; flex-wrap:wrap; }
+.attack-tag {
+  display:inline-block; border:1px solid var(--border); border-radius:999px;
+  padding:0.1rem 0.45rem; font-size:0.72rem; color:var(--text-muted);
+}
 </style>
 
 <script>
 const CASE_ID = '{{ case_id }}';
+const ATTACK_PRESETS = {{ attack_windows_presets|tojson }};
 
 let currentType = null;
 let currentOffset = 0;
@@ -234,11 +284,11 @@ function apiFetch(url) {
 }
 
 function loadSummary() {
-  apiFetch(`/api/analytics/summary?case_id=${CASE_ID}`)
+  return apiFetch(`/api/analytics/summary?case_id=${CASE_ID}`)
     .then(d => {
       if (!d.types || d.types.length === 0) {
         document.getElementById('analytics-summary').innerHTML = '<p class="text-muted">No evidence ingested for this case.</p>';
-        return;
+        return d;
       }
 
       let html = '<div class="card-grid">';
@@ -277,6 +327,7 @@ function loadSummary() {
 
       // Show mode tabs immediately (correlate doesn't need a type selected)
       document.getElementById('mode-tabs').style.display = '';
+      return d;
     });
 }
 
@@ -286,7 +337,7 @@ function selectType(btn, recordType) {
   document.querySelectorAll('#type-tabs button').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
 
-  apiFetch(`/api/analytics/columns?case_id=${CASE_ID}&record_type=${recordType}`)
+  return apiFetch(`/api/analytics/columns?case_id=${CASE_ID}&record_type=${recordType}`)
     .then(d => {
       typeColumns = (d.columns || []).map(c => ({name: c, type: 'text'}));
 
@@ -308,8 +359,80 @@ function selectType(btn, recordType) {
       selectMode(document.querySelector('#mode-tabs button'), 'browse');
       document.getElementById('analytics-filters').style.display = '';
       document.getElementById('analytics-results').style.display = '';
-      clearFilters();
+      clearFilters(false);
+      runQuery();
+      return d;
     });
+}
+
+function renderAttackPresets() {
+  let container = document.getElementById('attack-preset-groups');
+  if (!container) return;
+  if (!ATTACK_PRESETS || ATTACK_PRESETS.length === 0) {
+    container.innerHTML = '<p class="text-muted">No ATT&CK starter filters are available.</p>';
+    return;
+  }
+
+  let groups = {};
+  for (let preset of ATTACK_PRESETS) {
+    if (!groups[preset.tactic]) groups[preset.tactic] = [];
+    groups[preset.tactic].push(preset);
+  }
+
+  let html = '';
+  for (let tactic of Object.keys(groups).sort()) {
+    html += `<div class="attack-group"><h4 style="margin-bottom:0.5rem;">${tactic}</h4><div class="attack-preset-grid">`;
+    for (let preset of groups[tactic]) {
+      let eventList = (preset.event_ids || []).join(', ');
+      html += `<div class="attack-preset-card">
+        <div>
+          <h4>${preset.title}</h4>
+          <div class="attack-meta">${preset.technique_id} ${preset.technique_name} | ${preset.detection_strategy_id}</div>
+        </div>
+        <div class="attack-summary">${preset.summary}</div>
+        <div class="attack-tags">
+          <span class="attack-tag">${preset.record_type}</span>
+          ${eventList ? `<span class="attack-tag">EventID ${eventList}</span>` : ''}
+        </div>
+        <div class="flex gap-1" style="margin-top:auto;flex-wrap:wrap;">
+          <button type="button" class="btn btn-primary btn-sm" onclick="applyAttackPreset('${preset.id}')">Apply Filter</button>
+          <a class="btn btn-sm" href="${preset.source_url}" target="_blank" rel="noopener noreferrer">MITRE</a>
+        </div>
+      </div>`;
+    }
+    html += '</div></div>';
+  }
+  container.innerHTML = html;
+}
+
+function findTypeTab(recordType) {
+  return Array.from(document.querySelectorAll('#type-tabs button')).find(btn =>
+    btn.textContent.trim().startsWith(recordType + ' ')
+  ) || null;
+}
+
+function applyAttackPreset(presetId) {
+  let preset = ATTACK_PRESETS.find(p => p.id === presetId);
+  if (!preset) return;
+
+  let ensureSummary = document.querySelectorAll('#type-tabs button').length > 0
+    ? Promise.resolve()
+    : loadSummary();
+
+  ensureSummary.then(() => {
+    let typeBtn = findTypeTab(preset.record_type);
+    return selectType(typeBtn, preset.record_type);
+  }).then(() => {
+    clearFilters(false);
+    for (let filter of (preset.filters || [])) {
+      addFilterRow(filter.col, filter.op, filter.val);
+    }
+    runQuery();
+    let filtersPanel = document.getElementById('analytics-filters');
+    if (filtersPanel) {
+      filtersPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
 }
 
 function addFilterRow(col, op, val) {
@@ -685,14 +808,17 @@ function renderCorrelate(d) {
   document.getElementById('results-paging').innerHTML = '';
 }
 
-function clearFilters() {
+function clearFilters(run=true) {
   document.getElementById('filter-rows').innerHTML = '';
   document.getElementById('f-limit').value = '200';
   currentOffset = 0;
-  if (currentType) runQuery();
+  if (run && currentType) runQuery();
 }
 
-document.addEventListener('DOMContentLoaded', () => { loadSummary(); });
+document.addEventListener('DOMContentLoaded', () => {
+  renderAttackPresets();
+  loadSummary();
+});
 </script>
 {% endif %}
 {% endblock %}

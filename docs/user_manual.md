@@ -132,12 +132,12 @@ The Records page shows all evidence records stored in the current case. A "recor
 
 ### Where To Hunt For Rule Candidates
 
-The **Records** page is the evidence browser you use to narrow to candidate events and inspect them in detail before creating a detection rule.
+The **Analytics** page is the main hunting workspace for detection engineering. Use it to identify suspicious patterns, narrow to a likely event family, and then pivot into **Records** for close inspection.
 
 - For **Sigma** rules, start with Windows event records (`win_evt_security`, `win_evt_sysmon`, `win_evt_powershell`, etc.).
-- Use the **Windows Channel**, **EventID**, and **Search Raw Data** filters to narrow to the specific event family you care about.
-- When you find a promising event, open its **Detail** page first.
-- The detail page explains the event, shows important fields, and gives case-level context so you can decide whether a detection is justified.
+- The **Analytics** page includes **Windows ATT&CK Starter Filters** that apply MITRE ATT&CK-inspired record type and EventID starting points for common tactics and techniques.
+- Once you identify a promising event family, open the matching record in **Records**.
+- The record detail page explains the event, shows important fields, and gives case-level context so you can decide whether a detection is justified.
 - If the event still looks rule-worthy after inspection, use **Build Sigma Rule From Event** or **Build Suricata Rule From Record** from the detail page.
 
 ### Browsing Records
@@ -162,7 +162,7 @@ Use the filters at the top of the page to narrow the dataset before opening a re
 - **EventID** — search for a specific Windows event ID such as `4624`, `4625`, `4688`, or `4104`
 - **Search Raw Data** — free-text search across the record JSON for usernames, process names, command lines, IP addresses, and other indicators
 
-This is the intended starting point for narrowing to a Windows event that may become a Sigma candidate after inspection.
+This page is the detailed evidence browser you use after hunting in Analytics. It is where you inspect a specific event closely enough to decide whether it should become a detection candidate.
 
 Common record types include:
 
@@ -459,12 +459,26 @@ Analytics must be enabled for each case. Toggle the **Enable Analytics** checkbo
 
 ### Using Analytics
 
-1. **Select a Record Type** — Click a record type button from the summary at the top (e.g., `suricata_alert`, `zeek_conn`).
+1. **Start with a Hunt Strategy** — Either click a Windows ATT&CK starter filter or select a record type manually from the summary at the top.
 2. **Choose a Mode** — Select one of the analysis modes:
+
+### Windows ATT&CK Starter Filters
+
+For Windows event hunting, the page includes a **Windows ATT&CK Starter Filters** panel.
+
+- Each preset is based on an official MITRE ATT&CK detection-strategy starting point.
+- A preset applies a specific Windows record type and starter EventID or channel filters into the Analytics query workflow.
+- Use these presets as a fast way to begin hunting for behaviors such as:
+  - cleared event logs
+  - suspicious service installation
+  - scheduled task creation
+  - PowerShell abuse
+  - Kerberoasting
+- These are starter filters, not finished detections. You should still inspect the resulting records before deciding to create a Sigma rule.
 
 #### Browse Mode
 
-Simple table view of records. Equivalent to the Records page but with more interactive filtering.
+Simple table view of records with interactive filtering. This is often the fastest way to narrow to a candidate event before opening it in the Records page for detailed inspection.
 
 - Click any cell value to add it as a filter.
 - Click column headers to sort.
@@ -513,6 +527,16 @@ Find temporal correlations between different record types.
 3. Optionally select a **Shared Entity** type (e.g., `ip`) to require matching entities.
 4. Click **Query**.
 5. Results show correlated event pairs from different evidence sources.
+
+### Hunt Then Inspect
+
+The intended workflow for building a rule is:
+
+1. Hunt in **Analytics** using ATT&CK starter filters, manual filters, or aggregations.
+2. Identify a suspicious event family or outlier.
+3. Open a specific record from the results table.
+4. Inspect that event on the **Record Detail** page.
+5. Only then pivot into Sigma or Suricata authoring.
 
 ### Filtering
 
