@@ -136,7 +136,7 @@ def _ctx(request: Request, user: dict, page: str, case_id: str = "", **extra):
 
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, error: str = ""):
-    return templates.TemplateResponse("login.html", {"request": request, "error": error})
+    return templates.TemplateResponse(request, "login.html", {"request": request, "error": error})
 
 
 @router.post("/login")
@@ -149,7 +149,7 @@ async def login_submit(request: Request, username: str = Form(...), password: st
         row = cur.fetchone()
 
     if not row or not verify_password(password, row["password_hash"]):
-        return templates.TemplateResponse("login.html", {
+        return templates.TemplateResponse(request, "login.html", {
             "request": request, "error": "Invalid username or password",
         })
 
@@ -306,7 +306,7 @@ async def dashboard(request: Request, case_id: str = "", mode: str = ""):
             )
             correlator_summary = cur.fetchall()
 
-    return templates.TemplateResponse("dashboard.html", _ctx(
+    return templates.TemplateResponse(request, "dashboard.html", _ctx(
         request, user, "dashboard", case_id=case_id,
         cases=cases, summary=summary, correlator_summary=correlator_summary,
         case_meta=case_meta,
@@ -325,7 +325,7 @@ async def cases_list(request: Request):
         cur.execute("SELECT id, name, status, created_at::text AS created_at FROM cases ORDER BY created_at DESC")
         cases = cur.fetchall()
 
-    return templates.TemplateResponse("cases.html", _ctx(request, user, "cases", cases=cases))
+    return templates.TemplateResponse(request, "cases.html", _ctx(request, user, "cases", cases=cases))
 
 
 @router.get("/cases/new", response_class=HTMLResponse)
@@ -333,7 +333,7 @@ async def case_new_form(request: Request):
     user = _get_user(request)
     if not user:
         return RedirectResponse(url="/ui/login", status_code=303)
-    return templates.TemplateResponse("case_new.html", _ctx(request, user, "cases"))
+    return templates.TemplateResponse(request, "case_new.html", _ctx(request, user, "cases"))
 
 
 @router.post("/cases/new")
@@ -415,7 +415,7 @@ async def records_list(request: Request, case_id: str, type: str = "", offset: i
         )
         records = cur.fetchall()
 
-    return templates.TemplateResponse("records.html", _ctx(
+    return templates.TemplateResponse(request, "records.html", _ctx(
         request, user, "records", case_id=case_id,
         records=records, record_types=record_types,
         type_filter=type, total=total, offset=offset, limit=limit,
@@ -445,7 +445,7 @@ async def record_detail(request: Request, case_id: str, record_id: str):
 
     raw_json = json.dumps(record["raw"], indent=2, default=str) if record["raw"] else "{}"
 
-    return templates.TemplateResponse("record_detail.html", _ctx(
+    return templates.TemplateResponse(request, "record_detail.html", _ctx(
         request, user, "records", case_id=case_id,
         record=record, entities=entities, raw_json=raw_json,
     ))
@@ -470,7 +470,7 @@ async def tasks_list(request: Request, case_id: str):
         )
         tasks = cur.fetchall()
 
-    return templates.TemplateResponse("tasks.html", _ctx(
+    return templates.TemplateResponse(request, "tasks.html", _ctx(
         request, user, "tasks", case_id=case_id, tasks=tasks,
     ))
 
@@ -480,7 +480,7 @@ async def task_new_form(request: Request, case_id: str):
     user = _get_user(request)
     if not user:
         return RedirectResponse(url="/ui/login", status_code=303)
-    return templates.TemplateResponse("task_new.html", _ctx(request, user, "tasks", case_id=case_id))
+    return templates.TemplateResponse(request, "task_new.html", _ctx(request, user, "tasks", case_id=case_id))
 
 
 @router.post("/cases/{case_id}/tasks/new")
@@ -538,7 +538,7 @@ async def task_detail(request: Request, case_id: str, task_id: str):
         )
         steps = cur.fetchall()
 
-    return templates.TemplateResponse("task_detail.html", _ctx(
+    return templates.TemplateResponse(request, "task_detail.html", _ctx(
         request, user, "tasks", case_id=case_id,
         task=task, steps=steps,
     ))
@@ -566,7 +566,7 @@ async def findings_list(request: Request, case_id: str):
         )
         findings = cur.fetchall()
 
-    return templates.TemplateResponse("findings.html", _ctx(
+    return templates.TemplateResponse(request, "findings.html", _ctx(
         request, user, "findings", case_id=case_id, findings=findings,
     ))
 
@@ -615,7 +615,7 @@ async def ingest_page(request: Request, case_id: str, message: str = "", error: 
     registry = get_registry()
     handlers = sorted(registry.ingest_handlers.keys())
 
-    return templates.TemplateResponse("ingest.html", _ctx(
+    return templates.TemplateResponse(request, "ingest.html", _ctx(
         request, user, "ingest", case_id=case_id,
         handlers=handlers, message=message, error=error,
     ))
@@ -1006,7 +1006,7 @@ async def entities_search(
         )
         entities = cur.fetchall()
 
-    return templates.TemplateResponse("entities.html", _ctx(
+    return templates.TemplateResponse(request, "entities.html", _ctx(
         request, user, "entities", case_id=case_id,
         entities=entities, entity_types=entity_types, type_summary=type_summary,
         q=q, entity_type=entity_type, total=total, offset=offset, limit=limit,
@@ -1069,7 +1069,7 @@ async def entity_pivot(
             )
             related_entities = cur.fetchall()
 
-    return templates.TemplateResponse("entity_pivot.html", _ctx(
+    return templates.TemplateResponse(request, "entity_pivot.html", _ctx(
         request, user, "entities", case_id=case_id,
         value=value, entity_type=type,
         records=records, record_types=record_types,
@@ -1091,7 +1091,7 @@ async def analytics_page(request: Request, case_id: str):
         row = cur.fetchone()
         analytics_enabled = row["analytics_enabled"] if row else True
 
-    return templates.TemplateResponse("analytics.html", _ctx(
+    return templates.TemplateResponse(request, "analytics.html", _ctx(
         request, user, "analytics", case_id=case_id,
         analytics_enabled=analytics_enabled,
     ))
@@ -1160,7 +1160,7 @@ async def correlator_new_case_form(request: Request):
         else:
             source_cases = []
 
-    return templates.TemplateResponse("correlator_new_case.html", _ctx(
+    return templates.TemplateResponse(request, "correlator_new_case.html", _ctx(
         request, user, "dashboard", source_cases=source_cases,
     ))
 
@@ -1246,7 +1246,7 @@ async def notes_list(request: Request, case_id: str):
         )
         notes = cur.fetchall()
 
-    return templates.TemplateResponse("notes.html", _ctx(
+    return templates.TemplateResponse(request, "notes.html", _ctx(
         request, user, "notes", case_id=case_id, notes=notes,
     ))
 
@@ -1295,12 +1295,12 @@ async def report_page(request: Request, case_id: str):
         from sphinx.core.report import generate_report
         settings = request.app.state.settings
         report = generate_report(settings, case_id)
-        return templates.TemplateResponse("report.html", _ctx(
+        return templates.TemplateResponse(request, "report.html", _ctx(
             request, user, "report", case_id=case_id, report=report, error=None,
         ))
     except Exception as e:
         log.error("Report generation failed: %s", e)
-        return templates.TemplateResponse("report.html", _ctx(
+        return templates.TemplateResponse(request, "report.html", _ctx(
             request, user, "report", case_id=case_id,
             report=None, error=f"Report generation failed: {e}",
         ))
@@ -1350,7 +1350,7 @@ async def user_manual_page(request: Request):
     if not user:
         return RedirectResponse(url="/ui/login", status_code=303)
     manual_html = _load_manual_html()
-    return templates.TemplateResponse("user_manual.html", _ctx(
+    return templates.TemplateResponse(request, "user_manual.html", _ctx(
         request, user, "user_manual", manual_html=manual_html,
     ))
 
@@ -1384,7 +1384,7 @@ async def admin_users_page(request: Request, success: str = "", error: str = "")
             for row in cur.fetchall()
         ]
 
-    return templates.TemplateResponse("admin_users.html", _ctx(
+    return templates.TemplateResponse(request, "admin_users.html", _ctx(
         request, user, "admin_users", users=users, success=success, error=error,
     ))
 
@@ -1467,7 +1467,7 @@ async def admin_user_detail(request: Request, user_id: str, success: str = "", e
         all_cases = cur.fetchall()
         available_cases = [c for c in all_cases if c["id"] not in assigned_ids]
 
-    return templates.TemplateResponse("admin_user_detail.html", _ctx(
+    return templates.TemplateResponse(request, "admin_user_detail.html", _ctx(
         request, user, "admin_users",
         target_user=target_user, assignments=assignments,
         available_cases=available_cases, success=success, error=error,
@@ -1693,7 +1693,7 @@ async def admin_data_page(request: Request, success: str = "", error: str = ""):
         except Exception:
             detection_rules = []
 
-    return templates.TemplateResponse("admin_data.html", _ctx(
+    return templates.TemplateResponse(request, "admin_data.html", _ctx(
         request, user, "admin_data",
         cases=cases, jobs=jobs, tasks=tasks, detection_rules=detection_rules,
         success=success, error=error,
@@ -1877,7 +1877,7 @@ async def admin_rule_edit_page(request: Request, rule_id: int, success: str = ""
         if not rule:
             return RedirectResponse(url="/ui/admin/data?error=Rule+not+found", status_code=303)
 
-    return templates.TemplateResponse("admin_rule_edit.html", _ctx(
+    return templates.TemplateResponse(request, "admin_rule_edit.html", _ctx(
         request, user, "admin_data", rule=rule, success=success, error=error,
     ))
 
@@ -2021,7 +2021,7 @@ async def admin_query_learning_page(request: Request, filter: str = "", success:
         "dismissed": count_dismissed,
     }
 
-    return templates.TemplateResponse("admin_query_learning.html", _ctx(
+    return templates.TemplateResponse(request, "admin_query_learning.html", _ctx(
         request, user, "admin_query_learning",
         patterns=patterns, filter=filter, counts=counts,
         success=success, error=error,
@@ -2122,7 +2122,7 @@ async def detection_rules_list(request: Request, case_id: str, filter: str = "",
 
     counts = {"all": count_all, "pending_review": count_pending, "approved": count_approved, "deployed": count_deployed}
 
-    return templates.TemplateResponse("detection_rules.html", _ctx(
+    return templates.TemplateResponse(request, "detection_rules.html", _ctx(
         request, user, "detection_rules", case_id=case_id,
         rules=rules, filter=filter, counts=counts,
         success=success, error=error,
@@ -2134,7 +2134,7 @@ async def detection_rule_new_form(request: Request, case_id: str, error: str = "
     user = _get_user(request)
     if not user:
         return RedirectResponse(url="/ui/login", status_code=303)
-    return templates.TemplateResponse("detection_rule_new.html", _ctx(
+    return templates.TemplateResponse(request, "detection_rule_new.html", _ctx(
         request, user, "detection_rules", case_id=case_id, error=error,
     ))
 
@@ -2248,7 +2248,7 @@ async def detection_rule_detail(request: Request, case_id: str, rule_id: int, su
             cur.execute("SELECT * FROM findings WHERE id = %s", (rule["finding_id"],))
             finding = cur.fetchone()
 
-    return templates.TemplateResponse("rule_review.html", _ctx(
+    return templates.TemplateResponse(request, "rule_review.html", _ctx(
         request, user, "detection_rules", case_id=case_id,
         rule=rule, finding=finding, success=success, error=error,
     ))
