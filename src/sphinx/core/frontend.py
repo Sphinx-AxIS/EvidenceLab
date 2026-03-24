@@ -674,6 +674,81 @@ async def ingest_submit(
         )
 
 
+@router.post("/cases/{case_id}/ingest/evtx")
+async def ingest_evtx_submit(
+    request: Request, case_id: str,
+    file: UploadFile = File(...),
+):
+    user = _get_user(request)
+    if not user:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    registry = get_registry()
+
+    fname = file.filename or "upload.evtx"
+    suffix = Path(fname).suffix.lower()
+    if suffix != ".evtx":
+        return RedirectResponse(
+            url=f"/ui/cases/{case_id}/ingest?error=Invalid+file+type:+{suffix}+(expected+.evtx)",
+            status_code=303,
+        )
+
+    try:
+        from tempfile import NamedTemporaryFile
+        from urllib.parse import quote
+
+        from sphinx.plugins.sphinx_plugin_winevt.evtx import parse_evtx
+
+        content = await file.read()
+        with NamedTemporaryFile(prefix="sphinx_evtx_", suffix=".evtx", delete=True) as tmp:
+            tmp.write(content)
+            tmp.flush()
+            grouped, stats = parse_evtx(tmp.name)
+
+        inserted_total = 0
+        inserted_by_type: list[str] = []
+
+        for record_type, records in grouped.items():
+            handler = registry.ingest_handlers.get(record_type)
+            if not handler:
+                continue
+            inserted = handler(case_id, records)
+            inserted_total += inserted
+            inserted_by_type.append(f"{record_type}:{inserted}")
+
+        if inserted_total == 0:
+            err = (
+                f"No supported Windows events found in {fname}. "
+                f"Parsed={stats['total_events']}, unsupported={stats['unsupported_events']}, "
+                f"errors={stats['parse_errors']}"
+            )
+            return RedirectResponse(
+                url=f"/ui/cases/{case_id}/ingest?error={quote(err)}",
+                status_code=303,
+            )
+
+        detail = ", ".join(inserted_by_type)
+        msg = (
+            f"Ingested {inserted_total} Windows event records from {fname} "
+            f"({detail}). Unsupported={stats['unsupported_events']}, parse_errors={stats['parse_errors']}"
+        )
+        return RedirectResponse(
+            url=f"/ui/cases/{case_id}/ingest?message={quote(msg)}",
+            status_code=303,
+        )
+    except ImportError as e:
+        return RedirectResponse(
+            url=f"/ui/cases/{case_id}/ingest?error=EVTX+support+is+not+installed:+{e}",
+            status_code=303,
+        )
+    except Exception as e:
+        log.error("EVTX ingest failed: %s", e)
+        return RedirectResponse(
+            url=f"/ui/cases/{case_id}/ingest?error=EVTX+ingest+failed:+{e}",
+            status_code=303,
+        )
+
+
 @router.post("/cases/{case_id}/ingest/pcap")
 async def ingest_pcap_submit(
     request: Request, case_id: str,

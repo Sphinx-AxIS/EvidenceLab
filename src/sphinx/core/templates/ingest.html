@@ -8,6 +8,7 @@
 <h4>Supported Formats</h4>
 <ul>
   <li><strong>PCAP / PCAPNG</strong> — Network capture files. Automatically processed by Suricata (IDS alerts), Zeek (connection metadata, protocol logs), and tshark (TCP stream reconstruction). Select "PCAP Upload" and choose your capture file.</li>
+  <li><strong>EVTX</strong> — Native Windows Event Log files. Select "Windows Event Log (EVTX)" and upload a `.evtx` file; the system will auto-detect channel and route events to the existing Windows log record types.</li>
   <li><strong>JSON / JSONL</strong> — Structured log files. Select the appropriate record type (e.g., win_evt_security for Windows Security logs) and upload a JSON array or newline-delimited JSON file.</li>
 </ul>
 
@@ -38,6 +39,7 @@
       <select id="ingest_mode" required>
         <option value="">Select mode...</option>
         <option value="json">JSON / JSONL (structured records)</option>
+        <option value="evtx">Windows Event Log (EVTX)</option>
         <option value="pcap">PCAP (network capture)</option>
       </select>
     </div>
@@ -74,6 +76,19 @@
       </div>
     </div>
 
+    <div id="evtx_options" style="display:none;">
+      <div class="form-group">
+        <label for="evtx_file">File</label>
+        <input type="file" id="evtx_file" name="file" accept=".evtx"
+          style="padding:0.4rem; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); width:100%;">
+        <div class="text-muted mt-1" style="font-size:0.75rem;">
+          Upload a native Windows Event Log file. EvidenceLab will parse the EVTX,
+          detect the channel, and ingest supported events as Security, PowerShell,
+          Sysmon, Application, or System records.
+        </div>
+      </div>
+    </div>
+
     <button type="submit" class="btn btn-primary" id="submitBtn" disabled>Upload &amp; Ingest</button>
   </form>
 </div>
@@ -96,10 +111,12 @@
   var modeSelect = document.getElementById('ingest_mode');
   var jsonOpts = document.getElementById('json_options');
   var pcapOpts = document.getElementById('pcap_options');
+  var evtxOpts = document.getElementById('evtx_options');
   var form = document.getElementById('ingestForm');
   var submitBtn = document.getElementById('submitBtn');
   var jsonFile = document.getElementById('json_file');
   var pcapFile = document.getElementById('pcap_file');
+  var evtxFile = document.getElementById('evtx_file');
   var recordType = document.getElementById('record_type');
   var caseId = '{{ case_id }}';
 
@@ -107,6 +124,7 @@
     var mode = this.value;
     jsonOpts.style.display = mode === 'json' ? '' : 'none';
     pcapOpts.style.display = mode === 'pcap' ? '' : 'none';
+    evtxOpts.style.display = mode === 'evtx' ? '' : 'none';
     submitBtn.disabled = !mode;
 
     // Toggle required/name attributes so only the active file input submits
@@ -117,16 +135,33 @@
       pcapFile.removeAttribute('name');
       pcapFile.required = false;
       pcapFile.value = '';
+      evtxFile.removeAttribute('name');
+      evtxFile.required = false;
+      evtxFile.value = '';
     } else if (mode === 'pcap') {
       pcapFile.setAttribute('name', 'file');
       pcapFile.required = true;
       jsonFile.removeAttribute('name');
       jsonFile.required = false;
       jsonFile.value = '';
+      evtxFile.removeAttribute('name');
+      evtxFile.required = false;
+      evtxFile.value = '';
+      recordType.required = false;
+    } else if (mode === 'evtx') {
+      evtxFile.setAttribute('name', 'file');
+      evtxFile.required = true;
+      jsonFile.removeAttribute('name');
+      jsonFile.required = false;
+      jsonFile.value = '';
+      pcapFile.removeAttribute('name');
+      pcapFile.required = false;
+      pcapFile.value = '';
       recordType.required = false;
     } else {
       jsonFile.required = false;
       pcapFile.required = false;
+      evtxFile.required = false;
       recordType.required = false;
     }
   });
@@ -135,6 +170,8 @@
     var mode = modeSelect.value;
     if (mode === 'json') {
       form.action = '/ui/cases/' + caseId + '/ingest';
+    } else if (mode === 'evtx') {
+      form.action = '/ui/cases/' + caseId + '/ingest/evtx';
     } else if (mode === 'pcap') {
       form.action = '/ui/cases/' + caseId + '/ingest/pcap';
     } else {
