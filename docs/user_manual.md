@@ -310,7 +310,7 @@ This is the simplest way to ingest Windows event logs because it keeps the origi
 3. Click **Choose File** and select your evidence file.
 4. Click **Upload & Ingest**.
 
-For PCAP files, processing happens in the background. Return to the Dashboard to monitor the job progress bar.
+For PCAP files, processing happens in the background. The Ingest page and Dashboard both show the current case's recent background jobs and live progress for any running ingest.
 
 ### Available Handlers
 

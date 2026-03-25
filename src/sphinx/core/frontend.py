@@ -895,10 +895,43 @@ async def ingest_page(request: Request, case_id: str, message: str = "", error: 
 
     registry = get_registry()
     handlers = sorted(registry.ingest_handlers.keys())
+    background_jobs = []
+    recent_record_counts = []
+
+    with get_cursor() as cur:
+        try:
+            _fix_stale_jobs(cur, case_id)
+            cur.execute(
+                """SELECT id, job_type, status, input_name,
+                          created_at::text AS created_at,
+                          updated_at::text AS updated_at,
+                          summary
+                   FROM background_jobs
+                   WHERE case_id = %s
+                   ORDER BY created_at DESC
+                   LIMIT 10""",
+                (case_id,),
+            )
+            background_jobs = cur.fetchall()
+        except Exception:
+            background_jobs = []
+
+        cur.execute(
+            """SELECT record_type, count(*) AS count
+               FROM records
+               WHERE case_id = %s AND record_type != 'worklog_step'
+               GROUP BY record_type
+               ORDER BY count DESC, record_type
+               LIMIT 12""",
+            (case_id,),
+        )
+        recent_record_counts = cur.fetchall()
 
     return templates.TemplateResponse(request, "ingest.html", _ctx(
         request, user, "ingest", case_id=case_id,
         handlers=handlers, message=message, error=error,
+        background_jobs=background_jobs,
+        recent_record_counts=recent_record_counts,
     ))
 
 

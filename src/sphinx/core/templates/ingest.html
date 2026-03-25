@@ -15,6 +15,7 @@
 <h4>What Happens During Ingest</h4>
 <ul>
   <li>PCAP ingest runs in the background — you can monitor progress on the Dashboard.</li>
+  <li>The Ingest page also shows the current case's recent background jobs and live progress for any running ingest.</li>
   <li>JSON ingest is immediate — records are inserted and you're redirected back with a count.</li>
   <li>Deployed detection rules (Suricata and Sigma) automatically run against newly ingested evidence.</li>
 </ul>
@@ -93,6 +94,82 @@
     <button type="submit" class="btn btn-primary" id="submitBtn" disabled>Upload &amp; Ingest</button>
   </form>
 </div>
+
+{% if background_jobs %}
+<div class="table-wrap mt-2">
+  <div class="table-title">Current Case Background Jobs</div>
+  <table>
+    <thead>
+      <tr><th>Type</th><th>Input</th><th>Status</th><th>Started</th><th>Details</th></tr>
+    </thead>
+    <tbody>
+      {% for j in background_jobs %}
+      <tr id="job-row-{{ j.id }}">
+        <td class="text-mono">{{ j.job_type }}</td>
+        <td>{{ j.input_name }}</td>
+        <td id="job-status-{{ j.id }}">
+          {% if j.status == 'running' %}
+          <span class="badge" style="background:var(--blue);">running</span>
+          {% elif j.status == 'done' or j.status == 'ok' %}
+          <span class="badge badge-success">done</span>
+          {% elif j.status == 'partial' %}
+          <span class="badge" style="background:var(--yellow);color:#000;">partial</span>
+          {% elif j.status == 'failed' %}
+          <span class="badge badge-danger">failed</span>
+          {% else %}
+          <span class="badge">{{ j.status }}</span>
+          {% endif %}
+        </td>
+        <td class="text-mono" style="font-size:0.75rem;">{{ j.created_at[:19] }}</td>
+        <td id="job-details-{{ j.id }}" style="font-size:0.75rem;">
+          {% if j.status == 'running' %}
+            <div style="margin-bottom:0.25rem;">
+              <div style="background:var(--border);border-radius:4px;height:16px;overflow:hidden;min-width:200px;">
+                <div id="job-bar-{{ j.id }}" style="background:var(--blue);height:100%;width:{{ j.summary.pct|default(0) }}%;transition:width 0.5s;"></div>
+              </div>
+            </div>
+            <span id="job-stage-{{ j.id }}">{{ j.summary.stage|default('starting') }}{% if j.summary.pct is defined %} ({{ j.summary.pct }}%){% endif %}</span>
+          {% else %}
+            {% if j.summary %}
+              {% if j.summary.total_inserted is defined %}
+                {{ j.summary.total_inserted }} records
+              {% endif %}
+              {% if j.summary.tools_run is defined %}
+                ({{ j.summary.tools_run|join(', ') }})
+              {% endif %}
+              {% if j.summary.error is defined %}
+                <span style="color:var(--red);">{{ j.summary.error[:80] }}</span>
+              {% endif %}
+              {% if j.summary.errors is defined and j.summary.errors|length > 0 %}
+                <span style="color:var(--yellow);">{{ j.summary.errors|length }} warning(s)</span>
+              {% endif %}
+            {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if recent_record_counts %}
+<div class="table-wrap mt-2" style="max-width:800px;">
+  <div class="table-title">Current Case Records By Type</div>
+  <table>
+    <thead><tr><th>Type</th><th style="text-align:right;">Count</th><th></th></tr></thead>
+    <tbody>
+      {% for rt in recent_record_counts %}
+      <tr>
+        <td><span class="record-type">{{ rt.record_type }}</span></td>
+        <td style="text-align:right;" class="text-mono">{{ rt.count }}</td>
+        <td><a href="/ui/cases/{{ case_id }}/records?type={{ rt.record_type }}" class="btn btn-sm">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
 
 {% if handlers|length > 0 %}
 <div class="table-wrap mt-2" style="max-width:600px;">
@@ -179,6 +256,50 @@
       e.preventDefault();
     }
   });
+
+  {% for j in background_jobs %}
+  {% if j.status == 'running' %}
+  (function(jobId) {
+    var timer = setInterval(function() {
+      fetch('/ui/cases/' + caseId + '/jobs/' + jobId + '/status')
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          var bar = document.getElementById('job-bar-' + jobId);
+          var stage = document.getElementById('job-stage-' + jobId);
+          var statusEl = document.getElementById('job-status-' + jobId);
+          var detailsEl = document.getElementById('job-details-' + jobId);
+
+          if (bar) bar.style.width = d.pct + '%';
+          if (stage) stage.textContent = d.stage + ' (' + d.pct + '%) — ' + d.total_inserted + ' records, ' + d.elapsed_s + 's';
+
+          if (d.status === 'ok' || d.status === 'done' || d.status === 'partial' || d.status === 'failed' || d.status === 'error') {
+            clearInterval(timer);
+            if (bar) bar.style.width = '100%';
+            if (d.status === 'ok' || d.status === 'done') {
+              if (bar) bar.style.background = 'var(--green, #22c55e)';
+              if (statusEl) statusEl.innerHTML = '<span class="badge badge-success">done</span>';
+            } else if (d.status === 'partial') {
+              if (bar) bar.style.background = 'var(--yellow, #eab308)';
+              if (statusEl) statusEl.innerHTML = '<span class="badge" style="background:var(--yellow);color:#000;">partial</span>';
+            } else {
+              if (bar) bar.style.background = 'var(--red, #ef4444)';
+              if (statusEl) statusEl.innerHTML = '<span class="badge badge-danger">' + d.status + '</span>';
+            }
+            var detail = d.total_inserted + ' records';
+            if (d.record_counts) {
+              var types = Object.keys(d.record_counts);
+              if (types.length) detail += ' (' + types.join(', ') + ')';
+            }
+            if (d.errors && d.errors.length) detail += ' <span style="color:var(--yellow);">' + d.errors.length + ' warning(s)</span>';
+            detail += ' in ' + d.elapsed_s + 's';
+            if (detailsEl) detailsEl.innerHTML = detail;
+          }
+        })
+        .catch(function() { clearInterval(timer); });
+    }, 2000);
+  })({{ j.id }});
+  {% endif %}
+  {% endfor %}
 })();
 </script>
 {% endblock %}
