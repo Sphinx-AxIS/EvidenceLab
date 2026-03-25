@@ -135,7 +135,7 @@ The Records page shows all evidence records stored in the current case. A "recor
 The **Analytics** page is the main hunting workspace for detection engineering. Use it to identify suspicious patterns, narrow to a likely event family, and then pivot into **Records** for close inspection.
 
 - For **Sigma** rules, start with Windows event records (`win_evt_security`, `win_evt_sysmon`, `win_evt_powershell`, etc.).
-- The **Analytics** page includes **Windows ATT&CK Starter Filters** with cumulative dropdowns for **Tactic**, **Technique**, and **EventID starter**.
+- The **Analytics** page includes clickable record-type cards for quick hunting pivots, plus **Windows ATT&CK Starter Filters** with cumulative dropdowns for **Tactic**, **Technique**, and **EventID starter**.
 - Those dropdowns are populated from the local Windows ATT&CK mapping dataset bundled with the platform.
 - Once you identify a promising event family, open the matching record in **Records**.
 - The record detail page explains the event, shows important fields, and gives case-level context so you can decide whether a detection is justified.
@@ -493,7 +493,7 @@ Analytics must be enabled for each case. Toggle the **Enable Analytics** checkbo
 
 ### Using Analytics
 
-1. **Start with a Hunt Strategy** — Either click a Windows ATT&CK starter filter or select a record type manually from the summary at the top.
+1. **Start with a Hunt Strategy** — Either click a Windows ATT&CK starter filter or click a record-type card from the summary at the top.
 2. **Choose a Mode** — Select one of the analysis modes:
 
 ### Windows ATT&CK Starter Filters
@@ -505,6 +505,7 @@ For Windows event hunting, the page includes a **Windows ATT&CK Starter Filters*
 - Finally choose an **EventID starter** that matches the Windows evidence source you want to inspect.
 - The selector is populated from the local Windows ATT&CK mapping dataset bundled with the platform.
 - Applying the selection loads a specific Windows record type and starter EventID or channel filters into the Analytics query workflow.
+- You can also click a record-type card near the top of the page to jump straight into that evidence source without using the ATT&CK selector.
 - Use these presets as a fast way to begin hunting for behaviors such as:
   - cleared event logs
   - suspicious service installation

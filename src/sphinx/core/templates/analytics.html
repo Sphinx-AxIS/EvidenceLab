@@ -15,7 +15,7 @@
 
 <h4>Suggested Workflow</h4>
 <ul>
-  <li>Start with an ATT&amp;CK preset or choose a record type manually.</li>
+  <li>Start with an ATT&amp;CK preset or click a record type card to open that evidence in Analytics.</li>
   <li>Use Browse, Value Counts, Relationships, or Time Series to understand what is rare, repeated, or suspicious.</li>
   <li>Open a specific record from the results table to inspect it in context.</li>
   <li>Only after the event is understandable should you pivot into Sigma or Suricata authoring.</li>
@@ -95,9 +95,6 @@
 
 <!-- Summary cards -->
 <div id="analytics-summary" class="card mb-2">Loading evidence type counts...</div>
-
-<!-- Record type tabs -->
-<div class="search-tabs" id="type-tabs" style="margin-top:1rem;"></div>
 
 <!-- Operation mode tabs -->
 <div class="search-tabs" id="mode-tabs" style="margin-top:0.5rem;display:none;">
@@ -257,6 +254,14 @@
 }
 .search-tabs button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 .search-tabs button:disabled { opacity: 0.4; cursor: default; }
+.analytics-type-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0.75rem; }
+.analytics-type-card {
+  width:100%; text-align:center; padding:0.85rem; border:1px solid var(--border);
+  background:var(--bg-card); color:var(--text); border-radius:6px; cursor:pointer;
+}
+.analytics-type-card:hover { border-color: var(--accent); }
+.analytics-type-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.analytics-type-card strong { display:block; margin-bottom:0.25rem; }
 .op-controls { margin: 0.5rem 0; padding: 0.5rem 0; }
 .filter-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.35rem; }
 .filter-row select, .filter-row input { margin-bottom: 0; }
@@ -296,22 +301,15 @@ function loadSummary() {
         return d;
       }
 
-      let html = '<div class="card-grid">';
+      let html = '<div class="analytics-type-grid">';
       for (let t of d.types) {
-        html += `<div class="card" style="text-align:center;padding:0.75rem;">
+        html += `<button type="button" class="analytics-type-card" data-record-type="${t.type}" onclick="selectType(this,'${t.type}')">
           <strong>${t.type}</strong><br>
           <span style="font-size:1.3rem;" class="text-mono">${t.count.toLocaleString()}</span>
-        </div>`;
+        </button>`;
       }
       html += '</div>';
       document.getElementById('analytics-summary').innerHTML = html;
-
-      let tabs = document.getElementById('type-tabs');
-      let tabHtml = '';
-      for (let t of d.types) {
-        tabHtml += `<button onclick="selectType(this,'${t.type}')">${t.type} (${t.count})</button>`;
-      }
-      tabs.innerHTML = tabHtml;
 
       // Populate correlate type dropdowns
       let typeOpts = d.types.map(t => `<option value="${t.type}">${t.type} (${t.count})</option>`).join('');
@@ -339,7 +337,7 @@ function loadSummary() {
 function selectType(btn, recordType) {
   currentType = recordType;
   currentOffset = 0;
-  document.querySelectorAll('#type-tabs button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.analytics-type-card').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
 
   return apiFetch(`/api/analytics/columns?case_id=${CASE_ID}&record_type=${recordType}`)
@@ -479,16 +477,14 @@ function resetAttackSelector() {
 }
 
 function findTypeTab(recordType) {
-  return Array.from(document.querySelectorAll('#type-tabs button')).find(btn =>
-    btn.textContent.trim().startsWith(recordType + ' ')
-  ) || null;
+  return document.querySelector(`.analytics-type-card[data-record-type="${recordType}"]`);
 }
 
 function applyAttackPreset(presetId) {
   let preset = ATTACK_PRESETS.find(p => p.id === presetId);
   if (!preset) return;
 
-  let ensureSummary = document.querySelectorAll('#type-tabs button').length > 0
+  let ensureSummary = document.querySelectorAll('.analytics-type-card').length > 0
     ? Promise.resolve()
     : loadSummary();
 
