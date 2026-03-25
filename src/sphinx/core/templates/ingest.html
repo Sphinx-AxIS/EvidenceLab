@@ -16,6 +16,7 @@
 <ul>
   <li>PCAP ingest runs in the background — you can monitor progress on the Dashboard.</li>
   <li>The Ingest page also shows the current case's recent background jobs and live progress for any running ingest.</li>
+  <li>PCAP processing runs inside the isolated REPL container and writes derived records back into the case through an internal ingest path.</li>
   <li>JSON ingest is immediate — records are inserted and you're redirected back with a count.</li>
   <li>Deployed detection rules (Suricata and Sigma) automatically run against newly ingested evidence.</li>
 </ul>

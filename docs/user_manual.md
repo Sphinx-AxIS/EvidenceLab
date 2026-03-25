@@ -312,6 +312,8 @@ This is the simplest way to ingest Windows event logs because it keeps the origi
 
 For PCAP files, processing happens in the background. The Ingest page and Dashboard both show the current case's recent background jobs and live progress for any running ingest.
 
+PCAP conversion runs in the isolated REPL container, but the derived Suricata, Zeek, and tshark records are written back through an internal ingest connection. This keeps the normal interactive REPL role restricted while still allowing background ingest to populate case records.
+
 ### Available Handlers
 
 The bottom of the Ingest page lists all registered ingest handlers and their accepted record types, so you know what formats the platform can process.

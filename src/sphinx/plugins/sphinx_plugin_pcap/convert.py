@@ -414,18 +414,22 @@ def convert_pcap(
         base_dir = pcap.parent / f"_sphinx_convert_{pcap.stem}"
     base_dir.mkdir(parents=True, exist_ok=True)
 
-    # Use direct DB connections (REPL container does not have the API pool).
-    # Two separate connections: one for record inserts, one for progress
-    # updates. If an ingest error aborts the insert transaction, the
-    # progress connection remains healthy for status writes.
-    db_url = os.environ.get(
+    # Use direct DB connections from the REPL container. Keep the default
+    # REPL DATABASE_URL read-only, and use a dedicated ingest writer DSN for
+    # inserting derived records back into the case.
+    ingest_db_url = os.environ.get("INGEST_DATABASE_URL") or os.environ.get(
         "DATABASE_URL",
         "postgresql://sphinx:changeme@sphinx-db:5432/sphinx",
     )
-    db_conn = psycopg.connect(db_url, row_factory=psycopg.rows.dict_row)
+    progress_db_url = os.environ.get(
+        "DATABASE_URL",
+        "postgresql://sphinx:changeme@sphinx-db:5432/sphinx",
+    )
+
+    db_conn = psycopg.connect(ingest_db_url, row_factory=psycopg.rows.dict_row)
     db_cur = db_conn.cursor()
     # Separate connection for progress — never poisoned by ingest errors
-    progress_conn = psycopg.connect(db_url, row_factory=psycopg.rows.dict_row)
+    progress_conn = psycopg.connect(progress_db_url, row_factory=psycopg.rows.dict_row)
 
     pcap_size_mb = round(pcap.stat().st_size / (1024 * 1024), 1)
 

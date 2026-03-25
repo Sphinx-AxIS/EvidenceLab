@@ -120,6 +120,8 @@ Key environment variables (see `.env.example`):
 |----------|-------------|---------|
 | `POSTGRES_PASSWORD` | Database password (API container) | `changeme` |
 | `REPL_DB_PASSWORD` | Database password (REPL container, restricted role) | `repl_changeme` |
+
+PCAP conversion runs inside the isolated REPL container, but derived Suricata, Zeek, and tshark records are written back through a dedicated internal ingest connection. The interactive REPL session remains on the restricted `sphinx_repl` role.
 | `JWT_SECRET` | Secret for signing auth tokens | `changeme-...` |
 | `LM_STUDIO_URL` | LM Studio API endpoint | `http://localhost:1234/v1` |
 | `LLM_MODEL` | Model name for LM Studio | `qwen2.5-coder-32b-instruct` |
