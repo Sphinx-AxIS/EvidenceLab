@@ -1,0 +1,1418 @@
+tactic,technique_id,technique,audit_category,audit_sub_category,event_id,message
+Lateral Movement,T1021,Remote Services,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Lateral Movement,T1021,Remote Services,Detailed Tracking,Process Creation,4688,A new process has been created.
+Lateral Movement,T1021,Remote Services,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Lateral Movement,T1021,Remote Services,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Lateral Movement,T1021,Remote Services,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Lateral Movement,T1021,Remote Services,Object Access,File Share,5140,A network share object was accessed.
+Lateral Movement,T1021,Remote Services,Object Access,Detailed File Share,5145,A network share object was checked to see whether the client can be granted desired access.
+Lateral Movement,T1021,Remote Services,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Lateral Movement,T1021,Remote Services,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Lateral Movement,T1021,Remote Services,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Lateral Movement,T1021,Remote Services,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Lateral Movement,T1021,Remote Services,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Lateral Movement,T1021,Remote Services,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Lateral Movement,T1021.001,Remote Desktop Protocol,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Lateral Movement,T1021.001,Remote Desktop Protocol,Detailed Tracking,Process Creation,4688,A new process has been created.
+Lateral Movement,T1021.001,Remote Desktop Protocol,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Lateral Movement,T1021.001,Remote Desktop Protocol,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Lateral Movement,T1021.001,Remote Desktop Protocol,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Lateral Movement,T1021.001,Remote Desktop Protocol,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Lateral Movement,T1021.001,Remote Desktop Protocol,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Lateral Movement,T1021.001,Remote Desktop Protocol,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Lateral Movement,T1021.001,Remote Desktop Protocol,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Lateral Movement,T1021.001,Remote Desktop Protocol,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Lateral Movement,T1021.001,Remote Desktop Protocol,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Lateral Movement,T1021.002,SMB/Windows Admin Shares,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Lateral Movement,T1021.002,SMB/Windows Admin Shares,Detailed Tracking,Process Creation,4688,A new process has been created.
+Lateral Movement,T1021.002,SMB/Windows Admin Shares,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Lateral Movement,T1021.002,SMB/Windows Admin Shares,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Lateral Movement,T1021.002,SMB/Windows Admin Shares,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Lateral Movement,T1021.002,SMB/Windows Admin Shares,Object Access,File Share,5140,A network share object was accessed.
+Lateral Movement,T1021.002,SMB/Windows Admin Shares,Object Access,Detailed File Share,5145,A network share object was checked to see whether the client can be granted desired access.
+Lateral Movement,T1021.002,SMB/Windows Admin Shares,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Lateral Movement,T1021.002,SMB/Windows Admin Shares,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Lateral Movement,T1021.002,SMB/Windows Admin Shares,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Lateral Movement,T1021.002,SMB/Windows Admin Shares,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Lateral Movement,T1021.002,SMB/Windows Admin Shares,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Lateral Movement,T1021.002,SMB/Windows Admin Shares,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Lateral Movement,T1021.004,SSH,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Lateral Movement,T1021.004,SSH,Detailed Tracking,Process Creation,4688,A new process has been created.
+Lateral Movement,T1021.004,SSH,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Lateral Movement,T1021.004,SSH,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Lateral Movement,T1021.004,SSH,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Lateral Movement,T1021.004,SSH,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Lateral Movement,T1021.004,SSH,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Lateral Movement,T1021.004,SSH,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Lateral Movement,T1021.004,SSH,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Lateral Movement,T1021.004,SSH,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Lateral Movement,T1021.004,SSH,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Lateral Movement,T1021.005,VNC,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Lateral Movement,T1021.005,VNC,Detailed Tracking,Process Creation,4688,A new process has been created.
+Lateral Movement,T1021.005,VNC,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Lateral Movement,T1021.005,VNC,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Lateral Movement,T1021.005,VNC,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Lateral Movement,T1021.005,VNC,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Lateral Movement,T1021.005,VNC,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Lateral Movement,T1021.005,VNC,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Lateral Movement,T1021.005,VNC,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Lateral Movement,T1021.005,VNC,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Lateral Movement,T1021.005,VNC,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Lateral Movement,T1021.006,Windows Remote Management,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Lateral Movement,T1021.006,Windows Remote Management,Detailed Tracking,Process Creation,4688,A new process has been created.
+Lateral Movement,T1021.006,Windows Remote Management,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Lateral Movement,T1021.006,Windows Remote Management,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Lateral Movement,T1021.006,Windows Remote Management,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Lateral Movement,T1021.006,Windows Remote Management,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Lateral Movement,T1021.006,Windows Remote Management,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Lateral Movement,T1021.006,Windows Remote Management,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Lateral Movement,T1021.006,Windows Remote Management,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Lateral Movement,T1021.006,Windows Remote Management,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Lateral Movement,T1021.006,Windows Remote Management,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Defense Evasion,T1070,Indicator Removal on Host,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Defense Evasion,T1070,Indicator Removal on Host,Logon/Logoff,Account Lockout,4625,An account failed to log on.
+Defense Evasion,T1070,Indicator Removal on Host,Logon/Logoff,Logon,4648,A logon was attempted using explicit credentials.
+Defense Evasion,T1070,Indicator Removal on Host,Object Access,Registry,4657,A registry value was modified.
+Defense Evasion,T1070,Indicator Removal on Host,Object Access,File System,4660,An object was deleted.
+Defense Evasion,T1070,Indicator Removal on Host,Object Access,Registry,4660,An object was deleted.
+Defense Evasion,T1070,Indicator Removal on Host,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1070,Indicator Removal on Host,Object Access,Registry,4670,Permissions on an object were changed.
+Defense Evasion,T1070,Indicator Removal on Host,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1070.005,Network Share Connection Removal,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Defense Evasion,T1070.005,Network Share Connection Removal,Logon/Logoff,Account Lockout,4625,An account failed to log on.
+Defense Evasion,T1070.005,Network Share Connection Removal,Logon/Logoff,Logon,4648,A logon was attempted using explicit credentials.
+Defense Evasion,T1070.005,Network Share Connection Removal,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1078,Valid Accounts,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Persistence,T1078,Valid Accounts,Logon/Logoff,Account Lockout,4625,An account failed to log on.
+Persistence,T1078,Valid Accounts,Logon/Logoff,Logon,4648,A logon was attempted using explicit credentials.
+Persistence,T1078,Valid Accounts,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Persistence,T1078,Valid Accounts,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Persistence,T1078.001,Default Accounts,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Persistence,T1078.001,Default Accounts,Logon/Logoff,Account Lockout,4625,An account failed to log on.
+Persistence,T1078.001,Default Accounts,Logon/Logoff,Logon,4648,A logon was attempted using explicit credentials.
+Persistence,T1078.001,Default Accounts,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Persistence,T1078.001,Default Accounts,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Persistence,T1078.002,Domain Accounts,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Persistence,T1078.002,Domain Accounts,Logon/Logoff,Account Lockout,4625,An account failed to log on.
+Persistence,T1078.002,Domain Accounts,Logon/Logoff,Logon,4648,A logon was attempted using explicit credentials.
+Persistence,T1078.002,Domain Accounts,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Persistence,T1078.002,Domain Accounts,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Persistence,T1078.003,Local Accounts,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Persistence,T1078.003,Local Accounts,Logon/Logoff,Account Lockout,4625,An account failed to log on.
+Persistence,T1078.003,Local Accounts,Logon/Logoff,Logon,4648,A logon was attempted using explicit credentials.
+Persistence,T1078.003,Local Accounts,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Persistence,T1078.003,Local Accounts,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Persistence,T1078.004,Cloud Accounts,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Persistence,T1078.004,Cloud Accounts,Logon/Logoff,Account Lockout,4625,An account failed to log on.
+Persistence,T1078.004,Cloud Accounts,Logon/Logoff,Logon,4648,A logon was attempted using explicit credentials.
+Persistence,T1078.004,Cloud Accounts,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Persistence,T1078.004,Cloud Accounts,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Credential Access,T1110,Brute Force,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Credential Access,T1110,Brute Force,Logon/Logoff,Account Lockout,4625,An account failed to log on.
+Credential Access,T1110,Brute Force,Logon/Logoff,Logon,4648,A logon was attempted using explicit credentials.
+Credential Access,T1110,Brute Force,Detailed Tracking,Process Creation,4688,A new process has been created.
+Credential Access,T1110.001,Password Guessing,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Credential Access,T1110.001,Password Guessing,Logon/Logoff,Account Lockout,4625,An account failed to log on.
+Credential Access,T1110.001,Password Guessing,Logon/Logoff,Logon,4648,A logon was attempted using explicit credentials.
+Credential Access,T1110.002,Password Cracking,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Credential Access,T1110.002,Password Cracking,Logon/Logoff,Account Lockout,4625,An account failed to log on.
+Credential Access,T1110.002,Password Cracking,Logon/Logoff,Logon,4648,A logon was attempted using explicit credentials.
+Credential Access,T1110.003,Password Spraying,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Credential Access,T1110.003,Password Spraying,Logon/Logoff,Account Lockout,4625,An account failed to log on.
+Credential Access,T1110.003,Password Spraying,Logon/Logoff,Logon,4648,A logon was attempted using explicit credentials.
+Credential Access,T1110.004,Credential Stuffing,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Credential Access,T1110.004,Credential Stuffing,Logon/Logoff,Account Lockout,4625,An account failed to log on.
+Credential Access,T1110.004,Credential Stuffing,Logon/Logoff,Logon,4648,A logon was attempted using explicit credentials.
+Collection,T1114,Email Collection,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Collection,T1114,Email Collection,Object Access,File System,4656,A handle to an object was requested.
+Collection,T1114,Email Collection,Object Access,SAM,4661,A handle to an object was requested.
+Collection,T1114,Email Collection,Object Access,File System,4663,An attempt was made to access an object.
+Collection,T1114,Email Collection,Detailed Tracking,Process Creation,4688,A new process has been created.
+Collection,T1114,Email Collection,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Collection,T1114,Email Collection,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Collection,T1114,Email Collection,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Collection,T1114,Email Collection,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Collection,T1114,Email Collection,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Collection,T1114,Email Collection,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Collection,T1114,Email Collection,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Collection,T1114,Email Collection,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Collection,T1114,Email Collection,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Collection,T1114.002,Remote Email Collection,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Collection,T1114.002,Remote Email Collection,Detailed Tracking,Process Creation,4688,A new process has been created.
+Collection,T1114.002,Remote Email Collection,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Collection,T1114.002,Remote Email Collection,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Collection,T1114.002,Remote Email Collection,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Collection,T1114.002,Remote Email Collection,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Collection,T1114.002,Remote Email Collection,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Collection,T1114.002,Remote Email Collection,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Collection,T1114.002,Remote Email Collection,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Collection,T1114.002,Remote Email Collection,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Collection,T1114.002,Remote Email Collection,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Collection,T1185,Browser Session Hijacking,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Collection,T1185,Browser Session Hijacking,Object Access,Kernel Object,4656,A handle to an object was requested.
+Collection,T1185,Browser Session Hijacking,Object Access,Kernel Object,4663,An attempt was made to access an object.
+Collection,T1185,Browser Session Hijacking,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Collection,T1185,Browser Session Hijacking,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Initial Access,T1199,Trusted Relationship,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Initial Access,T1199,Trusted Relationship,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Initial Access,T1199,Trusted Relationship,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Defense Evasion,T1207,Rogue Domain Controller,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Defense Evasion,T1207,Rogue Domain Controller,Logon/Logoff,Account Lockout,4625,An account failed to log on.
+Defense Evasion,T1207,Rogue Domain Controller,Logon/Logoff,Logon,4648,A logon was attempted using explicit credentials.
+Defense Evasion,T1207,Rogue Domain Controller,DS Access,Directory Service Changes,5136,A directory service object was modified.
+Defense Evasion,T1207,Rogue Domain Controller,DS Access,Directory Service Changes,5137,A directory service object was created.
+Defense Evasion,T1207,Rogue Domain Controller,DS Access,Directory Service Changes,5139,A directory service object was moved.
+Collection,T1213,Data from Information Repositories,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Collection,T1213,Data from Information Repositories,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Collection,T1213,Data from Information Repositories,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Collection,T1213.001,Confluence,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Collection,T1213.001,Confluence,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Collection,T1213.001,Confluence,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Collection,T1213.002,Sharepoint,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Collection,T1213.002,Sharepoint,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Collection,T1213.002,Sharepoint,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Collection,T1213.003,Code Repositories,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Collection,T1213.003,Code Repositories,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Collection,T1213.003,Code Repositories,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Discovery,T1538,Cloud Service Dashboard,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Discovery,T1538,Cloud Service Dashboard,Logon/Logoff,Account Lockout,4625,An account failed to log on.
+Discovery,T1538,Cloud Service Dashboard,Logon/Logoff,Logon,4648,A logon was attempted using explicit credentials.
+Discovery,T1538,Cloud Service Dashboard,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Discovery,T1538,Cloud Service Dashboard,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Defense Evasion,T1550,Use Alternate Authentication Material,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Defense Evasion,T1550,Use Alternate Authentication Material,Logon/Logoff,Account Lockout,4625,An account failed to log on.
+Defense Evasion,T1550,Use Alternate Authentication Material,Logon/Logoff,Logon,4648,A logon was attempted using explicit credentials.
+Defense Evasion,T1550,Use Alternate Authentication Material,Account Logon,Kerberos Authentication Service,4768,A Kerberos authentication ticket (TGT) was requested.
+Defense Evasion,T1550,Use Alternate Authentication Material,Account Logon,Kerberos Service Ticket Operations,4769,A Kerberos service ticket was requested.
+Defense Evasion,T1550,Use Alternate Authentication Material,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Defense Evasion,T1550,Use Alternate Authentication Material,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Defense Evasion,T1550.002,Pass the Hash,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Defense Evasion,T1550.002,Pass the Hash,Logon/Logoff,Account Lockout,4625,An account failed to log on.
+Defense Evasion,T1550.002,Pass the Hash,Logon/Logoff,Logon,4648,A logon was attempted using explicit credentials.
+Defense Evasion,T1550.002,Pass the Hash,Account Logon,Kerberos Authentication Service,4768,A Kerberos authentication ticket (TGT) was requested.
+Defense Evasion,T1550.002,Pass the Hash,Account Logon,Kerberos Service Ticket Operations,4769,A Kerberos service ticket was requested.
+Defense Evasion,T1550.002,Pass the Hash,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Defense Evasion,T1550.002,Pass the Hash,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Defense Evasion,T1550.003,Pass the Ticket,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Defense Evasion,T1550.003,Pass the Ticket,Logon/Logoff,Account Lockout,4625,An account failed to log on.
+Defense Evasion,T1550.003,Pass the Ticket,Logon/Logoff,Logon,4648,A logon was attempted using explicit credentials.
+Defense Evasion,T1550.003,Pass the Ticket,Account Logon,Kerberos Authentication Service,4768,A Kerberos authentication ticket (TGT) was requested.
+Defense Evasion,T1550.003,Pass the Ticket,Account Logon,Kerberos Service Ticket Operations,4769,A Kerberos service ticket was requested.
+Defense Evasion,T1550.003,Pass the Ticket,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Defense Evasion,T1550.003,Pass the Ticket,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Credential Access,T1552,Unsecured Credentials,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Credential Access,T1552,Unsecured Credentials,Logon/Logoff,Account Lockout,4625,An account failed to log on.
+Credential Access,T1552,Unsecured Credentials,Logon/Logoff,Logon,4648,A logon was attempted using explicit credentials.
+Credential Access,T1552,Unsecured Credentials,Object Access,File System,4656,A handle to an object was requested.
+Credential Access,T1552,Unsecured Credentials,Object Access,Registry,4656,A handle to an object was requested.
+Credential Access,T1552,Unsecured Credentials,Object Access,SAM,4661,A handle to an object was requested.
+Credential Access,T1552,Unsecured Credentials,Object Access,File System,4663,An attempt was made to access an object.
+Credential Access,T1552,Unsecured Credentials,Object Access,Registry,4663,An attempt was made to access an object.
+Credential Access,T1552,Unsecured Credentials,Detailed Tracking,Process Creation,4688,A new process has been created.
+Credential Access,T1552.005,Cloud Instance Metadata API,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Credential Access,T1552.005,Cloud Instance Metadata API,Logon/Logoff,Account Lockout,4625,An account failed to log on.
+Credential Access,T1552.005,Cloud Instance Metadata API,Logon/Logoff,Logon,4648,A logon was attempted using explicit credentials.
+Credential Access,T1552.007,Container API,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Credential Access,T1552.007,Container API,Logon/Logoff,Account Lockout,4625,An account failed to log on.
+Credential Access,T1552.007,Container API,Logon/Logoff,Logon,4648,A logon was attempted using explicit credentials.
+Credential Access,T1552.007,Container API,Object Access,File System,4656,A handle to an object was requested.
+Credential Access,T1552.007,Container API,Object Access,SAM,4661,A handle to an object was requested.
+Credential Access,T1552.007,Container API,Object Access,File System,4663,An attempt was made to access an object.
+Credential Access,T1552.007,Container API,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1556,Modify Authentication Process,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Persistence,T1556,Modify Authentication Process,Object Access,Kernel Object,4656,A handle to an object was requested.
+Persistence,T1556,Modify Authentication Process,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1556,Modify Authentication Process,Object Access,Kernel Object,4663,An attempt was made to access an object.
+Persistence,T1556,Modify Authentication Process,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1556,Modify Authentication Process,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1556,Modify Authentication Process,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Persistence,T1556,Modify Authentication Process,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Persistence,T1556.001,Domain Controller Authentication,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Persistence,T1556.001,Domain Controller Authentication,Object Access,Kernel Object,4656,A handle to an object was requested.
+Persistence,T1556.001,Domain Controller Authentication,Object Access,Kernel Object,4663,An attempt was made to access an object.
+Persistence,T1556.001,Domain Controller Authentication,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1556.001,Domain Controller Authentication,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Persistence,T1556.001,Domain Controller Authentication,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Persistence,T1556.003,Pluggable Authentication Modules,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Persistence,T1556.003,Pluggable Authentication Modules,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1556.003,Pluggable Authentication Modules,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Persistence,T1556.003,Pluggable Authentication Modules,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Lateral Movement,T1563,Remote Service Session Hijacking,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Lateral Movement,T1563,Remote Service Session Hijacking,Detailed Tracking,Process Creation,4688,A new process has been created.
+Lateral Movement,T1563,Remote Service Session Hijacking,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Lateral Movement,T1563,Remote Service Session Hijacking,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Lateral Movement,T1563.001,SSH Hijacking,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Lateral Movement,T1563.001,SSH Hijacking,Detailed Tracking,Process Creation,4688,A new process has been created.
+Lateral Movement,T1563.001,SSH Hijacking,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Lateral Movement,T1563.001,SSH Hijacking,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Lateral Movement,T1563.002,RDP Hijacking,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Lateral Movement,T1563.002,RDP Hijacking,Detailed Tracking,Process Creation,4688,A new process has been created.
+Lateral Movement,T1563.002,RDP Hijacking,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Lateral Movement,T1563.002,RDP Hijacking,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Credential Access,T1606,Forge Web Credentials,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Credential Access,T1606,Forge Web Credentials,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Credential Access,T1606,Forge Web Credentials,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Credential Access,T1606.001,Web Cookies,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Credential Access,T1606.001,Web Cookies,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Credential Access,T1606.001,Web Cookies,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Credential Access,T1606.002,SAML Tokens,Logon/Logoff,Logon,4624,An account was successfully logged on.
+Credential Access,T1606.002,SAML Tokens,Logon/Logoff,Other Logon/Logoff Events,4778,A session was reconnected to a Window Station.
+Credential Access,T1606.002,SAML Tokens,Logon/Logoff,Special Logon,4964,Special groups have been assigned to a new logon.
+Credential Access,T1003,OS Credential Dumping,Object Access,File System,4656,A handle to an object was requested.
+Credential Access,T1003,OS Credential Dumping,Object Access,Kernel Object,4656,A handle to an object was requested.
+Credential Access,T1003,OS Credential Dumping,Object Access,Registry,4656,A handle to an object was requested.
+Credential Access,T1003,OS Credential Dumping,DS Access,Directory Service Access,4661,A handle to an object was requested.
+Credential Access,T1003,OS Credential Dumping,Object Access,SAM,4661,A handle to an object was requested.
+Credential Access,T1003,OS Credential Dumping,DS Access,Directory Service Access,4662,An operation was performed on an object.
+Credential Access,T1003,OS Credential Dumping,Object Access,File System,4663,An attempt was made to access an object.
+Credential Access,T1003,OS Credential Dumping,Object Access,Kernel Object,4663,An attempt was made to access an object.
+Credential Access,T1003,OS Credential Dumping,Object Access,Registry,4663,An attempt was made to access an object.
+Credential Access,T1003,OS Credential Dumping,Detailed Tracking,Process Creation,4688,A new process has been created.
+Credential Access,T1003.002,Security Account Manager,Object Access,File System,4656,A handle to an object was requested.
+Credential Access,T1003.002,Security Account Manager,Object Access,Registry,4656,A handle to an object was requested.
+Credential Access,T1003.002,Security Account Manager,Object Access,SAM,4661,A handle to an object was requested.
+Credential Access,T1003.002,Security Account Manager,Object Access,File System,4663,An attempt was made to access an object.
+Credential Access,T1003.002,Security Account Manager,Object Access,Registry,4663,An attempt was made to access an object.
+Credential Access,T1003.002,Security Account Manager,Detailed Tracking,Process Creation,4688,A new process has been created.
+Credential Access,T1003.003,NTDS,Object Access,File System,4656,A handle to an object was requested.
+Credential Access,T1003.003,NTDS,Object Access,SAM,4661,A handle to an object was requested.
+Credential Access,T1003.003,NTDS,Object Access,File System,4663,An attempt was made to access an object.
+Credential Access,T1003.003,NTDS,Detailed Tracking,Process Creation,4688,A new process has been created.
+Credential Access,T1003.007,Proc Filesystem,Object Access,File System,4656,A handle to an object was requested.
+Credential Access,T1003.007,Proc Filesystem,Object Access,SAM,4661,A handle to an object was requested.
+Credential Access,T1003.007,Proc Filesystem,Object Access,File System,4663,An attempt was made to access an object.
+Credential Access,T1003.007,Proc Filesystem,Detailed Tracking,Process Creation,4688,A new process has been created.
+Credential Access,T1003.008,/etc/passwd and /etc/shadow,Object Access,File System,4656,A handle to an object was requested.
+Credential Access,T1003.008,/etc/passwd and /etc/shadow,Object Access,SAM,4661,A handle to an object was requested.
+Credential Access,T1003.008,/etc/passwd and /etc/shadow,Object Access,File System,4663,An attempt was made to access an object.
+Credential Access,T1003.008,/etc/passwd and /etc/shadow,Detailed Tracking,Process Creation,4688,A new process has been created.
+Collection,T1005,Data from Local System,Object Access,File System,4656,A handle to an object was requested.
+Collection,T1005,Data from Local System,Object Access,SAM,4661,A handle to an object was requested.
+Collection,T1005,Data from Local System,Object Access,File System,4663,An attempt was made to access an object.
+Collection,T1005,Data from Local System,Detailed Tracking,Process Creation,4688,A new process has been created.
+Exfiltration,T1011,Exfiltration Over Other Network Medium,Object Access,File System,4656,A handle to an object was requested.
+Exfiltration,T1011,Exfiltration Over Other Network Medium,Object Access,SAM,4661,A handle to an object was requested.
+Exfiltration,T1011,Exfiltration Over Other Network Medium,Object Access,File System,4663,An attempt was made to access an object.
+Exfiltration,T1011,Exfiltration Over Other Network Medium,Detailed Tracking,Process Creation,4688,A new process has been created.
+Exfiltration,T1011,Exfiltration Over Other Network Medium,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Exfiltration,T1011,Exfiltration Over Other Network Medium,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Exfiltration,T1011,Exfiltration Over Other Network Medium,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Exfiltration,T1011,Exfiltration Over Other Network Medium,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Exfiltration,T1011,Exfiltration Over Other Network Medium,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Exfiltration,T1011,Exfiltration Over Other Network Medium,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Exfiltration,T1011,Exfiltration Over Other Network Medium,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Exfiltration,T1011.001,Exfiltration Over Bluetooth,Object Access,File System,4656,A handle to an object was requested.
+Exfiltration,T1011.001,Exfiltration Over Bluetooth,Object Access,SAM,4661,A handle to an object was requested.
+Exfiltration,T1011.001,Exfiltration Over Bluetooth,Object Access,File System,4663,An attempt was made to access an object.
+Exfiltration,T1011.001,Exfiltration Over Bluetooth,Detailed Tracking,Process Creation,4688,A new process has been created.
+Exfiltration,T1011.001,Exfiltration Over Bluetooth,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Exfiltration,T1011.001,Exfiltration Over Bluetooth,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Exfiltration,T1011.001,Exfiltration Over Bluetooth,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Exfiltration,T1011.001,Exfiltration Over Bluetooth,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Exfiltration,T1011.001,Exfiltration Over Bluetooth,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Exfiltration,T1011.001,Exfiltration Over Bluetooth,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Exfiltration,T1011.001,Exfiltration Over Bluetooth,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Discovery,T1018,Remote System Discovery,Object Access,File System,4656,A handle to an object was requested.
+Discovery,T1018,Remote System Discovery,Object Access,SAM,4661,A handle to an object was requested.
+Discovery,T1018,Remote System Discovery,Object Access,File System,4663,An attempt was made to access an object.
+Discovery,T1018,Remote System Discovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1018,Remote System Discovery,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Discovery,T1018,Remote System Discovery,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Discovery,T1018,Remote System Discovery,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Discovery,T1018,Remote System Discovery,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Discovery,T1018,Remote System Discovery,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Discovery,T1018,Remote System Discovery,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Discovery,T1018,Remote System Discovery,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Exfiltration,T1020,Automated Exfiltration,Object Access,File System,4656,A handle to an object was requested.
+Exfiltration,T1020,Automated Exfiltration,Object Access,SAM,4661,A handle to an object was requested.
+Exfiltration,T1020,Automated Exfiltration,Object Access,File System,4663,An attempt was made to access an object.
+Exfiltration,T1020,Automated Exfiltration,Detailed Tracking,Process Creation,4688,A new process has been created.
+Exfiltration,T1020,Automated Exfiltration,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Exfiltration,T1020,Automated Exfiltration,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Exfiltration,T1020,Automated Exfiltration,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Exfiltration,T1020,Automated Exfiltration,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Exfiltration,T1020,Automated Exfiltration,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Exfiltration,T1020,Automated Exfiltration,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Exfiltration,T1020,Automated Exfiltration,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Collection,T1025,Data from Removable Media,Object Access,File System,4656,A handle to an object was requested.
+Collection,T1025,Data from Removable Media,Object Access,SAM,4661,A handle to an object was requested.
+Collection,T1025,Data from Removable Media,Object Access,File System,4663,An attempt was made to access an object.
+Collection,T1025,Data from Removable Media,Detailed Tracking,Process Creation,4688,A new process has been created.
+Collection,T1039,Data from Network Shared Drive,Object Access,File System,4656,A handle to an object was requested.
+Collection,T1039,Data from Network Shared Drive,Object Access,SAM,4661,A handle to an object was requested.
+Collection,T1039,Data from Network Shared Drive,Object Access,File System,4663,An attempt was made to access an object.
+Collection,T1039,Data from Network Shared Drive,Detailed Tracking,Process Creation,4688,A new process has been created.
+Collection,T1039,Data from Network Shared Drive,Object Access,File Share,5140,A network share object was accessed.
+Collection,T1039,Data from Network Shared Drive,Object Access,Detailed File Share,5145,A network share object was checked to see whether the client can be granted desired access.
+Exfiltration,T1041,Exfiltration Over C2 Channel,Object Access,File System,4656,A handle to an object was requested.
+Exfiltration,T1041,Exfiltration Over C2 Channel,Object Access,SAM,4661,A handle to an object was requested.
+Exfiltration,T1041,Exfiltration Over C2 Channel,Object Access,File System,4663,An attempt was made to access an object.
+Exfiltration,T1041,Exfiltration Over C2 Channel,Detailed Tracking,Process Creation,4688,A new process has been created.
+Exfiltration,T1041,Exfiltration Over C2 Channel,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Exfiltration,T1041,Exfiltration Over C2 Channel,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Exfiltration,T1041,Exfiltration Over C2 Channel,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Exfiltration,T1041,Exfiltration Over C2 Channel,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Exfiltration,T1041,Exfiltration Over C2 Channel,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Exfiltration,T1041,Exfiltration Over C2 Channel,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Exfiltration,T1041,Exfiltration Over C2 Channel,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Exfiltration,T1048,Exfiltration Over Alternative Protocol,Object Access,File System,4656,A handle to an object was requested.
+Exfiltration,T1048,Exfiltration Over Alternative Protocol,Object Access,SAM,4661,A handle to an object was requested.
+Exfiltration,T1048,Exfiltration Over Alternative Protocol,Object Access,File System,4663,An attempt was made to access an object.
+Exfiltration,T1048,Exfiltration Over Alternative Protocol,Detailed Tracking,Process Creation,4688,A new process has been created.
+Exfiltration,T1048,Exfiltration Over Alternative Protocol,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Exfiltration,T1048,Exfiltration Over Alternative Protocol,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Exfiltration,T1048,Exfiltration Over Alternative Protocol,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Exfiltration,T1048,Exfiltration Over Alternative Protocol,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Exfiltration,T1048,Exfiltration Over Alternative Protocol,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Exfiltration,T1048,Exfiltration Over Alternative Protocol,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Exfiltration,T1048,Exfiltration Over Alternative Protocol,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Exfiltration,T1048.001,Exfiltration Over Symmetric Encrypted Non-C2 Protocol,Object Access,File System,4656,A handle to an object was requested.
+Exfiltration,T1048.001,Exfiltration Over Symmetric Encrypted Non-C2 Protocol,Object Access,SAM,4661,A handle to an object was requested.
+Exfiltration,T1048.001,Exfiltration Over Symmetric Encrypted Non-C2 Protocol,Object Access,File System,4663,An attempt was made to access an object.
+Exfiltration,T1048.001,Exfiltration Over Symmetric Encrypted Non-C2 Protocol,Detailed Tracking,Process Creation,4688,A new process has been created.
+Exfiltration,T1048.001,Exfiltration Over Symmetric Encrypted Non-C2 Protocol,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Exfiltration,T1048.001,Exfiltration Over Symmetric Encrypted Non-C2 Protocol,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Exfiltration,T1048.001,Exfiltration Over Symmetric Encrypted Non-C2 Protocol,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Exfiltration,T1048.001,Exfiltration Over Symmetric Encrypted Non-C2 Protocol,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Exfiltration,T1048.001,Exfiltration Over Symmetric Encrypted Non-C2 Protocol,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Exfiltration,T1048.001,Exfiltration Over Symmetric Encrypted Non-C2 Protocol,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Exfiltration,T1048.001,Exfiltration Over Symmetric Encrypted Non-C2 Protocol,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Exfiltration,T1048.002,Exfiltration Over Asymmetric Encrypted Non-C2 Protocol,Object Access,File System,4656,A handle to an object was requested.
+Exfiltration,T1048.002,Exfiltration Over Asymmetric Encrypted Non-C2 Protocol,Object Access,SAM,4661,A handle to an object was requested.
+Exfiltration,T1048.002,Exfiltration Over Asymmetric Encrypted Non-C2 Protocol,Object Access,File System,4663,An attempt was made to access an object.
+Exfiltration,T1048.002,Exfiltration Over Asymmetric Encrypted Non-C2 Protocol,Detailed Tracking,Process Creation,4688,A new process has been created.
+Exfiltration,T1048.002,Exfiltration Over Asymmetric Encrypted Non-C2 Protocol,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Exfiltration,T1048.002,Exfiltration Over Asymmetric Encrypted Non-C2 Protocol,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Exfiltration,T1048.002,Exfiltration Over Asymmetric Encrypted Non-C2 Protocol,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Exfiltration,T1048.002,Exfiltration Over Asymmetric Encrypted Non-C2 Protocol,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Exfiltration,T1048.002,Exfiltration Over Asymmetric Encrypted Non-C2 Protocol,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Exfiltration,T1048.002,Exfiltration Over Asymmetric Encrypted Non-C2 Protocol,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Exfiltration,T1048.002,Exfiltration Over Asymmetric Encrypted Non-C2 Protocol,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Exfiltration,T1048.003,Exfiltration Over Unencrypted/Obfuscated Non-C2 Protocol,Object Access,File System,4656,A handle to an object was requested.
+Exfiltration,T1048.003,Exfiltration Over Unencrypted/Obfuscated Non-C2 Protocol,Object Access,SAM,4661,A handle to an object was requested.
+Exfiltration,T1048.003,Exfiltration Over Unencrypted/Obfuscated Non-C2 Protocol,Object Access,File System,4663,An attempt was made to access an object.
+Exfiltration,T1048.003,Exfiltration Over Unencrypted/Obfuscated Non-C2 Protocol,Detailed Tracking,Process Creation,4688,A new process has been created.
+Exfiltration,T1048.003,Exfiltration Over Unencrypted/Obfuscated Non-C2 Protocol,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Exfiltration,T1048.003,Exfiltration Over Unencrypted/Obfuscated Non-C2 Protocol,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Exfiltration,T1048.003,Exfiltration Over Unencrypted/Obfuscated Non-C2 Protocol,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Exfiltration,T1048.003,Exfiltration Over Unencrypted/Obfuscated Non-C2 Protocol,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Exfiltration,T1048.003,Exfiltration Over Unencrypted/Obfuscated Non-C2 Protocol,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Exfiltration,T1048.003,Exfiltration Over Unencrypted/Obfuscated Non-C2 Protocol,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Exfiltration,T1048.003,Exfiltration Over Unencrypted/Obfuscated Non-C2 Protocol,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Exfiltration,T1052,Exfiltration Over Physical Medium,Object Access,File System,4656,A handle to an object was requested.
+Exfiltration,T1052,Exfiltration Over Physical Medium,Object Access,SAM,4661,A handle to an object was requested.
+Exfiltration,T1052,Exfiltration Over Physical Medium,Object Access,File System,4663,An attempt was made to access an object.
+Exfiltration,T1052,Exfiltration Over Physical Medium,Detailed Tracking,Process Creation,4688,A new process has been created.
+Exfiltration,T1052.001,Exfiltration over USB,Object Access,File System,4656,A handle to an object was requested.
+Exfiltration,T1052.001,Exfiltration over USB,Object Access,SAM,4661,A handle to an object was requested.
+Exfiltration,T1052.001,Exfiltration over USB,Object Access,File System,4663,An attempt was made to access an object.
+Exfiltration,T1052.001,Exfiltration over USB,Detailed Tracking,Process Creation,4688,A new process has been created.
+Collection,T1074,Data Staged,Object Access,File System,4656,A handle to an object was requested.
+Collection,T1074,Data Staged,Object Access,SAM,4661,A handle to an object was requested.
+Collection,T1074,Data Staged,Object Access,File System,4663,An attempt was made to access an object.
+Collection,T1074,Data Staged,Detailed Tracking,Process Creation,4688,A new process has been created.
+Collection,T1074.001,Local Data Staging,Object Access,File System,4656,A handle to an object was requested.
+Collection,T1074.001,Local Data Staging,Object Access,SAM,4661,A handle to an object was requested.
+Collection,T1074.001,Local Data Staging,Object Access,File System,4663,An attempt was made to access an object.
+Collection,T1074.001,Local Data Staging,Detailed Tracking,Process Creation,4688,A new process has been created.
+Collection,T1074.002,Remote Data Staging,Object Access,File System,4656,A handle to an object was requested.
+Collection,T1074.002,Remote Data Staging,Object Access,SAM,4661,A handle to an object was requested.
+Collection,T1074.002,Remote Data Staging,Object Access,File System,4663,An attempt was made to access an object.
+Collection,T1074.002,Remote Data Staging,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1087,Account Discovery,Object Access,File System,4656,A handle to an object was requested.
+Discovery,T1087,Account Discovery,Object Access,SAM,4661,A handle to an object was requested.
+Discovery,T1087,Account Discovery,Object Access,File System,4663,An attempt was made to access an object.
+Discovery,T1087,Account Discovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1087.001,Local Account,Object Access,File System,4656,A handle to an object was requested.
+Discovery,T1087.001,Local Account,Object Access,SAM,4661,A handle to an object was requested.
+Discovery,T1087.001,Local Account,Object Access,File System,4663,An attempt was made to access an object.
+Discovery,T1087.001,Local Account,Detailed Tracking,Process Creation,4688,A new process has been created.
+Lateral Movement,T1091,Replication Through Removable Media,Object Access,File System,4656,A handle to an object was requested.
+Lateral Movement,T1091,Replication Through Removable Media,Object Access,SAM,4661,A handle to an object was requested.
+Lateral Movement,T1091,Replication Through Removable Media,Object Access,File System,4663,An attempt was made to access an object.
+Lateral Movement,T1091,Replication Through Removable Media,Detailed Tracking,Process Creation,4688,A new process has been created.
+Collection,T1114.001,Local Email Collection,Object Access,File System,4656,A handle to an object was requested.
+Collection,T1114.001,Local Email Collection,Object Access,SAM,4661,A handle to an object was requested.
+Collection,T1114.001,Local Email Collection,Object Access,File System,4663,An attempt was made to access an object.
+Collection,T1114.001,Local Email Collection,Detailed Tracking,Process Creation,4688,A new process has been created.
+Collection,T1119,Automated Collection,Object Access,File System,4656,A handle to an object was requested.
+Collection,T1119,Automated Collection,Object Access,SAM,4661,A handle to an object was requested.
+Collection,T1119,Automated Collection,Object Access,File System,4663,An attempt was made to access an object.
+Collection,T1119,Automated Collection,Detailed Tracking,Process Creation,4688,A new process has been created.
+Credential Access,T1187,Forced Authentication,Object Access,File System,4656,A handle to an object was requested.
+Credential Access,T1187,Forced Authentication,Object Access,SAM,4661,A handle to an object was requested.
+Credential Access,T1187,Forced Authentication,Object Access,File System,4663,An attempt was made to access an object.
+Credential Access,T1187,Forced Authentication,Object Access,File System,4670,Permissions on an object were changed.
+Discovery,T1217,Browser Bookmark Discovery,Object Access,File System,4656,A handle to an object was requested.
+Discovery,T1217,Browser Bookmark Discovery,Object Access,SAM,4661,A handle to an object was requested.
+Discovery,T1217,Browser Bookmark Discovery,Object Access,File System,4663,An attempt was made to access an object.
+Discovery,T1217,Browser Bookmark Discovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Credential Access,T1539,Steal Web Session Cookie,Object Access,File System,4656,A handle to an object was requested.
+Credential Access,T1539,Steal Web Session Cookie,Object Access,Kernel Object,4656,A handle to an object was requested.
+Credential Access,T1539,Steal Web Session Cookie,Object Access,SAM,4661,A handle to an object was requested.
+Credential Access,T1539,Steal Web Session Cookie,Object Access,File System,4663,An attempt was made to access an object.
+Credential Access,T1539,Steal Web Session Cookie,Object Access,Kernel Object,4663,An attempt was made to access an object.
+Credential Access,T1552.001,Credentials In Files,Object Access,File System,4656,A handle to an object was requested.
+Credential Access,T1552.001,Credentials In Files,Object Access,SAM,4661,A handle to an object was requested.
+Credential Access,T1552.001,Credentials In Files,Object Access,File System,4663,An attempt was made to access an object.
+Credential Access,T1552.001,Credentials In Files,Detailed Tracking,Process Creation,4688,A new process has been created.
+Credential Access,T1552.003,Bash History,Object Access,File System,4656,A handle to an object was requested.
+Credential Access,T1552.003,Bash History,Object Access,SAM,4661,A handle to an object was requested.
+Credential Access,T1552.003,Bash History,Object Access,File System,4663,An attempt was made to access an object.
+Credential Access,T1552.003,Bash History,Detailed Tracking,Process Creation,4688,A new process has been created.
+Credential Access,T1552.004,Private Keys,Object Access,File System,4656,A handle to an object was requested.
+Credential Access,T1552.004,Private Keys,Object Access,SAM,4661,A handle to an object was requested.
+Credential Access,T1552.004,Private Keys,Object Access,File System,4663,An attempt was made to access an object.
+Credential Access,T1552.004,Private Keys,Detailed Tracking,Process Creation,4688,A new process has been created.
+Credential Access,T1552.006,Group Policy Preferences,Object Access,File System,4656,A handle to an object was requested.
+Credential Access,T1552.006,Group Policy Preferences,Object Access,SAM,4661,A handle to an object was requested.
+Credential Access,T1552.006,Group Policy Preferences,Object Access,File System,4663,An attempt was made to access an object.
+Credential Access,T1552.006,Group Policy Preferences,Detailed Tracking,Process Creation,4688,A new process has been created.
+Credential Access,T1555,Credentials from Password Stores,Object Access,File System,4656,A handle to an object was requested.
+Credential Access,T1555,Credentials from Password Stores,Object Access,Kernel Object,4656,A handle to an object was requested.
+Credential Access,T1555,Credentials from Password Stores,Object Access,SAM,4661,A handle to an object was requested.
+Credential Access,T1555,Credentials from Password Stores,Object Access,File System,4663,An attempt was made to access an object.
+Credential Access,T1555,Credentials from Password Stores,Object Access,Kernel Object,4663,An attempt was made to access an object.
+Credential Access,T1555,Credentials from Password Stores,Detailed Tracking,Process Creation,4688,A new process has been created.
+Credential Access,T1555.001,Keychain,Object Access,File System,4656,A handle to an object was requested.
+Credential Access,T1555.001,Keychain,Object Access,SAM,4661,A handle to an object was requested.
+Credential Access,T1555.001,Keychain,Object Access,File System,4663,An attempt was made to access an object.
+Credential Access,T1555.001,Keychain,Detailed Tracking,Process Creation,4688,A new process has been created.
+Credential Access,T1555.003,Credentials from Web Browsers,Object Access,File System,4656,A handle to an object was requested.
+Credential Access,T1555.003,Credentials from Web Browsers,Object Access,Kernel Object,4656,A handle to an object was requested.
+Credential Access,T1555.003,Credentials from Web Browsers,Object Access,SAM,4661,A handle to an object was requested.
+Credential Access,T1555.003,Credentials from Web Browsers,Object Access,File System,4663,An attempt was made to access an object.
+Credential Access,T1555.003,Credentials from Web Browsers,Object Access,Kernel Object,4663,An attempt was made to access an object.
+Credential Access,T1555.003,Credentials from Web Browsers,Detailed Tracking,Process Creation,4688,A new process has been created.
+Credential Access,T1555.004,Windows Credential Manager,Object Access,File System,4656,A handle to an object was requested.
+Credential Access,T1555.004,Windows Credential Manager,Object Access,SAM,4661,A handle to an object was requested.
+Credential Access,T1555.004,Windows Credential Manager,Object Access,File System,4663,An attempt was made to access an object.
+Credential Access,T1555.004,Windows Credential Manager,Detailed Tracking,Process Creation,4688,A new process has been created.
+Credential Access,T1555.005,Password Managers,Object Access,File System,4656,A handle to an object was requested.
+Credential Access,T1555.005,Password Managers,Object Access,Kernel Object,4656,A handle to an object was requested.
+Credential Access,T1555.005,Password Managers,Object Access,SAM,4661,A handle to an object was requested.
+Credential Access,T1555.005,Password Managers,Object Access,File System,4663,An attempt was made to access an object.
+Credential Access,T1555.005,Password Managers,Object Access,Kernel Object,4663,An attempt was made to access an object.
+Credential Access,T1555.005,Password Managers,Detailed Tracking,Process Creation,4688,A new process has been created.
+Credential Access,T1558,Steal or Forge Kerberos Tickets,Object Access,File System,4656,A handle to an object was requested.
+Credential Access,T1558,Steal or Forge Kerberos Tickets,Object Access,SAM,4661,A handle to an object was requested.
+Credential Access,T1558,Steal or Forge Kerberos Tickets,Object Access,File System,4663,An attempt was made to access an object.
+Credential Access,T1558,Steal or Forge Kerberos Tickets,Detailed Tracking,Process Creation,4688,A new process has been created.
+Credential Access,T1558,Steal or Forge Kerberos Tickets,Account Logon,Kerberos Authentication Service,4768,A Kerberos authentication ticket (TGT) was requested.
+Credential Access,T1558,Steal or Forge Kerberos Tickets,Account Logon,Kerberos Service Ticket Operations,4769,A Kerberos service ticket was requested.
+Exfiltration,T1567,Exfiltration Over Web Service,Object Access,File System,4656,A handle to an object was requested.
+Exfiltration,T1567,Exfiltration Over Web Service,Object Access,SAM,4661,A handle to an object was requested.
+Exfiltration,T1567,Exfiltration Over Web Service,Object Access,File System,4663,An attempt was made to access an object.
+Exfiltration,T1567,Exfiltration Over Web Service,Detailed Tracking,Process Creation,4688,A new process has been created.
+Exfiltration,T1567.001,Exfiltration to Code Repository,Object Access,File System,4656,A handle to an object was requested.
+Exfiltration,T1567.001,Exfiltration to Code Repository,Object Access,SAM,4661,A handle to an object was requested.
+Exfiltration,T1567.001,Exfiltration to Code Repository,Object Access,File System,4663,An attempt was made to access an object.
+Exfiltration,T1567.001,Exfiltration to Code Repository,Detailed Tracking,Process Creation,4688,A new process has been created.
+Exfiltration,T1567.002,Exfiltration to Cloud Storage,Object Access,File System,4656,A handle to an object was requested.
+Exfiltration,T1567.002,Exfiltration to Cloud Storage,Object Access,SAM,4661,A handle to an object was requested.
+Exfiltration,T1567.002,Exfiltration to Cloud Storage,Object Access,File System,4663,An attempt was made to access an object.
+Exfiltration,T1567.002,Exfiltration to Cloud Storage,Detailed Tracking,Process Creation,4688,A new process has been created.
+Credential Access,T1003.001,LSASS Memory,Object Access,Kernel Object,4656,A handle to an object was requested.
+Credential Access,T1003.001,LSASS Memory,Object Access,Kernel Object,4663,An attempt was made to access an object.
+Credential Access,T1003.001,LSASS Memory,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1055,Process Injection,Object Access,Kernel Object,4656,A handle to an object was requested.
+Defense Evasion,T1055,Process Injection,Object Access,Kernel Object,4663,An attempt was made to access an object.
+Defense Evasion,T1055,Process Injection,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1055.001,Dynamic-link Library Injection,Object Access,Kernel Object,4656,A handle to an object was requested.
+Defense Evasion,T1055.001,Dynamic-link Library Injection,Object Access,Kernel Object,4663,An attempt was made to access an object.
+Defense Evasion,T1055.002,Portable Executable Injection,Object Access,Kernel Object,4656,A handle to an object was requested.
+Defense Evasion,T1055.002,Portable Executable Injection,Object Access,Kernel Object,4663,An attempt was made to access an object.
+Defense Evasion,T1055.003,Thread Execution Hijacking,Object Access,Kernel Object,4656,A handle to an object was requested.
+Defense Evasion,T1055.003,Thread Execution Hijacking,Object Access,Kernel Object,4663,An attempt was made to access an object.
+Defense Evasion,T1055.004,Asynchronous Procedure Call,Object Access,Kernel Object,4656,A handle to an object was requested.
+Defense Evasion,T1055.004,Asynchronous Procedure Call,Object Access,Kernel Object,4663,An attempt was made to access an object.
+Defense Evasion,T1055.005,Thread Local Storage,Object Access,Kernel Object,4656,A handle to an object was requested.
+Defense Evasion,T1055.005,Thread Local Storage,Object Access,Kernel Object,4663,An attempt was made to access an object.
+Defense Evasion,T1055.008,Ptrace System Calls,Object Access,Kernel Object,4656,A handle to an object was requested.
+Defense Evasion,T1055.008,Ptrace System Calls,Object Access,Kernel Object,4663,An attempt was made to access an object.
+Defense Evasion,T1055.012,Process Hollowing,Object Access,Kernel Object,4656,A handle to an object was requested.
+Defense Evasion,T1055.012,Process Hollowing,Object Access,Kernel Object,4663,An attempt was made to access an object.
+Credential Access,T1555.002,Securityd Memory,Object Access,Kernel Object,4656,A handle to an object was requested.
+Credential Access,T1555.002,Securityd Memory,Object Access,Kernel Object,4663,An attempt was made to access an object.
+Credential Access,T1555.002,Securityd Memory,Detailed Tracking,Process Creation,4688,A new process has been created.
+Credential Access,T1003.004,LSA Secrets,Object Access,Registry,4656,A handle to an object was requested.
+Credential Access,T1003.004,LSA Secrets,Object Access,Registry,4663,An attempt was made to access an object.
+Credential Access,T1003.004,LSA Secrets,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1012,Query Registry,Object Access,Registry,4656,A handle to an object was requested.
+Discovery,T1012,Query Registry,Object Access,Registry,4663,An attempt was made to access an object.
+Discovery,T1012,Query Registry,Detailed Tracking,Process Creation,4688,A new process has been created.
+Credential Access,T1552.002,Credentials in Registry,Object Access,Registry,4656,A handle to an object was requested.
+Credential Access,T1552.002,Credentials in Registry,Object Access,Registry,4663,An attempt was made to access an object.
+Credential Access,T1552.002,Credentials in Registry,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1614.001,System Language Discovery,Object Access,Registry,4656,A handle to an object was requested.
+Discovery,T1614.001,System Language Discovery,Object Access,Registry,4663,An attempt was made to access an object.
+Discovery,T1614.001,System Language Discovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Collection,T1056,Input Capture,Object Access,Registry,4657,A registry value was modified.
+Collection,T1056,Input Capture,Object Access,File System,4670,Permissions on an object were changed.
+Collection,T1056,Input Capture,Object Access,Registry,4670,Permissions on an object were changed.
+Collection,T1056,Input Capture,Detailed Tracking,Process Creation,4688,A new process has been created.
+Collection,T1056.001,Keylogging,Object Access,Registry,4657,A registry value was modified.
+Collection,T1056.001,Keylogging,Object Access,Registry,4670,Permissions on an object were changed.
+Credential Access,T1111,Two-Factor Authentication Interception,Object Access,Registry,4657,A registry value was modified.
+Credential Access,T1111,Two-Factor Authentication Interception,Object Access,Registry,4670,Permissions on an object were changed.
+Defense Evasion,T1112,Modify Registry,Object Access,Registry,4657,A registry value was modified.
+Defense Evasion,T1112,Modify Registry,Object Access,Registry,4660,An object was deleted.
+Defense Evasion,T1112,Modify Registry,Object Access,Registry,4670,Permissions on an object were changed.
+Defense Evasion,T1112,Modify Registry,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1137,Office Application Startup,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1137,Office Application Startup,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1137,Office Application Startup,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1137,Office Application Startup,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1137.001,Office Template Macros,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1137.001,Office Template Macros,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1137.001,Office Template Macros,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1137.001,Office Template Macros,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1137.002,Office Test,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1137.002,Office Test,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1137.002,Office Test,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1137.002,Office Test,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1137.006,Add-ins,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1137.006,Add-ins,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1137.006,Add-ins,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1137.006,Add-ins,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1218,Signed Binary Proxy Execution,Object Access,Registry,4657,A registry value was modified.
+Defense Evasion,T1218,Signed Binary Proxy Execution,Object Access,Registry,4670,Permissions on an object were changed.
+Defense Evasion,T1218,Signed Binary Proxy Execution,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1218,Signed Binary Proxy Execution,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Defense Evasion,T1218,Signed Binary Proxy Execution,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Defense Evasion,T1218,Signed Binary Proxy Execution,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Defense Evasion,T1218,Signed Binary Proxy Execution,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Defense Evasion,T1218,Signed Binary Proxy Execution,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Defense Evasion,T1218,Signed Binary Proxy Execution,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Defense Evasion,T1218,Signed Binary Proxy Execution,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Defense Evasion,T1218.002,Control Panel,Object Access,Registry,4657,A registry value was modified.
+Defense Evasion,T1218.002,Control Panel,Object Access,Registry,4670,Permissions on an object were changed.
+Defense Evasion,T1218.002,Control Panel,Detailed Tracking,Process Creation,4688,A new process has been created.
+Impact,T1489,Service Stop,Object Access,Registry,4657,A registry value was modified.
+Impact,T1489,Service Stop,Object Access,File System,4670,Permissions on an object were changed.
+Impact,T1489,Service Stop,Object Access,Registry,4670,Permissions on an object were changed.
+Impact,T1489,Service Stop,Detailed Tracking,Process Creation,4688,A new process has been created.
+Impact,T1489,Service Stop,Detailed Tracking,Process Termination,4689,A process has exited.
+Impact,T1490,Inhibit System Recovery,Object Access,Registry,4657,A registry value was modified.
+Impact,T1490,Inhibit System Recovery,Object Access,File System,4660,An object was deleted.
+Impact,T1490,Inhibit System Recovery,Object Access,Registry,4670,Permissions on an object were changed.
+Impact,T1490,Inhibit System Recovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1543,Create or Modify System Process,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1543,Create or Modify System Process,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1543,Create or Modify System Process,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1543,Create or Modify System Process,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1543,Create or Modify System Process,System,Security System Extension,4697,A service was installed in the system.
+Persistence,T1543.003,Windows Service,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1543.003,Windows Service,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1543.003,Windows Service,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1543.003,Windows Service,System,Security System Extension,4697,A service was installed in the system.
+Persistence,T1546,Event Triggered Execution,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1546,Event Triggered Execution,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1546,Event Triggered Execution,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1546,Event Triggered Execution,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1546.001,Change Default File Association,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1546.001,Change Default File Association,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1546.001,Change Default File Association,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1546.002,Screensaver,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1546.002,Screensaver,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1546.002,Screensaver,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1546.002,Screensaver,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1546.007,Netsh Helper DLL,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1546.007,Netsh Helper DLL,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1546.007,Netsh Helper DLL,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1546.008,Accessibility Features,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1546.008,Accessibility Features,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1546.008,Accessibility Features,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1546.008,Accessibility Features,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1546.009,AppCert DLLs,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1546.009,AppCert DLLs,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1546.009,AppCert DLLs,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1546.010,AppInit DLLs,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1546.010,AppInit DLLs,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1546.010,AppInit DLLs,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1546.011,Application Shimming,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1546.011,Application Shimming,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1546.011,Application Shimming,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1546.011,Application Shimming,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1546.012,Image File Execution Options Injection,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1546.012,Image File Execution Options Injection,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1546.012,Image File Execution Options Injection,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1546.015,Component Object Model Hijacking,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1546.015,Component Object Model Hijacking,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1546.015,Component Object Model Hijacking,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1547,Boot or Logon Autostart Execution,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1547,Boot or Logon Autostart Execution,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1547,Boot or Logon Autostart Execution,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1547,Boot or Logon Autostart Execution,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1547.001,Registry Run Keys / Startup Folder,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1547.001,Registry Run Keys / Startup Folder,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1547.001,Registry Run Keys / Startup Folder,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1547.001,Registry Run Keys / Startup Folder,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1547.002,Authentication Package,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1547.002,Authentication Package,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1547.002,Authentication Package,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1547.003,Time Providers,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1547.003,Time Providers,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1547.003,Time Providers,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1547.004,Winlogon Helper DLL,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1547.004,Winlogon Helper DLL,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1547.004,Winlogon Helper DLL,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1547.005,Security Support Provider,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1547.005,Security Support Provider,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1547.005,Security Support Provider,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1547.010,Port Monitors,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1547.010,Port Monitors,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1547.012,Print Processors,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1547.012,Print Processors,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1547.014,Active Setup,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1547.014,Active Setup,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1547.014,Active Setup,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1548,Abuse Elevation Control Mechanism,Object Access,Registry,4657,A registry value was modified.
+Defense Evasion,T1548,Abuse Elevation Control Mechanism,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1548,Abuse Elevation Control Mechanism,Object Access,Registry,4670,Permissions on an object were changed.
+Defense Evasion,T1548,Abuse Elevation Control Mechanism,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1548.002,Bypass User Account Control,Object Access,Registry,4657,A registry value was modified.
+Defense Evasion,T1548.002,Bypass User Account Control,Object Access,Registry,4670,Permissions on an object were changed.
+Defense Evasion,T1548.002,Bypass User Account Control,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1553,Subvert Trust Controls,Object Access,Registry,4657,A registry value was modified.
+Defense Evasion,T1553,Subvert Trust Controls,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1553,Subvert Trust Controls,Object Access,Registry,4670,Permissions on an object were changed.
+Defense Evasion,T1553,Subvert Trust Controls,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1553.003,SIP and Trust Provider Hijacking,Object Access,Registry,4657,A registry value was modified.
+Defense Evasion,T1553.003,SIP and Trust Provider Hijacking,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1553.003,SIP and Trust Provider Hijacking,Object Access,Registry,4670,Permissions on an object were changed.
+Defense Evasion,T1553.004,Install Root Certificate,Object Access,Registry,4657,A registry value was modified.
+Defense Evasion,T1553.004,Install Root Certificate,Object Access,Registry,4670,Permissions on an object were changed.
+Defense Evasion,T1553.004,Install Root Certificate,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1553.006,Code Signing Policy Modification,Object Access,Registry,4657,A registry value was modified.
+Defense Evasion,T1553.006,Code Signing Policy Modification,Object Access,Registry,4670,Permissions on an object were changed.
+Defense Evasion,T1553.006,Code Signing Policy Modification,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1556.002,Password Filter DLL,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1556.002,Password Filter DLL,Object Access,Registry,4670,Permissions on an object were changed.
+Collection,T1557,Adversary-in-the-Middle,Object Access,Registry,4657,A registry value was modified.
+Collection,T1557,Adversary-in-the-Middle,Object Access,Registry,4670,Permissions on an object were changed.
+Collection,T1557,Adversary-in-the-Middle,System,Security System Extension,4697,A service was installed in the system.
+Collection,T1557.001,LLMNR/NBT-NS Poisoning and SMB Relay,Object Access,Registry,4657,A registry value was modified.
+Collection,T1557.001,LLMNR/NBT-NS Poisoning and SMB Relay,Object Access,Registry,4670,Permissions on an object were changed.
+Collection,T1557.001,LLMNR/NBT-NS Poisoning and SMB Relay,System,Security System Extension,4697,A service was installed in the system.
+Defense Evasion,T1562,Impair Defenses,Object Access,Registry,4657,A registry value was modified.
+Defense Evasion,T1562,Impair Defenses,Object Access,Registry,4660,An object was deleted.
+Defense Evasion,T1562,Impair Defenses,Object Access,Registry,4670,Permissions on an object were changed.
+Defense Evasion,T1562,Impair Defenses,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1562,Impair Defenses,Detailed Tracking,Process Termination,4689,A process has exited.
+Defense Evasion,T1562,Impair Defenses,Policy Change,MPSSVC Rule-Level Policy Change,4946,A change has been made to Windows Firewall exception list. A rule was added.
+Defense Evasion,T1562,Impair Defenses,Policy Change,MPSSVC Rule-Level Policy Change,4947,A change has been made to Windows Firewall exception list. A rule was modified.
+Defense Evasion,T1562,Impair Defenses,Policy Change,MPSSVC Rule-Level Policy Change,4948,A change has been made to Windows Firewall exception list. A rule was deleted.
+Defense Evasion,T1562,Impair Defenses,System,Other System Events,5025,The Windows Firewall Service has been stopped.
+Defense Evasion,T1562.001,Disable or Modify Tools,Object Access,Registry,4657,A registry value was modified.
+Defense Evasion,T1562.001,Disable or Modify Tools,Object Access,Registry,4660,An object was deleted.
+Defense Evasion,T1562.001,Disable or Modify Tools,Object Access,Registry,4670,Permissions on an object were changed.
+Defense Evasion,T1562.001,Disable or Modify Tools,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1562.001,Disable or Modify Tools,Detailed Tracking,Process Termination,4689,A process has exited.
+Defense Evasion,T1562.004,Disable or Modify System Firewall,Object Access,Registry,4657,A registry value was modified.
+Defense Evasion,T1562.004,Disable or Modify System Firewall,Object Access,Registry,4670,Permissions on an object were changed.
+Defense Evasion,T1562.004,Disable or Modify System Firewall,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1562.004,Disable or Modify System Firewall,Policy Change,MPSSVC Rule-Level Policy Change,4946,A change has been made to Windows Firewall exception list. A rule was added.
+Defense Evasion,T1562.004,Disable or Modify System Firewall,Policy Change,MPSSVC Rule-Level Policy Change,4947,A change has been made to Windows Firewall exception list. A rule was modified.
+Defense Evasion,T1562.004,Disable or Modify System Firewall,Policy Change,MPSSVC Rule-Level Policy Change,4948,A change has been made to Windows Firewall exception list. A rule was deleted.
+Defense Evasion,T1562.004,Disable or Modify System Firewall,System,Other System Events,5025,The Windows Firewall Service has been stopped.
+Defense Evasion,T1562.006,Indicator Blocking,Object Access,Registry,4657,A registry value was modified.
+Defense Evasion,T1562.006,Indicator Blocking,Object Access,Registry,4670,Permissions on an object were changed.
+Defense Evasion,T1562.006,Indicator Blocking,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1562.009,Safe Mode Boot,Object Access,Registry,4657,A registry value was modified.
+Defense Evasion,T1562.009,Safe Mode Boot,Object Access,Registry,4670,Permissions on an object were changed.
+Defense Evasion,T1562.009,Safe Mode Boot,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1564,Hide Artifacts,Object Access,Registry,4657,A registry value was modified.
+Defense Evasion,T1564,Hide Artifacts,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1564,Hide Artifacts,Object Access,Registry,4670,Permissions on an object were changed.
+Defense Evasion,T1564,Hide Artifacts,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1564,Hide Artifacts,System,Security System Extension,4697,A service was installed in the system.
+Defense Evasion,T1564,Hide Artifacts,Account Management,User Account Management,4720,A user account was created.
+Defense Evasion,T1564.002,Hidden Users,Object Access,Registry,4657,A registry value was modified.
+Defense Evasion,T1564.002,Hidden Users,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1564.002,Hidden Users,Object Access,Registry,4670,Permissions on an object were changed.
+Defense Evasion,T1564.002,Hidden Users,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1564.002,Hidden Users,Account Management,User Account Management,4720,A user account was created.
+Defense Evasion,T1564.005,Hidden File System,Object Access,Registry,4657,A registry value was modified.
+Defense Evasion,T1564.005,Hidden File System,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1564.005,Hidden File System,Object Access,Registry,4670,Permissions on an object were changed.
+Defense Evasion,T1564.006,Run Virtual Instance,Object Access,Registry,4657,A registry value was modified.
+Defense Evasion,T1564.006,Run Virtual Instance,Object Access,Registry,4670,Permissions on an object were changed.
+Defense Evasion,T1564.006,Run Virtual Instance,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1564.006,Run Virtual Instance,System,Security System Extension,4697,A service was installed in the system.
+Execution,T1569,System Services,Object Access,Registry,4657,A registry value was modified.
+Execution,T1569,System Services,Object Access,File System,4670,Permissions on an object were changed.
+Execution,T1569,System Services,Object Access,Registry,4670,Permissions on an object were changed.
+Execution,T1569,System Services,Detailed Tracking,Process Creation,4688,A new process has been created.
+Execution,T1569,System Services,System,Security System Extension,4697,A service was installed in the system.
+Execution,T1569.002,Service Execution,Object Access,Registry,4657,A registry value was modified.
+Execution,T1569.002,Service Execution,Object Access,Registry,4670,Permissions on an object were changed.
+Execution,T1569.002,Service Execution,Detailed Tracking,Process Creation,4688,A new process has been created.
+Execution,T1569.002,Service Execution,System,Security System Extension,4697,A service was installed in the system.
+Persistence,T1574,Hijack Execution Flow,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1574,Hijack Execution Flow,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1574,Hijack Execution Flow,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1574,Hijack Execution Flow,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1574.011,Services Registry Permissions Weakness,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1574.011,Services Registry Permissions Weakness,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1574.011,Services Registry Permissions Weakness,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1574.012,COR_PROFILER,Object Access,Registry,4657,A registry value was modified.
+Persistence,T1574.012,COR_PROFILER,Object Access,Registry,4670,Permissions on an object were changed.
+Persistence,T1574.012,COR_PROFILER,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1070.002,Clear Linux or Mac System Logs,Object Access,File System,4660,An object was deleted.
+Defense Evasion,T1070.002,Clear Linux or Mac System Logs,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1070.002,Clear Linux or Mac System Logs,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1070.003,Clear Command History,Object Access,File System,4660,An object was deleted.
+Defense Evasion,T1070.003,Clear Command History,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1070.003,Clear Command History,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1070.004,File Deletion,Object Access,File System,4660,An object was deleted.
+Defense Evasion,T1070.004,File Deletion,Detailed Tracking,Process Creation,4688,A new process has been created.
+Impact,T1485,Data Destruction,Object Access,File System,4660,An object was deleted.
+Impact,T1485,Data Destruction,Object Access,File System,4670,Permissions on an object were changed.
+Impact,T1485,Data Destruction,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1554,Compromise Client Software Binary,Object Access,File System,4660,An object was deleted.
+Persistence,T1554,Compromise Client Software Binary,Object Access,File System,4670,Permissions on an object were changed.
+Impact,T1565,Data Manipulation,Object Access,File System,4660,An object was deleted.
+Impact,T1565,Data Manipulation,Object Access,File System,4670,Permissions on an object were changed.
+Impact,T1565.001,Stored Data Manipulation,Object Access,File System,4660,An object was deleted.
+Impact,T1565.001,Stored Data Manipulation,Object Access,File System,4670,Permissions on an object were changed.
+Impact,T1565.003,Runtime Data Manipulation,Object Access,File System,4660,An object was deleted.
+Impact,T1565.003,Runtime Data Manipulation,Object Access,File System,4670,Permissions on an object were changed.
+Credential Access,T1003.006,DCSync,DS Access,Directory Service Access,4661,A handle to an object was requested.
+Credential Access,T1003.006,DCSync,DS Access,Directory Service Access,4662,An operation was performed on an object.
+Discovery,T1615,Group Policy Discovery,DS Access,Directory Service Access,4661,A handle to an object was requested.
+Discovery,T1615,Group Policy Discovery,DS Access,Directory Service Access,4662,An operation was performed on an object.
+Discovery,T1615,Group Policy Discovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1036,Masquerading,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1036,Masquerading,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1036,Masquerading,System,Security System Extension,4697,A service was installed in the system.
+Defense Evasion,T1036,Masquerading,Object Access,Other Object Access Events,4700,A scheduled task was enabled.
+Defense Evasion,T1036,Masquerading,Object Access,Other Object Access Events,4701,A scheduled task was disabled.
+Defense Evasion,T1036,Masquerading,Object Access,Other Object Access Events,4702,A scheduled task was updated.
+Defense Evasion,T1036.003,Rename System Utilities,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1036.003,Rename System Utilities,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1037,Boot or Logon Initialization Scripts,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1037,Boot or Logon Initialization Scripts,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1037,Boot or Logon Initialization Scripts,DS Access,Directory Service Changes,5136,A directory service object was modified.
+Persistence,T1037,Boot or Logon Initialization Scripts,DS Access,Directory Service Changes,5139,A directory service object was moved.
+Persistence,T1037.002,Logon Script (Mac),Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1037.002,Logon Script (Mac),Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1037.003,Network Logon Script,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1037.003,Network Logon Script,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1037.003,Network Logon Script,DS Access,Directory Service Changes,5136,A directory service object was modified.
+Persistence,T1037.003,Network Logon Script,DS Access,Directory Service Changes,5139,A directory service object was moved.
+Persistence,T1037.004,RC Scripts,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1037.004,RC Scripts,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1037.005,Startup Items,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1037.005,Startup Items,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1053,Scheduled Task/Job,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1053,Scheduled Task/Job,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1053,Scheduled Task/Job,Object Access,Other Object Access Events,4698,A scheduled task was created.
+Persistence,T1053.002,At (Windows),Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1053.002,At (Windows),Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1053.002,At (Windows),Object Access,Other Object Access Events,4698,A scheduled task was created.
+Persistence,T1053.003,Cron,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1053.003,Cron,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1053.003,Cron,Object Access,Other Object Access Events,4698,A scheduled task was created.
+Persistence,T1053.004,Launchd,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1053.004,Launchd,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1053.004,Launchd,Object Access,Other Object Access Events,4698,A scheduled task was created.
+Persistence,T1053.005,Scheduled Task,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1053.005,Scheduled Task,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1053.005,Scheduled Task,Object Access,Other Object Access Events,4698,A scheduled task was created.
+Persistence,T1053.006,Systemd Timers,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1053.006,Systemd Timers,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1053.006,Systemd Timers,Object Access,Other Object Access Events,4698,A scheduled task was created.
+Defense Evasion,T1055.009,Proc Memory,Object Access,File System,4670,Permissions on an object were changed.
+Collection,T1056.003,Web Portal Capture,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1070.006,Timestomp,Object Access,File System,4670,Permissions on an object were changed.
+Lateral Movement,T1080,Taint Shared Content,Object Access,File System,4670,Permissions on an object were changed.
+Lateral Movement,T1080,Taint Shared Content,Detailed Tracking,Process Creation,4688,A new process has been created.
+Lateral Movement,T1080,Taint Shared Content,Object Access,File Share,5140,A network share object was accessed.
+Lateral Movement,T1080,Taint Shared Content,Object Access,Detailed File Share,5145,A network share object was checked to see whether the client can be granted desired access.
+Persistence,T1098,Account Manipulation,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1098,Account Manipulation,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1098,Account Manipulation,Policy Change,Authentication Policy Change,4717,System security access was granted to an account.
+Persistence,T1098,Account Manipulation,Policy Change,Authentication Policy Change,4718,System security access was removed from an account.
+Persistence,T1098,Account Manipulation,Account Management,User Account Management,4722,A user account was enabled.
+Persistence,T1098,Account Manipulation,Account Management,User Account Management,4725,A user account was disabled.
+Persistence,T1098,Account Manipulation,Account Management,User Account Management,4738,A user account was changed.
+Persistence,T1098,Account Manipulation,Account Management,User Account Management,4740,A user account was locked out.
+Persistence,T1098,Account Manipulation,Account Management,User Account Management,4767,A user account was unlocked.
+Persistence,T1098,Account Manipulation,Account Management,User Account Management,4781,The name of an account was changed:
+Persistence,T1098,Account Manipulation,DS Access,Directory Service Changes,5136,A directory service object was modified.
+Persistence,T1098,Account Manipulation,DS Access,Directory Service Changes,5139,A directory service object was moved.
+Persistence,T1098.004,SSH Authorized Keys,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1098.004,SSH Authorized Keys,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1140,Deobfuscate/Decode Files or Information,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1140,Deobfuscate/Decode Files or Information,Detailed Tracking,Process Creation,4688,A new process has been created.
+Impact,T1486,Data Encrypted for Impact,Object Access,File System,4670,Permissions on an object were changed.
+Impact,T1486,Data Encrypted for Impact,Detailed Tracking,Process Creation,4688,A new process has been created.
+Impact,T1491,Defacement,Object Access,File System,4670,Permissions on an object were changed.
+Impact,T1491.001,Internal Defacement,Object Access,File System,4670,Permissions on an object were changed.
+Impact,T1491.002,External Defacement,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1505,Server Software Component,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1505,Server Software Component,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1505.003,Web Shell,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1505.003,Web Shell,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1505.004,IIS Components,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1505.004,IIS Components,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1543.001,Launch Agent,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1543.001,Launch Agent,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1543.001,Launch Agent,System,Security System Extension,4697,A service was installed in the system.
+Persistence,T1543.002,Systemd Service,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1543.002,Systemd Service,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1543.002,Systemd Service,System,Security System Extension,4697,A service was installed in the system.
+Persistence,T1543.004,Launch Daemon,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1543.004,Launch Daemon,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1543.004,Launch Daemon,System,Security System Extension,4697,A service was installed in the system.
+Persistence,T1546.004,Unix Shell Configuration Modification,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1546.004,Unix Shell Configuration Modification,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1546.005,Trap,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1546.005,Trap,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1546.006,LC_LOAD_DYLIB Addition,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1546.006,LC_LOAD_DYLIB Addition,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1546.013,PowerShell Profile,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1546.013,PowerShell Profile,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1546.014,Emond,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1546.014,Emond,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1547.006,Kernel Modules and Extensions,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1547.006,Kernel Modules and Extensions,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1547.007,Re-opened Applications,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1547.007,Re-opened Applications,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1547.008,LSASS Driver,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1547.009,Shortcut Modification,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1547.009,Shortcut Modification,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1547.011,Plist Modification,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1547.011,Plist Modification,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1547.011,Plist Modification,System,Security System Extension,4697,A service was installed in the system.
+Persistence,T1547.013,XDG Autostart Entries,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1547.013,XDG Autostart Entries,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1547.015,Login Items,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1547.015,Login Items,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1548.001,Setuid and Setgid,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1548.001,Setuid and Setgid,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1548.003,Sudo and Sudo Caching,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1548.003,Sudo and Sudo Caching,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1553.001,Gatekeeper Bypass,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1553.001,Gatekeeper Bypass,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1556.004,Network Device Authentication,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1564.003,Hidden Window,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1564.003,Hidden Window,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1564.004,NTFS File Attributes,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1564.004,NTFS File Attributes,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1564.008,Email Hiding Rules,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1564.008,Email Hiding Rules,Detailed Tracking,Process Creation,4688,A new process has been created.
+Execution,T1569.001,Launchctl,Object Access,File System,4670,Permissions on an object were changed.
+Execution,T1569.001,Launchctl,Detailed Tracking,Process Creation,4688,A new process has been created.
+Execution,T1569.001,Launchctl,System,Security System Extension,4697,A service was installed in the system.
+Persistence,T1574.001,DLL Search Order Hijacking,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1574.002,DLL Side-Loading,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1574.002,DLL Side-Loading,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1574.004,Dylib Hijacking,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1574.005,Executable Installer File Permissions Weakness,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1574.005,Executable Installer File Permissions Weakness,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1574.006,Dynamic Linker Hijacking,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1574.006,Dynamic Linker Hijacking,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1574.007,Path Interception by PATH Environment Variable,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1574.007,Path Interception by PATH Environment Variable,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1574.008,Path Interception by Search Order Hijacking,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1574.008,Path Interception by Search Order Hijacking,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1574.009,Path Interception by Unquoted Path,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1574.009,Path Interception by Unquoted Path,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1574.010,Services File Permissions Weakness,Object Access,File System,4670,Permissions on an object were changed.
+Persistence,T1574.010,Services File Permissions Weakness,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1600,Weaken Encryption,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1600.001,Reduce Key Space,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1600.002,Disable Crypto Hardware,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1601,Modify System Image,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1601.001,Patch System Image,Object Access,File System,4670,Permissions on an object were changed.
+Defense Evasion,T1601.002,Downgrade System Image,Object Access,File System,4670,Permissions on an object were changed.
+Credential Access,T1003.005,Cached Domain Credentials,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1006,Direct Volume Access,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1007,System Service Discovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1010,Application Window Discovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1016,System Network Configuration Discovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1016.001,Internet Connection Discovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Lateral Movement,T1021.003,Distributed Component Object Model,Detailed Tracking,Process Creation,4688,A new process has been created.
+Lateral Movement,T1021.003,Distributed Component Object Model,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Lateral Movement,T1021.003,Distributed Component Object Model,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Lateral Movement,T1021.003,Distributed Component Object Model,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Lateral Movement,T1021.003,Distributed Component Object Model,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Lateral Movement,T1021.003,Distributed Component Object Model,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Lateral Movement,T1021.003,Distributed Component Object Model,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Lateral Movement,T1021.003,Distributed Component Object Model,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Defense Evasion,T1027,Obfuscated Files or Information,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1027.004,Compile After Delivery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1033,System Owner/User Discovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1036.004,Masquerade Task or Service,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1036.004,Masquerade Task or Service,System,Security System Extension,4697,A service was installed in the system.
+Defense Evasion,T1036.004,Masquerade Task or Service,Object Access,Other Object Access Events,4700,A scheduled task was enabled.
+Defense Evasion,T1036.004,Masquerade Task or Service,Object Access,Other Object Access Events,4701,A scheduled task was disabled.
+Defense Evasion,T1036.004,Masquerade Task or Service,Object Access,Other Object Access Events,4702,A scheduled task was updated.
+Persistence,T1037.001,Logon Script (Windows),Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1040,Network Sniffing,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1046,Network Service Scanning,Detailed Tracking,Process Creation,4688,A new process has been created.
+Execution,T1047,Windows Management Instrumentation,Detailed Tracking,Process Creation,4688,A new process has been created.
+Execution,T1047,Windows Management Instrumentation,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Execution,T1047,Windows Management Instrumentation,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Execution,T1047,Windows Management Instrumentation,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Execution,T1047,Windows Management Instrumentation,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Execution,T1047,Windows Management Instrumentation,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Execution,T1047,Windows Management Instrumentation,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Execution,T1047,Windows Management Instrumentation,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Discovery,T1049,System Network Connections Discovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1053.001,At (Linux),Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1053.001,At (Linux),Object Access,Other Object Access Events,4698,A scheduled task was created.
+Collection,T1056.002,GUI Input Capture,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1057,Process Discovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Execution,T1059,Command and Scripting Interpreter,Detailed Tracking,Process Creation,4688,A new process has been created.
+Execution,T1059.001,PowerShell,Detailed Tracking,Process Creation,4688,A new process has been created.
+Execution,T1059.002,AppleScript,Detailed Tracking,Process Creation,4688,A new process has been created.
+Execution,T1059.003,Windows Command Shell,Detailed Tracking,Process Creation,4688,A new process has been created.
+Execution,T1059.004,Unix Shell,Detailed Tracking,Process Creation,4688,A new process has been created.
+Execution,T1059.005,Visual Basic,Detailed Tracking,Process Creation,4688,A new process has been created.
+Execution,T1059.006,Python,Detailed Tracking,Process Creation,4688,A new process has been created.
+Execution,T1059.007,JavaScript,Detailed Tracking,Process Creation,4688,A new process has been created.
+Execution,T1059.008,Network Device CLI,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1069,Permission Groups Discovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1069.001,Local Groups,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1069.002,Domain Groups,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1069.003,Cloud Groups,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1070.001,Clear Windows Event Logs,Detailed Tracking,Process Creation,4688,A new process has been created.
+Lateral Movement,T1072,Software Deployment Tools,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1082,System Information Discovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1083,File and Directory Discovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1087.002,Domain Account,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1087.003,Email Account,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1087.004,Cloud Account,Detailed Tracking,Process Creation,4688,A new process has been created.
+Collection,T1113,Screen Capture,Detailed Tracking,Process Creation,4688,A new process has been created.
+Collection,T1115,Clipboard Data,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1120,Peripheral Device Discovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Collection,T1123,Audio Capture,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1124,System Time Discovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Collection,T1125,Video Capture,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1127,Trusted Developer Utilities Proxy Execution,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1127.001,MSBuild,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1134,Access Token Manipulation,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1134,Access Token Manipulation,DS Access,Directory Service Changes,5136,A directory service object was modified.
+Defense Evasion,T1134,Access Token Manipulation,DS Access,Directory Service Changes,5139,A directory service object was moved.
+Defense Evasion,T1134.001,Token Impersonation/Theft,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1134.002,Create Process with Token,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1134.003,Make and Impersonate Token,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1134.004,Parent PID Spoofing,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1135,Network Share Discovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1136,Create Account,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1136,Create Account,Account Management,User Account Management,4720,A user account was created.
+Persistence,T1136.001,Local Account,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1136.001,Local Account,Account Management,User Account Management,4720,A user account was created.
+Persistence,T1136.002,Domain Account,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1136.002,Domain Account,Account Management,User Account Management,4720,A user account was created.
+Persistence,T1137.003,Outlook Forms,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1137.004,Outlook Home Page,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1137.005,Outlook Rules,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1176,Browser Extensions,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1176,Browser Extensions,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Persistence,T1176,Browser Extensions,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Persistence,T1176,Browser Extensions,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Persistence,T1176,Browser Extensions,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Persistence,T1176,Browser Extensions,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Persistence,T1176,Browser Extensions,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Persistence,T1176,Browser Extensions,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Initial Access,T1189,Drive-by Compromise,Detailed Tracking,Process Creation,4688,A new process has been created.
+Initial Access,T1189,Drive-by Compromise,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Initial Access,T1189,Drive-by Compromise,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Initial Access,T1189,Drive-by Compromise,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Initial Access,T1189,Drive-by Compromise,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Initial Access,T1189,Drive-by Compromise,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Initial Access,T1189,Drive-by Compromise,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Initial Access,T1189,Drive-by Compromise,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Persistence,T1197,BITS Jobs,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1197,BITS Jobs,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Persistence,T1197,BITS Jobs,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Persistence,T1197,BITS Jobs,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Persistence,T1197,BITS Jobs,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Persistence,T1197,BITS Jobs,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Persistence,T1197,BITS Jobs,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Persistence,T1197,BITS Jobs,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Discovery,T1201,Password Policy Discovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1202,Indirect Command Execution,Detailed Tracking,Process Creation,4688,A new process has been created.
+Execution,T1204,User Execution,Detailed Tracking,Process Creation,4688,A new process has been created.
+Execution,T1204,User Execution,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Execution,T1204,User Execution,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Execution,T1204,User Execution,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Execution,T1204,User Execution,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Execution,T1204,User Execution,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Execution,T1204,User Execution,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Execution,T1204,User Execution,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Execution,T1204.002,Malicious File,Detailed Tracking,Process Creation,4688,A new process has been created.
+Execution,T1204.003,Malicious Image,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1216,Signed Script Proxy Execution,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1216.001,PubPrn,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1218.001,Compiled HTML File,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1218.003,CMSTP,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1218.003,CMSTP,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Defense Evasion,T1218.003,CMSTP,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Defense Evasion,T1218.003,CMSTP,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Defense Evasion,T1218.003,CMSTP,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Defense Evasion,T1218.003,CMSTP,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Defense Evasion,T1218.003,CMSTP,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Defense Evasion,T1218.003,CMSTP,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Defense Evasion,T1218.004,InstallUtil,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1218.005,Mshta,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1218.005,Mshta,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Defense Evasion,T1218.005,Mshta,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Defense Evasion,T1218.005,Mshta,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Defense Evasion,T1218.005,Mshta,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Defense Evasion,T1218.005,Mshta,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Defense Evasion,T1218.005,Mshta,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Defense Evasion,T1218.005,Mshta,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Defense Evasion,T1218.007,Msiexec,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1218.007,Msiexec,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Defense Evasion,T1218.007,Msiexec,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Defense Evasion,T1218.007,Msiexec,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Defense Evasion,T1218.007,Msiexec,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Defense Evasion,T1218.007,Msiexec,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Defense Evasion,T1218.007,Msiexec,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Defense Evasion,T1218.007,Msiexec,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Defense Evasion,T1218.008,Odbcconf,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1218.009,Regsvcs/Regasm,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1218.010,Regsvr32,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1218.010,Regsvr32,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Defense Evasion,T1218.010,Regsvr32,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Defense Evasion,T1218.010,Regsvr32,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Defense Evasion,T1218.010,Regsvr32,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Defense Evasion,T1218.010,Regsvr32,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Defense Evasion,T1218.010,Regsvr32,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Defense Evasion,T1218.010,Regsvr32,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Defense Evasion,T1218.011,Rundll32,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1218.012,Verclsid,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1218.013,Mavinject,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1218.014,MMC,Detailed Tracking,Process Creation,4688,A new process has been created.
+Command And Control,T1219,Remote Access Software,Detailed Tracking,Process Creation,4688,A new process has been created.
+Command And Control,T1219,Remote Access Software,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Command And Control,T1219,Remote Access Software,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Command And Control,T1219,Remote Access Software,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Command And Control,T1219,Remote Access Software,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Command And Control,T1219,Remote Access Software,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Command And Control,T1219,Remote Access Software,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Command And Control,T1219,Remote Access Software,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Defense Evasion,T1220,XSL Script Processing,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1221,Template Injection,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1221,Template Injection,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Defense Evasion,T1221,Template Injection,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Defense Evasion,T1221,Template Injection,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Defense Evasion,T1221,Template Injection,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Defense Evasion,T1221,Template Injection,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Defense Evasion,T1221,Template Injection,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Defense Evasion,T1221,Template Injection,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Defense Evasion,T1222,File and Directory Permissions Modification,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1222,File and Directory Permissions Modification,DS Access,Directory Service Changes,5136,A directory service object was modified.
+Defense Evasion,T1222,File and Directory Permissions Modification,DS Access,Directory Service Changes,5139,A directory service object was moved.
+Defense Evasion,T1222.001,Windows File and Directory Permissions Modification,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1222.001,Windows File and Directory Permissions Modification,DS Access,Directory Service Changes,5136,A directory service object was modified.
+Defense Evasion,T1222.001,Windows File and Directory Permissions Modification,DS Access,Directory Service Changes,5139,A directory service object was moved.
+Defense Evasion,T1222.002,Linux and Mac File and Directory Permissions Modification,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1480,Execution Guardrails,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1480.001,Environmental Keying,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1482,Domain Trust Discovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1484,Domain Policy Modification,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1484,Domain Policy Modification,DS Access,Directory Service Changes,5136,A directory service object was modified.
+Defense Evasion,T1484,Domain Policy Modification,DS Access,Directory Service Changes,5137,A directory service object was created.
+Defense Evasion,T1484,Domain Policy Modification,DS Access,Directory Service Changes,5139,A directory service object was moved.
+Defense Evasion,T1484,Domain Policy Modification,DS Access,Directory Service Changes,5141,A directory service object was deleted.
+Defense Evasion,T1484.001,Group Policy Modification,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1484.001,Group Policy Modification,DS Access,Directory Service Changes,5136,A directory service object was modified.
+Defense Evasion,T1484.001,Group Policy Modification,DS Access,Directory Service Changes,5137,A directory service object was created.
+Defense Evasion,T1484.001,Group Policy Modification,DS Access,Directory Service Changes,5139,A directory service object was moved.
+Defense Evasion,T1484.001,Group Policy Modification,DS Access,Directory Service Changes,5141,A directory service object was deleted.
+Defense Evasion,T1484.002,Domain Trust Modification,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1484.002,Domain Trust Modification,DS Access,Directory Service Changes,5136,A directory service object was modified.
+Defense Evasion,T1484.002,Domain Trust Modification,DS Access,Directory Service Changes,5137,A directory service object was created.
+Defense Evasion,T1484.002,Domain Trust Modification,DS Access,Directory Service Changes,5139,A directory service object was moved.
+Impact,T1496,Resource Hijacking,Detailed Tracking,Process Creation,4688,A new process has been created.
+Impact,T1496,Resource Hijacking,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Impact,T1496,Resource Hijacking,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Impact,T1496,Resource Hijacking,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Impact,T1496,Resource Hijacking,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Impact,T1496,Resource Hijacking,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Impact,T1496,Resource Hijacking,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Impact,T1496,Resource Hijacking,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Discovery,T1497,Virtualization/Sandbox Evasion,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1497.001,System Checks,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1497.002,User Activity Based Checks,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1497.003,Time Based Evasion,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1518,Software Discovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1518.001,Security Software Discovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Impact,T1529,System Shutdown/Reboot,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1542,Pre-OS Boot,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1542,Pre-OS Boot,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Persistence,T1542,Pre-OS Boot,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Persistence,T1542,Pre-OS Boot,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Persistence,T1542,Pre-OS Boot,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Persistence,T1542,Pre-OS Boot,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Persistence,T1542,Pre-OS Boot,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Persistence,T1542,Pre-OS Boot,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Persistence,T1542.005,TFTP Boot,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1542.005,TFTP Boot,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Persistence,T1542.005,TFTP Boot,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Persistence,T1542.005,TFTP Boot,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Persistence,T1542.005,TFTP Boot,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Persistence,T1542.005,TFTP Boot,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Persistence,T1542.005,TFTP Boot,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Persistence,T1542.005,TFTP Boot,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Persistence,T1546.003,Windows Management Instrumentation Event Subscription,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1548.004,Elevated Execution with Prompt,Detailed Tracking,Process Creation,4688,A new process has been created.
+Execution,T1559,Inter-Process Communication,Detailed Tracking,Process Creation,4688,A new process has been created.
+Execution,T1559.001,Component Object Model,Detailed Tracking,Process Creation,4688,A new process has been created.
+Execution,T1559.002,Dynamic Data Exchange,Detailed Tracking,Process Creation,4688,A new process has been created.
+Collection,T1560,Archive Collected Data,Detailed Tracking,Process Creation,4688,A new process has been created.
+Collection,T1560.001,Archive via Utility,Detailed Tracking,Process Creation,4688,A new process has been created.
+Impact,T1561,Disk Wipe,Detailed Tracking,Process Creation,4688,A new process has been created.
+Impact,T1561.001,Disk Content Wipe,Detailed Tracking,Process Creation,4688,A new process has been created.
+Impact,T1561.002,Disk Structure Wipe,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1562.002,Disable Windows Event Logging,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1562.003,Impair Command History Logging,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1562.010,Downgrade Attack,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1564.001,Hidden Files and Directories,Detailed Tracking,Process Creation,4688,A new process has been created.
+Defense Evasion,T1564.009,Resource Forking,Detailed Tracking,Process Creation,4688,A new process has been created.
+Lateral Movement,T1570,Lateral Tool Transfer,Detailed Tracking,Process Creation,4688,A new process has been created.
+Lateral Movement,T1570,Lateral Tool Transfer,Object Access,File Share,5140,A network share object was accessed.
+Lateral Movement,T1570,Lateral Tool Transfer,Object Access,Detailed File Share,5145,A network share object was checked to see whether the client can be granted desired access.
+Execution,T1609,Container Administration Command,Detailed Tracking,Process Creation,4688,A new process has been created.
+Privilege Escalation,T1611,Escape to Host,Detailed Tracking,Process Creation,4688,A new process has been created.
+Discovery,T1614,System Location Discovery,Detailed Tracking,Process Creation,4688,A new process has been created.
+Persistence,T1053.007,Container Orchestration Job,Object Access,Other Object Access Events,4698,A scheduled task was created.
+Persistence,T1098.001,Additional Cloud Credentials,Policy Change,Authentication Policy Change,4717,System security access was granted to an account.
+Persistence,T1098.001,Additional Cloud Credentials,Policy Change,Authentication Policy Change,4718,System security access was removed from an account.
+Persistence,T1098.001,Additional Cloud Credentials,Account Management,User Account Management,4722,A user account was enabled.
+Persistence,T1098.001,Additional Cloud Credentials,Account Management,User Account Management,4725,A user account was disabled.
+Persistence,T1098.001,Additional Cloud Credentials,Account Management,User Account Management,4738,A user account was changed.
+Persistence,T1098.001,Additional Cloud Credentials,Account Management,User Account Management,4740,A user account was locked out.
+Persistence,T1098.001,Additional Cloud Credentials,Account Management,User Account Management,4767,A user account was unlocked.
+Persistence,T1098.001,Additional Cloud Credentials,Account Management,User Account Management,4781,The name of an account was changed:
+Persistence,T1098.001,Additional Cloud Credentials,DS Access,Directory Service Changes,5136,A directory service object was modified.
+Persistence,T1098.001,Additional Cloud Credentials,DS Access,Directory Service Changes,5139,A directory service object was moved.
+Persistence,T1098.002,Exchange Email Delegate Permissions,Policy Change,Authentication Policy Change,4717,System security access was granted to an account.
+Persistence,T1098.002,Exchange Email Delegate Permissions,Policy Change,Authentication Policy Change,4718,System security access was removed from an account.
+Persistence,T1098.002,Exchange Email Delegate Permissions,Account Management,User Account Management,4722,A user account was enabled.
+Persistence,T1098.002,Exchange Email Delegate Permissions,Account Management,User Account Management,4725,A user account was disabled.
+Persistence,T1098.002,Exchange Email Delegate Permissions,Account Management,User Account Management,4738,A user account was changed.
+Persistence,T1098.002,Exchange Email Delegate Permissions,Account Management,User Account Management,4740,A user account was locked out.
+Persistence,T1098.002,Exchange Email Delegate Permissions,Account Management,User Account Management,4767,A user account was unlocked.
+Persistence,T1098.002,Exchange Email Delegate Permissions,Account Management,User Account Management,4781,The name of an account was changed:
+Persistence,T1098.003,Add Office 365 Global Administrator Role,Policy Change,Authentication Policy Change,4717,System security access was granted to an account.
+Persistence,T1098.003,Add Office 365 Global Administrator Role,Policy Change,Authentication Policy Change,4718,System security access was removed from an account.
+Persistence,T1098.003,Add Office 365 Global Administrator Role,Account Management,User Account Management,4722,A user account was enabled.
+Persistence,T1098.003,Add Office 365 Global Administrator Role,Account Management,User Account Management,4725,A user account was disabled.
+Persistence,T1098.003,Add Office 365 Global Administrator Role,Account Management,User Account Management,4738,A user account was changed.
+Persistence,T1098.003,Add Office 365 Global Administrator Role,Account Management,User Account Management,4740,A user account was locked out.
+Persistence,T1098.003,Add Office 365 Global Administrator Role,Account Management,User Account Management,4767,A user account was unlocked.
+Persistence,T1098.003,Add Office 365 Global Administrator Role,Account Management,User Account Management,4781,The name of an account was changed:
+Credential Access,T1528,Steal Application Access Token,Policy Change,Authentication Policy Change,4717,System security access was granted to an account.
+Credential Access,T1528,Steal Application Access Token,Policy Change,Authentication Policy Change,4718,System security access was removed from an account.
+Credential Access,T1528,Steal Application Access Token,Account Management,User Account Management,4722,A user account was enabled.
+Credential Access,T1528,Steal Application Access Token,Account Management,User Account Management,4725,A user account was disabled.
+Credential Access,T1528,Steal Application Access Token,Account Management,User Account Management,4738,A user account was changed.
+Credential Access,T1528,Steal Application Access Token,Account Management,User Account Management,4740,A user account was locked out.
+Credential Access,T1528,Steal Application Access Token,Account Management,User Account Management,4767,A user account was unlocked.
+Credential Access,T1528,Steal Application Access Token,Account Management,User Account Management,4781,The name of an account was changed:
+Impact,T1531,Account Access Removal,Policy Change,Authentication Policy Change,4717,System security access was granted to an account.
+Impact,T1531,Account Access Removal,Policy Change,Authentication Policy Change,4718,System security access was removed from an account.
+Impact,T1531,Account Access Removal,Account Management,User Account Management,4722,A user account was enabled.
+Impact,T1531,Account Access Removal,Account Management,User Account Management,4725,A user account was disabled.
+Impact,T1531,Account Access Removal,Account Management,User Account Management,4726,A user account was deleted.
+Impact,T1531,Account Access Removal,Account Management,User Account Management,4738,A user account was changed.
+Impact,T1531,Account Access Removal,Account Management,User Account Management,4740,A user account was locked out.
+Impact,T1531,Account Access Removal,Account Management,User Account Management,4767,A user account was unlocked.
+Impact,T1531,Account Access Removal,Account Management,User Account Management,4781,The name of an account was changed:
+Impact,T1531,Account Access Removal,DS Access,Directory Service Changes,5136,A directory service object was modified.
+Impact,T1531,Account Access Removal,DS Access,Directory Service Changes,5139,A directory service object was moved.
+Persistence,T1136.003,Cloud Account,Account Management,User Account Management,4720,A user account was created.
+Credential Access,T1558.001,Golden Ticket,Account Logon,Kerberos Authentication Service,4768,A Kerberos authentication ticket (TGT) was requested.
+Credential Access,T1558.001,Golden Ticket,Account Logon,Kerberos Service Ticket Operations,4769,A Kerberos service ticket was requested.
+Credential Access,T1558.003,Kerberoasting,Account Logon,Kerberos Authentication Service,4768,A Kerberos authentication ticket (TGT) was requested.
+Credential Access,T1558.003,Kerberoasting,Account Logon,Kerberos Service Ticket Operations,4769,A Kerberos service ticket was requested.
+Credential Access,T1558.004,AS-REP Roasting,Account Logon,Kerberos Authentication Service,4768,A Kerberos authentication ticket (TGT) was requested.
+Credential Access,T1558.004,AS-REP Roasting,Account Logon,Kerberos Service Ticket Operations,4769,A Kerberos service ticket was requested.
+Defense Evasion,T1562.007,Disable or Modify Cloud Firewall,Policy Change,MPSSVC Rule-Level Policy Change,4946,A change has been made to Windows Firewall exception list. A rule was added.
+Defense Evasion,T1562.007,Disable or Modify Cloud Firewall,Policy Change,MPSSVC Rule-Level Policy Change,4947,A change has been made to Windows Firewall exception list. A rule was modified.
+Defense Evasion,T1562.007,Disable or Modify Cloud Firewall,Policy Change,MPSSVC Rule-Level Policy Change,4948,A change has been made to Windows Firewall exception list. A rule was deleted.
+Defense Evasion,T1562.007,Disable or Modify Cloud Firewall,System,Other System Events,5025,The Windows Firewall Service has been stopped.
+Command And Control,T1008,Fallback Channels,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Command And Control,T1008,Fallback Channels,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Command And Control,T1008,Fallback Channels,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Command And Control,T1008,Fallback Channels,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Command And Control,T1008,Fallback Channels,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Command And Control,T1008,Fallback Channels,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Command And Control,T1008,Fallback Channels,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Exfiltration,T1020.001,Traffic Duplication,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Exfiltration,T1020.001,Traffic Duplication,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Exfiltration,T1020.001,Traffic Duplication,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Exfiltration,T1020.001,Traffic Duplication,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Exfiltration,T1020.001,Traffic Duplication,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Exfiltration,T1020.001,Traffic Duplication,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Exfiltration,T1020.001,Traffic Duplication,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Exfiltration,T1029,Scheduled Transfer,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Exfiltration,T1029,Scheduled Transfer,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Exfiltration,T1029,Scheduled Transfer,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Exfiltration,T1029,Scheduled Transfer,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Exfiltration,T1029,Scheduled Transfer,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Exfiltration,T1029,Scheduled Transfer,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Exfiltration,T1029,Scheduled Transfer,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Exfiltration,T1030,Data Transfer Size Limits,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Exfiltration,T1030,Data Transfer Size Limits,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Exfiltration,T1030,Data Transfer Size Limits,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Exfiltration,T1030,Data Transfer Size Limits,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Exfiltration,T1030,Data Transfer Size Limits,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Exfiltration,T1030,Data Transfer Size Limits,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Exfiltration,T1030,Data Transfer Size Limits,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Command And Control,T1090,Proxy,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Command And Control,T1090,Proxy,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Command And Control,T1090,Proxy,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Command And Control,T1090,Proxy,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Command And Control,T1090,Proxy,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Command And Control,T1090,Proxy,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Command And Control,T1090,Proxy,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Command And Control,T1090.001,Internal Proxy,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Command And Control,T1090.001,Internal Proxy,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Command And Control,T1090.001,Internal Proxy,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Command And Control,T1090.001,Internal Proxy,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Command And Control,T1090.001,Internal Proxy,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Command And Control,T1090.001,Internal Proxy,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Command And Control,T1090.001,Internal Proxy,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Command And Control,T1090.002,External Proxy,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Command And Control,T1090.002,External Proxy,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Command And Control,T1090.002,External Proxy,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Command And Control,T1090.002,External Proxy,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Command And Control,T1090.002,External Proxy,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Command And Control,T1090.002,External Proxy,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Command And Control,T1090.002,External Proxy,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Command And Control,T1090.003,Multi-hop Proxy,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Command And Control,T1090.003,Multi-hop Proxy,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Command And Control,T1090.003,Multi-hop Proxy,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Command And Control,T1090.003,Multi-hop Proxy,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Command And Control,T1090.003,Multi-hop Proxy,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Command And Control,T1090.003,Multi-hop Proxy,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Command And Control,T1090.003,Multi-hop Proxy,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Command And Control,T1102,Web Service,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Command And Control,T1102,Web Service,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Command And Control,T1102,Web Service,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Command And Control,T1102,Web Service,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Command And Control,T1102,Web Service,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Command And Control,T1102,Web Service,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Command And Control,T1102,Web Service,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Command And Control,T1102.002,Bidirectional Communication,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Command And Control,T1102.002,Bidirectional Communication,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Command And Control,T1102.002,Bidirectional Communication,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Command And Control,T1102.002,Bidirectional Communication,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Command And Control,T1102.002,Bidirectional Communication,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Command And Control,T1102.002,Bidirectional Communication,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Command And Control,T1102.002,Bidirectional Communication,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Command And Control,T1102.003,One-Way Communication,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Command And Control,T1102.003,One-Way Communication,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Command And Control,T1102.003,One-Way Communication,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Command And Control,T1102.003,One-Way Communication,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Command And Control,T1102.003,One-Way Communication,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Command And Control,T1102.003,One-Way Communication,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Command And Control,T1102.003,One-Way Communication,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Command And Control,T1104,Multi-Stage Channels,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Command And Control,T1104,Multi-Stage Channels,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Command And Control,T1104,Multi-Stage Channels,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Command And Control,T1104,Multi-Stage Channels,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Command And Control,T1104,Multi-Stage Channels,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Command And Control,T1104,Multi-Stage Channels,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Command And Control,T1104,Multi-Stage Channels,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Command And Control,T1105,Ingress Tool Transfer,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Command And Control,T1105,Ingress Tool Transfer,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Command And Control,T1105,Ingress Tool Transfer,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Command And Control,T1105,Ingress Tool Transfer,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Command And Control,T1105,Ingress Tool Transfer,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Command And Control,T1105,Ingress Tool Transfer,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Command And Control,T1105,Ingress Tool Transfer,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Execution,T1204.001,Malicious Link,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Execution,T1204.001,Malicious Link,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Execution,T1204.001,Malicious Link,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Execution,T1204.001,Malicious Link,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Execution,T1204.001,Malicious Link,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Execution,T1204.001,Malicious Link,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Execution,T1204.001,Malicious Link,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Persistence,T1205,Traffic Signaling,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Persistence,T1205,Traffic Signaling,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Persistence,T1205,Traffic Signaling,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Persistence,T1205,Traffic Signaling,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Persistence,T1205,Traffic Signaling,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Persistence,T1205,Traffic Signaling,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Persistence,T1205,Traffic Signaling,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Persistence,T1205.001,Port Knocking,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Persistence,T1205.001,Port Knocking,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Persistence,T1205.001,Port Knocking,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Persistence,T1205.001,Port Knocking,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Persistence,T1205.001,Port Knocking,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Persistence,T1205.001,Port Knocking,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Persistence,T1205.001,Port Knocking,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Command And Control,T1568,Dynamic Resolution,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Command And Control,T1568,Dynamic Resolution,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Command And Control,T1568,Dynamic Resolution,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Command And Control,T1568,Dynamic Resolution,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Command And Control,T1568,Dynamic Resolution,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Command And Control,T1568,Dynamic Resolution,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Command And Control,T1568,Dynamic Resolution,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Command And Control,T1568.001,Fast Flux DNS,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Command And Control,T1568.001,Fast Flux DNS,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Command And Control,T1568.001,Fast Flux DNS,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Command And Control,T1568.001,Fast Flux DNS,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Command And Control,T1568.001,Fast Flux DNS,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Command And Control,T1568.001,Fast Flux DNS,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Command And Control,T1568.001,Fast Flux DNS,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Command And Control,T1568.002,Domain Generation Algorithms,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Command And Control,T1568.002,Domain Generation Algorithms,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Command And Control,T1568.002,Domain Generation Algorithms,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Command And Control,T1568.002,Domain Generation Algorithms,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Command And Control,T1568.002,Domain Generation Algorithms,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Command And Control,T1568.002,Domain Generation Algorithms,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Command And Control,T1568.002,Domain Generation Algorithms,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Command And Control,T1571,Non-Standard Port,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Command And Control,T1571,Non-Standard Port,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Command And Control,T1571,Non-Standard Port,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Command And Control,T1571,Non-Standard Port,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Command And Control,T1571,Non-Standard Port,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Command And Control,T1571,Non-Standard Port,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Command And Control,T1571,Non-Standard Port,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Command And Control,T1572,Protocol Tunneling,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Command And Control,T1572,Protocol Tunneling,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Command And Control,T1572,Protocol Tunneling,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Command And Control,T1572,Protocol Tunneling,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Command And Control,T1572,Protocol Tunneling,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Command And Control,T1572,Protocol Tunneling,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Command And Control,T1572,Protocol Tunneling,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Collection,T1602,Data from Configuration Repository,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Collection,T1602,Data from Configuration Repository,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Collection,T1602,Data from Configuration Repository,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Collection,T1602,Data from Configuration Repository,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Collection,T1602,Data from Configuration Repository,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Collection,T1602,Data from Configuration Repository,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Collection,T1602,Data from Configuration Repository,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Collection,T1602.001,SNMP (MIB Dump),Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Collection,T1602.001,SNMP (MIB Dump),Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Collection,T1602.001,SNMP (MIB Dump),Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Collection,T1602.001,SNMP (MIB Dump),Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Collection,T1602.001,SNMP (MIB Dump),Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Collection,T1602.001,SNMP (MIB Dump),Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Collection,T1602.001,SNMP (MIB Dump),Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Collection,T1602.002,Network Device Configuration Dump,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Collection,T1602.002,Network Device Configuration Dump,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Collection,T1602.002,Network Device Configuration Dump,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Collection,T1602.002,Network Device Configuration Dump,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Collection,T1602.002,Network Device Configuration Dump,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Collection,T1602.002,Network Device Configuration Dump,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Collection,T1602.002,Network Device Configuration Dump,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Defense Evasion,T1612,Build Image on Host,Object Access,Filtering Platform Connection,5031,The Windows Firewall Service blocked an application from accepting incoming connections on the network.
+Defense Evasion,T1612,Build Image on Host,Object Access,Filtering Platform Connection,5154,The Windows Filtering Platform has permitted an application or service to listen on a port for incoming connections.
+Defense Evasion,T1612,Build Image on Host,Object Access,Filtering Platform Connection,5155,The Windows Filtering Platform has blocked an application or service from listening on a port for incoming connections.
+Defense Evasion,T1612,Build Image on Host,Object Access,Filtering Platform Connection,5156,The Windows Filtering Platform has allowed a connection.
+Defense Evasion,T1612,Build Image on Host,Object Access,Filtering Platform Connection,5157,The Windows Filtering Platform has blocked a connection.
+Defense Evasion,T1612,Build Image on Host,Object Access,Filtering Platform Connection,5158,The Windows Filtering Platform has permitted a bind to a local port.
+Defense Evasion,T1612,Build Image on Host,Object Access,Filtering Platform Connection,5159,The Windows Filtering Platform has blocked a bind to a local port.
+Defense Evasion,T1134.005,SID-History Injection,DS Access,Directory Service Changes,5136,A directory service object was modified.
+Defense Evasion,T1134.005,SID-History Injection,DS Access,Directory Service Changes,5139,A directory service object was moved.

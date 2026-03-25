@@ -1,140 +1,77 @@
-"""Structured MITRE ATT&CK starter filters for Windows hunting."""
+"""Load Windows ATT&CK starter filters from the local mapping dataset."""
 
 from __future__ import annotations
 
+import csv
+import re
+from pathlib import Path
 
-ATTACK_WINDOWS_PRESETS = [
-    {
-        "id": "attack-clear-event-logs-security-1102",
-        "title": "Clear Windows Event Logs",
-        "tactic": "Defense Evasion",
-        "technique_id": "T1070.001",
-        "technique_name": "Clear Windows Event Logs",
-        "detection_strategy_id": "DET0532",
-        "record_type": "win_evt_security",
-        "channels": ["Security"],
-        "event_ids": ["1102"],
-        "filters": [
-            {"col": "Channel", "op": "eq", "val": "Security"},
-            {"col": "EventID", "op": "eq", "val": "1102"},
-        ],
-        "summary": "Start with Security 1102 to find Windows log clearing events.",
-        "source_url": "https://attack.mitre.org/detectionstrategies/DET0532/",
-    },
-    {
-        "id": "attack-kerberoasting-security-4769",
-        "title": "Kerberoasting Activity",
-        "tactic": "Credential Access",
-        "technique_id": "T1558.003",
-        "technique_name": "Kerberoasting",
-        "detection_strategy_id": "DET0157",
-        "record_type": "win_evt_security",
-        "channels": ["Security"],
-        "event_ids": ["4769"],
-        "filters": [
-            {"col": "Channel", "op": "eq", "val": "Security"},
-            {"col": "EventID", "op": "eq", "val": "4769"},
-        ],
-        "summary": "Start with Security 4769 service ticket requests when hunting for Kerberoasting.",
-        "source_url": "https://attack.mitre.org/detectionstrategies/DET0157/",
-    },
-    {
-        "id": "attack-windows-service-security-4697",
-        "title": "Service Installation",
-        "tactic": "Persistence",
-        "technique_id": "T1543.003",
-        "technique_name": "Windows Service",
-        "detection_strategy_id": "DET0552",
-        "record_type": "win_evt_security",
-        "channels": ["Security"],
-        "event_ids": ["4697"],
-        "filters": [
-            {"col": "Channel", "op": "eq", "val": "Security"},
-            {"col": "EventID", "op": "eq", "val": "4697"},
-        ],
-        "summary": "Start with Security 4697 when hunting for suspicious service creation.",
-        "source_url": "https://attack.mitre.org/detectionstrategies/DET0552/",
-    },
-    {
-        "id": "attack-windows-service-system-7045",
-        "title": "Service Installation (System Log)",
-        "tactic": "Persistence",
-        "technique_id": "T1543.003",
-        "technique_name": "Windows Service",
-        "detection_strategy_id": "DET0552",
-        "record_type": "win_evt_system",
-        "channels": ["System"],
-        "event_ids": ["7045"],
-        "filters": [
-            {"col": "Channel", "op": "eq", "val": "System"},
-            {"col": "EventID", "op": "eq", "val": "7045"},
-        ],
-        "summary": "Start with System 7045 for service installs logged by the Service Control Manager.",
-        "source_url": "https://attack.mitre.org/detectionstrategies/DET0552/",
-    },
-    {
-        "id": "attack-scheduled-task-security-4698",
-        "title": "Scheduled Task Creation",
-        "tactic": "Execution",
-        "technique_id": "T1053.005",
-        "technique_name": "Scheduled Task",
-        "detection_strategy_id": "DET0441",
-        "record_type": "win_evt_security",
-        "channels": ["Security"],
-        "event_ids": ["4698", "4702"],
-        "filters": [
-            {"col": "Channel", "op": "eq", "val": "Security"},
-            {"col": "EventID", "op": "eq", "val": "4698"},
-        ],
-        "summary": "Start with Security 4698 task creation, then pivot to 4702 task modification if needed.",
-        "source_url": "https://attack.mitre.org/detectionstrategies/DET0441/",
-    },
-    {
-        "id": "attack-powershell-abuse-4104",
-        "title": "PowerShell Abuse",
-        "tactic": "Execution",
-        "technique_id": "T1059.001",
-        "technique_name": "PowerShell",
-        "detection_strategy_id": "DET0455",
-        "record_type": "win_evt_powershell",
-        "channels": ["Microsoft-Windows-PowerShell/Operational"],
-        "event_ids": ["4103", "4104", "4105", "4106"],
-        "filters": [
-            {"col": "EventID", "op": "eq", "val": "4104"},
-        ],
-        "summary": "Start with PowerShell script block logging EventID 4104 for suspicious script content.",
-        "source_url": "https://attack.mitre.org/detectionstrategies/DET0455/",
-    },
-    {
-        "id": "attack-powershell-profile-persistence-sysmon-11",
-        "title": "PowerShell Profile Persistence",
-        "tactic": "Persistence",
-        "technique_id": "T1546.013",
-        "technique_name": "PowerShell Profile",
-        "detection_strategy_id": "DET0451",
-        "record_type": "win_evt_sysmon",
-        "channels": ["Microsoft-Windows-Sysmon/Operational"],
-        "event_ids": ["11", "2", "1"],
-        "filters": [
-            {"col": "EventID", "op": "eq", "val": "11"},
-        ],
-        "summary": "Start with Sysmon 11 file creation in profile paths, then inspect related PowerShell launches.",
-        "source_url": "https://attack.mitre.org/detectionstrategies/DET0451/",
-    },
-    {
-        "id": "attack-ftp-smb-tftp-c2-sysmon-3",
-        "title": "Suspicious File Transfer Protocol C2",
-        "tactic": "Command and Control",
-        "technique_id": "T1071.002",
-        "technique_name": "File Transfer Protocols",
-        "detection_strategy_id": "DET0416",
-        "record_type": "win_evt_sysmon",
-        "channels": ["Microsoft-Windows-Sysmon/Operational"],
-        "event_ids": ["3", "22", "1"],
-        "filters": [
-            {"col": "EventID", "op": "eq", "val": "3"},
-        ],
-        "summary": "Start with Sysmon 3 network connections and inspect suspicious process-image to destination combinations.",
-        "source_url": "https://attack.mitre.org/detectionstrategies/DET0416/",
-    },
-]
+
+_DATA_PATH = Path(__file__).resolve().parents[3] / "data" / "filtered_mitre_mappings.csv"
+
+
+def _slug(text: str) -> str:
+    value = re.sub(r"[^a-z0-9]+", "-", text.strip().lower())
+    return value.strip("-")
+
+
+def _technique_url(technique_id: str) -> str:
+    tid = (technique_id or "").strip().upper()
+    if "." in tid:
+        base, sub = tid.split(".", 1)
+        return f"https://attack.mitre.org/techniques/{base}/{sub}/"
+    return f"https://attack.mitre.org/techniques/{tid}/"
+
+
+def _load_attack_windows_presets() -> list[dict[str, object]]:
+    if not _DATA_PATH.exists():
+        return []
+
+    grouped: dict[tuple[str, str, str, str], dict[str, object]] = {}
+
+    with _DATA_PATH.open("r", encoding="utf-8-sig", newline="") as handle:
+        for row in csv.DictReader(handle):
+            tactic = (row.get("tactic") or "").strip()
+            technique_id = (row.get("technique_id") or "").strip()
+            technique = (row.get("technique") or "").strip()
+            event_id = (row.get("event_id") or "").strip()
+            audit_category = (row.get("audit_category") or "").strip()
+            audit_sub_category = (row.get("audit_sub_category") or "").strip()
+            message = (row.get("message") or "").strip()
+
+            if not (tactic and technique_id and technique and event_id):
+                continue
+
+            key = (tactic, technique_id, technique, event_id)
+            preset = grouped.get(key)
+            if preset is None:
+                summary_parts = [part for part in (audit_category, audit_sub_category, message) if part]
+                preset = {
+                    "id": f"attack-{_slug(tactic)}-{_slug(technique_id)}-{event_id}",
+                    "title": technique,
+                    "tactic": tactic,
+                    "technique_id": technique_id,
+                    "technique_name": technique,
+                    "detection_strategy_id": "",
+                    "record_type": "win_evt_security",
+                    "channels": ["Security"],
+                    "event_ids": [event_id],
+                    "filters": [
+                        {"col": "Channel", "op": "eq", "val": "Security"},
+                        {"col": "EventID", "op": "eq", "val": event_id},
+                    ],
+                    "summary": " | ".join(summary_parts),
+                    "source_url": _technique_url(technique_id),
+                }
+                grouped[key] = preset
+            elif message:
+                existing_summary = str(preset.get("summary") or "")
+                if message not in existing_summary:
+                    preset["summary"] = (existing_summary + " | " + message).strip(" |")
+
+    presets = list(grouped.values())
+    presets.sort(key=lambda item: (str(item["tactic"]), str(item["technique_id"]), str(item["event_ids"][0])))
+    return presets
+
+
+ATTACK_WINDOWS_PRESETS = _load_attack_windows_presets()

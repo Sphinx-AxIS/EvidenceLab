@@ -136,6 +136,7 @@ The **Analytics** page is the main hunting workspace for detection engineering. 
 
 - For **Sigma** rules, start with Windows event records (`win_evt_security`, `win_evt_sysmon`, `win_evt_powershell`, etc.).
 - The **Analytics** page includes **Windows ATT&CK Starter Filters** with cumulative dropdowns for **Tactic**, **Technique**, and **EventID starter**.
+- Those dropdowns are populated from the local Windows ATT&CK mapping dataset bundled with the platform.
 - Once you identify a promising event family, open the matching record in **Records**.
 - The record detail page explains the event, shows important fields, and gives case-level context so you can decide whether a detection is justified.
 - If the event still looks rule-worthy after inspection, use **Build Sigma Rule From Event** or **Build Suricata Rule From Record** from the detail page.
@@ -500,7 +501,7 @@ For Windows event hunting, the page includes a **Windows ATT&CK Starter Filters*
 - Start by choosing a **Tactic**.
 - Then choose an applicable **Technique** from that tactic.
 - Finally choose an **EventID starter** that matches the Windows evidence source you want to inspect.
-- Each final selection is based on an official MITRE ATT&CK detection-strategy starting point.
+- The selector is populated from the local Windows ATT&CK mapping dataset bundled with the platform.
 - Applying the selection loads a specific Windows record type and starter EventID or channel filters into the Analytics query workflow.
 - Use these presets as a fast way to begin hunting for behaviors such as:
   - cleared event logs
