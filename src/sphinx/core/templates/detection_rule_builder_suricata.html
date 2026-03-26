@@ -144,7 +144,7 @@
         <strong>Recommended</strong>
         <input type="radio" name="suricata-match-style" value="recommended" checked>
       </div>
-      <div class="text-muted" style="margin-top:0.5rem;font-size:0.85rem;">Use literal <code>content</code> for single-packet anchors and switch to resilient <code>pcre</code> for anchors that require reassembly.</div>
+      <div class="text-muted" style="margin-top:0.5rem;font-size:0.85rem;">Use literal <code>content</code> for single-packet anchors and switch to resilient <code>pcre</code> plus stream-aware flow flags for anchors that require reassembly.</div>
     </label>
     <label class="builder-chip-card">
       <div class="builder-chip-title">
@@ -263,6 +263,7 @@ function buildSuricataDraft() {
   const dstIps = selectedByKind('dst_ip');
   const contentItems = selected.filter(item => item.kind === 'content');
   const flowBits = selectedByKind('flow');
+  const hasReassemblyContent = contentItems.some(item => !item.singlePacket);
 
   if (srcPorts.length) {
     if (strategy === 'ioc' || !isEphemeralPort(srcPorts[0])) {
@@ -302,8 +303,23 @@ function buildSuricataDraft() {
   const lines = [];
   lines.push(`alert ${proto} ${srcNet} ${srcPort} ${direction} ${dstNet} ${dstPort} (`);
   lines.push(`    msg:"${escapeSuricataContent(msg)}";`);
+  const flowKeywords = [];
   if (flowBits.includes('established')) {
-    lines.push('    flow:established;');
+    flowKeywords.push('established');
+  }
+  if (strategy !== 'ioc') {
+    if (flow.service_port_role === 'src') {
+      flowKeywords.push('to_client');
+    } else if (flow.service_port_role === 'dst') {
+      flowKeywords.push('to_server');
+    }
+  }
+  if (matchStyle === 'recommended' && hasReassemblyContent) {
+    flowKeywords.push('only_stream');
+  }
+  if (flowKeywords.length) {
+    const uniqueFlowKeywords = [...new Set(flowKeywords)];
+    lines.push(`    flow:${uniqueFlowKeywords.join(',')};`);
   }
   contentItems.forEach(item => {
     if (matchStyle === 'recommended' && !item.singlePacket) {
@@ -342,7 +358,7 @@ function buildSuricataDraft() {
     }
     if (item.kind === 'content' && !item.singlePacket) {
       if (matchStyle === 'recommended') {
-        warnings.push(`content:"${item.value}" requires stream reassembly, so the preview converted it to a resilient PCRE pattern.`);
+        warnings.push(`content:"${item.value}" requires stream reassembly, so the preview converted it to a resilient PCRE pattern and added stream-aware flow flags.`);
       } else {
         warnings.push(`content:"${item.value}" was only confirmed after stream reassembly. Literal content matching may miss it if packet boundaries change.`);
       }
