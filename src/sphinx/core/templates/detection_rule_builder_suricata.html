@@ -73,7 +73,7 @@
   {% if builder_data.flow.payload_preview %}
   <div style="margin-top:0.75rem;">
     <div class="table-title">Printable Payload Preview</div>
-    <pre class="builder-preview">{{ builder_data.flow.payload_preview|forceescape }}</pre>
+    <pre class="builder-preview"><code>{{ builder_data.flow.payload_preview_json|forceescape }}</code></pre>
   </div>
   {% endif %}
 </div>

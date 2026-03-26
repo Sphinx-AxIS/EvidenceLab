@@ -615,6 +615,7 @@ def _build_suricata_builder_data(source_record: dict[str, Any] | None) -> dict[s
         "printable_chars": raw.get("printable_chars", ""),
         "printable_ratio": raw.get("printable_ratio", ""),
         "payload_preview": payload_text[:320],
+        "payload_preview_json": json.dumps(payload_text[:320], ensure_ascii=True),
         "service_name": service_name,
         "direction_guess": direction_guess,
         "service_port_role": service_port_role,
