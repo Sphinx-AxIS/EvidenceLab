@@ -813,6 +813,12 @@ def _build_suricata_builder_data(source_record: dict[str, Any] | None) -> dict[s
     display_dst_ip = str((preferred_anchor or {}).get("anchor_dst_ip") or dst_ip)
     display_src_port = str((preferred_anchor or {}).get("anchor_src_port") or src_port)
     display_dst_port = str((preferred_anchor or {}).get("anchor_dst_port") or dst_port)
+    active_service_port_role = str((preferred_anchor or {}).get("service_port_role") or service_port_role)
+    active_service_port_value = str((preferred_anchor or {}).get("service_port_value") or service_port_value)
+
+    active_service_name = service_name
+    if active_service_port_value:
+        active_service_name = _SERVICE_PORT_NAMES.get(active_service_port_value, service_name)
 
     atoms: list[dict[str, Any]] = [
         {
@@ -835,18 +841,18 @@ def _build_suricata_builder_data(source_record: dict[str, Any] | None) -> dict[s
         },
     ]
 
-    if service_port_value:
+    if active_service_port_value and active_service_port_role:
         atoms.append({
-            "id": f"{service_port_role}_port_{service_port_value}",
-            "kind": f"{service_port_role}_port",
-            "label": f"{service_port_role}_port:{service_port_value}",
-            "value": service_port_value,
+            "id": f"{active_service_port_role}_port_{active_service_port_value}",
+            "kind": f"{active_service_port_role}_port",
+            "label": f"{active_service_port_role}_port:{active_service_port_value}",
+            "value": active_service_port_value,
             "priority": "Medium",
-            "reason": f"Useful service context. {service_name} is often more stable than an ephemeral peer port.",
+            "reason": f"Useful service context. {active_service_name} is often more stable than an ephemeral peer port.",
             "selected": True,
         })
 
-    if display_src_port and display_src_port != service_port_value:
+    if display_src_port and display_src_port != active_service_port_value:
         atoms.append({
             "id": f"src_port_{display_src_port}",
             "kind": "src_port",
@@ -856,7 +862,7 @@ def _build_suricata_builder_data(source_record: dict[str, Any] | None) -> dict[s
             "reason": "Use only if this port is stable across sessions. Ephemeral ports are weak anchors.",
             "selected": False,
         })
-    if display_dst_port and display_dst_port != service_port_value:
+    if display_dst_port and display_dst_port != active_service_port_value:
         atoms.append({
             "id": f"dst_port_{display_dst_port}",
             "kind": "dst_port",
@@ -907,8 +913,8 @@ def _build_suricata_builder_data(source_record: dict[str, Any] | None) -> dict[s
         "direction_guess": direction_guess,
         "anchor_source": f"{display_src_ip}:{display_src_port}" if display_src_ip or display_src_port else "",
         "anchor_destination": f"{display_dst_ip}:{display_dst_port}" if display_dst_ip or display_dst_port else "",
-        "service_port_role": service_port_role,
-        "service_port_value": service_port_value,
+        "service_port_role": active_service_port_role,
+        "service_port_value": active_service_port_value,
         "frame_count": len(frame_numbers) or len(frame_payloads),
         "frame_numbers_preview": _summarize_frame_numbers(frame_numbers[:12]) if frame_numbers else "",
     }
