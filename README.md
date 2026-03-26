@@ -68,6 +68,8 @@ LLM inference runs on the host via [LM Studio](https://lmstudio.ai/) (OpenAI-com
 6. Create an investigation task from the **Tasks** page
 7. Review LLM findings and generate a report
 
+The Suricata builder now walks the analyst through a no-AI workflow: review the normalized flow, choose a detection strategy, click High/Medium/Low candidate atoms, and watch the rule preview update automatically while the full source record JSON stays visible.
+
 ## Suricata Rules
 
 Custom detection rules live in `data/suricata-rules/`. Suricata loads all `*.rules` files from this directory automatically.

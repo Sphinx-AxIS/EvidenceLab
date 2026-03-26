@@ -3,11 +3,14 @@
 
 {% block help %}
 <h3>Guided Suricata Builder</h3>
-<p>Use this page to turn a selected packet-derived record into a Suricata draft with deterministic, no-AI field guidance.</p>
+<p>Use this page to turn a selected packet-derived record into a Suricata draft without starting from raw syntax.</p>
 <ul>
-  <li><strong>Source Record</strong> keeps the selected network evidence in view.</li>
-  <li><strong>Deterministic Field Recommendations</strong> rank packet-visible fields as recommended, optional, or avoid.</li>
-  <li>Use these hints to keep the draft focused on stable on-wire behavior rather than session-specific metadata.</li>
+  <li><strong>Flow Review</strong> keeps the key packet and stream facts visible.</li>
+  <li><strong>Detection Strategy</strong> lets the analyst choose IOC, behavior, or service-focused logic before selecting anchors.</li>
+  <li><strong>Candidate Detection Atoms</strong> show High, Medium, and Low options that can be added to the draft with a click.</li>
+  <li><strong>Live Rule Preview</strong> renders the selected facts into Suricata syntax automatically.</li>
+  <li><strong>Warnings</strong> call out brittle choices such as exact IPs in behavior mode or content strings that are too short.</li>
+  <li><strong>Raw Data (JSON)</strong> keeps the full source record visible while you refine the rule.</li>
 </ul>
 {% endblock %}
 
@@ -20,90 +23,321 @@
   </div>
 </div>
 
+{% if not source_record %}
 <div class="card mb-2">
-  <h3>Step 1: Confirm You Are Working From Network Evidence</h3>
+  <h3>Start From A Record</h3>
+  <p class="text-muted">Open this builder from a network record detail page so EvidenceLab can normalize the flow, extract candidate strings, and render a guided draft.</p>
+</div>
+{% else %}
+
+<style>
+.builder-chip-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:0.75rem; }
+.builder-chip-card { border:1px solid var(--border); border-radius:6px; padding:0.75rem; background:var(--bg-card); }
+.builder-chip-card.priority-high { border-color: rgba(34,197,94,0.5); }
+.builder-chip-card.priority-medium { border-color: rgba(234,179,8,0.5); }
+.builder-chip-card.priority-low { border-color: rgba(239,68,68,0.35); }
+.builder-chip-card label { display:block; cursor:pointer; }
+.builder-chip-title { display:flex; justify-content:space-between; gap:0.5rem; align-items:flex-start; }
+.builder-chip-priority { font-size:0.75rem; padding:0.15rem 0.45rem; border-radius:999px; border:1px solid var(--border); }
+.builder-chip-priority.high { background: rgba(34,197,94,0.15); color:#86efac; }
+.builder-chip-priority.medium { background: rgba(234,179,8,0.15); color:#fde68a; }
+.builder-chip-priority.low { background: rgba(239,68,68,0.12); color:#fca5a5; }
+.builder-preview { white-space:pre-wrap; background:var(--bg); padding:0.75rem; border:1px solid var(--border); border-radius:4px; font-size:0.8rem; }
+.builder-warning-list { margin:0.5rem 0 0; padding-left:1.2rem; }
+.builder-warning-list li { margin-bottom:0.25rem; }
+.builder-kv td:first-child { width:220px; color:var(--text-muted); }
+</style>
+
+<div class="card mb-2">
+  <h3>Step 1: Review The Flow</h3>
   <p style="color:var(--text-muted);font-size:0.9rem;">
-    Suricata rules should be based on packet-visible behavior: payload content, HTTP metadata, DNS patterns, TLS metadata, or flow directionality. Avoid host-only facts such as Windows usernames unless they are visible on the wire.
+    Confirm the protocol, ports, stream size, and printable payload before deciding what is stable enough to detect.
   </p>
-  {% if source_record %}
-  <div class="flex gap-1" style="align-items:center;flex-wrap:wrap;margin-top:0.75rem;">
-    <span class="text-mono">Record {{ source_record.id }}</span>
-    <span class="record-type">{{ source_record.record_type }}</span>
-    <span class="text-muted text-mono">{{ source_record.ts if source_record.ts else '—' }}</span>
+  <div class="table-wrap" style="margin-top:0.75rem;">
+    <table class="builder-kv">
+      <tbody>
+        <tr><td>Record</td><td><span class="text-mono">{{ source_record.id }}</span> <span class="record-type">{{ source_record.record_type }}</span></td></tr>
+        <tr><td>Timestamp</td><td class="text-mono">{{ source_record.ts if source_record.ts else '—' }}</td></tr>
+        <tr><td>Protocol</td><td class="text-mono">{{ builder_data.flow.proto or '—' }}</td></tr>
+        <tr><td>Source</td><td class="text-mono">{{ builder_data.flow.src_ip or '—' }}:{{ builder_data.flow.src_port or '—' }}</td></tr>
+        <tr><td>Destination</td><td class="text-mono">{{ builder_data.flow.dst_ip or '—' }}:{{ builder_data.flow.dst_port or '—' }}</td></tr>
+        <tr><td>Packets / Stream</td><td class="text-mono">{{ builder_data.flow.packet_count or '—' }} packets, stream {{ builder_data.flow.stream_index or '—' }}</td></tr>
+        <tr><td>Payload Summary</td><td class="text-mono">{{ builder_data.flow.payload_bytes or '—' }} bytes, {{ builder_data.flow.printable_chars or '—' }} printable chars, ratio {{ builder_data.flow.printable_ratio or '—' }}</td></tr>
+        <tr><td>Direction Guess</td><td>{{ builder_data.flow.direction_guess or 'No strong client/server guess was derived from the ports.' }}</td></tr>
+        {% if builder_data.semantic_tags %}
+        <tr><td>Semantic Tags</td><td>{{ builder_data.semantic_tags|join(', ') }}</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
   </div>
-  {% else %}
-  <div class="alert alert-info" style="margin-top:0.75rem;">
-    Tip: start this builder from a network record detail page to carry evidence context into the draft.
+  {% if builder_data.flow.payload_preview %}
+  <div style="margin-top:0.75rem;">
+    <div class="table-title">Printable Payload Preview</div>
+    <pre class="builder-preview">{{ builder_data.flow.payload_preview }}</pre>
   </div>
   {% endif %}
 </div>
 
-{% if source_recommendations and (source_recommendations.recommended or source_recommendations.optional or source_recommendations.avoid) %}
 <div class="card mb-2">
-  <h3>Step 2: Deterministic Field Recommendations</h3>
+  <h3>Step 2: Choose The Detection Strategy</h3>
   <p style="color:var(--text-muted);font-size:0.9rem;">
-    These field rankings use explicit no-AI heuristics to prefer packet-visible, stable anchors and discourage session-specific or tool-generated values.
+    Start with the strategy that best fits the evidence. Behavior rules are usually safest for junior analysts because they avoid brittle one-off IOCs by default.
   </p>
-  <div class="card-grid" style="grid-template-columns:repeat(3, 1fr);">
-    <div class="card">
-      <h3>Recommended</h3>
-      {% if source_recommendations.recommended %}
-      <ul>
-        {% for item in source_recommendations.recommended %}
-        <li><code>{{ item.field }}</code> — {{ item.reason }}</li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <div class="text-muted">No strong packet-visible anchors were identified automatically.</div>
-      {% endif %}
-    </div>
-    <div class="card">
-      <h3>Optional</h3>
-      {% if source_recommendations.optional %}
-      <ul>
-        {% for item in source_recommendations.optional %}
-        <li><code>{{ item.field }}</code> — {{ item.reason }}</li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <div class="text-muted">No optional packet-visible selectors were identified automatically.</div>
-      {% endif %}
-    </div>
-    <div class="card">
-      <h3>Avoid</h3>
-      {% if source_recommendations.avoid %}
-      <ul>
-        {% for item in source_recommendations.avoid %}
-        <li><code>{{ item.field }}</code> — {{ item.reason }}</li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <div class="text-muted">No obvious avoid-only selectors were identified automatically.</div>
-      {% endif %}
-    </div>
+  <div class="builder-chip-grid" style="margin-top:0.75rem;">
+    {% for strategy in builder_data.strategies %}
+    <label class="builder-chip-card">
+      <div class="builder-chip-title">
+        <strong>{{ strategy.label }}</strong>
+        <input type="radio" name="suricata-strategy" value="{{ strategy.id }}" {% if strategy.id == builder_data.default_strategy %}checked{% endif %}>
+      </div>
+      <div class="text-muted" style="margin-top:0.5rem;font-size:0.85rem;">{{ strategy.description }}</div>
+    </label>
+    {% endfor %}
   </div>
 </div>
-{% endif %}
 
 <div class="card mb-2">
-  <h3>Step 3: Choose The Matching Primitive</h3>
-  <ul>
-    <li>Use <code>content</code> for stable ASCII strings in packet payloads.</li>
-    <li>Use HTTP keywords for web requests and headers.</li>
-    <li>Use flow direction and protocol constraints to reduce false positives.</li>
-    <li>Prefer behavior over one-off IOCs when possible.</li>
-  </ul>
+  <h3>Step 3: Select Stable Anchors</h3>
+  <p style="color:var(--text-muted);font-size:0.9rem;">
+    Click the facts you want to carry into the rule. EvidenceLab will place them into the correct Suricata keywords automatically.
+  </p>
+  <div class="builder-chip-grid" style="margin-top:0.75rem;">
+    {% for atom in builder_data.atoms %}
+    <div class="builder-chip-card priority-{{ atom.priority|lower }}">
+      <label>
+        <div class="builder-chip-title">
+          <span class="builder-chip-priority {{ atom.priority|lower }}">{{ atom.priority }}</span>
+          <input
+            type="checkbox"
+            class="suricata-atom"
+            data-id="{{ atom.id }}"
+            data-kind="{{ atom.kind }}"
+            data-value="{{ atom.value }}"
+            data-priority="{{ atom.priority }}"
+            {% if atom.selected %}checked{% endif %}
+          >
+        </div>
+        <div style="margin-top:0.5rem;"><code>{{ atom.label }}</code></div>
+        <div class="text-muted" style="margin-top:0.35rem;font-size:0.84rem;">{{ atom.reason }}</div>
+      </label>
+    </div>
+    {% endfor %}
+  </div>
 </div>
 
-<div class="card">
-  <h3>Step 4: Open A Starter Draft</h3>
-  <pre style="font-size:0.8rem;white-space:pre-wrap;background:var(--bg);padding:0.75rem;border:1px solid var(--border);border-radius:4px;">{{ starter_rule }}</pre>
-  <form method="GET" action="/ui/cases/{{ case_id }}/detection-rules/new" style="margin-top:0.75rem;">
-    <input type="hidden" name="title" value="custom_suricata_detection">
+<div class="card mb-2">
+  <h3>Step 4: Live Rule Preview</h3>
+  <p style="color:var(--text-muted);font-size:0.9rem;">
+    The preview updates as you choose anchors. Junior analysts should focus on selecting stable facts here rather than hand-writing Suricata syntax first.
+  </p>
+  <pre id="suricata-preview" class="builder-preview"></pre>
+  <div class="flex gap-1" style="align-items:center;flex-wrap:wrap;margin-top:0.75rem;">
+    <strong>Draft Quality:</strong>
+    <span id="suricata-quality" class="builder-chip-priority medium">Usable</span>
+    <span id="suricata-quality-note" class="text-muted" style="font-size:0.85rem;"></span>
+  </div>
+  <div style="margin-top:0.75rem;">
+    <div class="table-title">Warnings</div>
+    <ul id="suricata-warnings" class="builder-warning-list text-muted"></ul>
+  </div>
+  <form method="GET" action="/ui/cases/{{ case_id }}/detection-rules/new" style="margin-top:0.75rem;" onsubmit="return syncSuricataDraftFields();">
+    <input id="draft-title" type="hidden" name="title" value="custom_suricata_detection">
     <input type="hidden" name="rule_type" value="suricata">
-    <input type="hidden" name="description" value="Analyst-authored Suricata rule built from network evidence.">
-    <textarea name="rule_content" style="display:none;">{{ starter_rule }}</textarea>
+    <input id="draft-description" type="hidden" name="description" value="Analyst-authored Suricata rule built from network evidence.">
+    <textarea id="draft-rule-content" name="rule_content" style="display:none;"></textarea>
     <button type="submit" class="btn btn-primary">Open Prefilled Suricata Draft</button>
   </form>
 </div>
+
+<div class="table-wrap" style="margin-top:1rem;">
+  <div class="table-title">Raw Data (JSON)</div>
+  <div class="json-viewer" style="padding:1rem;">
+    <pre><code>{{ source_raw_json }}</code></pre>
+  </div>
+</div>
+
+<script>
+const SURICATA_BUILDER = {{ builder_data|tojson }};
+
+function getSelectedStrategy() {
+  const checked = document.querySelector('input[name="suricata-strategy"]:checked');
+  return checked ? checked.value : (SURICATA_BUILDER.default_strategy || 'behavior');
+}
+
+function resetStrategyDefaults() {
+  const strategy = getSelectedStrategy();
+  document.querySelectorAll('.suricata-atom').forEach(cb => {
+    const kind = cb.dataset.kind;
+    const priority = cb.dataset.priority;
+    let selected = false;
+    if (kind === 'proto') selected = true;
+    if (kind === 'flow' && strategy !== 'ioc') selected = true;
+    if ((kind === 'src_port' || kind === 'dst_port') && priority !== 'Low' && strategy !== 'ioc') selected = true;
+    if (kind === 'content' && priority === 'High' && strategy !== 'ioc') selected = true;
+    if ((kind === 'src_ip' || kind === 'dst_ip') && strategy === 'ioc') selected = true;
+    cb.checked = selected;
+  });
+  renderSuricataPreview();
+}
+
+function escapeSuricataContent(value) {
+  return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function buildSuricataDraft() {
+  const flow = SURICATA_BUILDER.flow || {};
+  const strategy = getSelectedStrategy();
+  const selected = Array.from(document.querySelectorAll('.suricata-atom:checked')).map(cb => ({
+    kind: cb.dataset.kind,
+    value: cb.dataset.value,
+    priority: cb.dataset.priority,
+  }));
+
+  const selectedByKind = kind => selected.filter(item => item.kind === kind).map(item => item.value);
+  const proto = selectedByKind('proto')[0] || flow.proto || 'tcp';
+  let srcNet = 'any';
+  let dstNet = 'any';
+  let srcPort = 'any';
+  let dstPort = 'any';
+  const direction = '->';
+
+  const srcPorts = selectedByKind('src_port');
+  const dstPorts = selectedByKind('dst_port');
+  const srcIps = selectedByKind('src_ip');
+  const dstIps = selectedByKind('dst_ip');
+  const contents = selectedByKind('content');
+  const flowBits = selectedByKind('flow');
+
+  if (srcPorts.length) srcPort = srcPorts[0];
+  if (dstPorts.length) dstPort = dstPorts[0];
+  if (strategy === 'ioc') {
+    if (srcIps.length) srcNet = srcIps[0];
+    if (dstIps.length) dstNet = dstIps[0];
+  }
+
+  const tags = SURICATA_BUILDER.semantic_tags || [];
+  let msg = 'EvidenceLab analyst-authored detection';
+  let classtype = 'trojan-activity';
+  if (strategy === 'behavior' && tags.includes('anti-forensics')) {
+    msg = flow.service_name
+      ? `Possible suspicious shell activity in ${flow.service_name} session`
+      : 'Possible suspicious shell activity in network stream';
+  } else if (strategy === 'behavior' && tags.includes('persistence')) {
+    msg = flow.service_name
+      ? `Suspicious persistence commands in ${flow.service_name} session`
+      : 'Suspicious persistence command sequence in network stream';
+  } else if (strategy === 'service') {
+    msg = flow.service_name
+      ? `Suspicious content in ${flow.service_name} traffic`
+      : `Suspicious content in ${proto.toUpperCase()} traffic`;
+  } else if (strategy === 'ioc') {
+    msg = 'IOC-style network detection from case evidence';
+    classtype = 'bad-unknown';
+  }
+
+  const lines = [];
+  lines.push(`alert ${proto} ${srcNet} ${srcPort} ${direction} ${dstNet} ${dstPort} (`);
+  lines.push(`    msg:"${escapeSuricataContent(msg)}";`);
+  if (flowBits.includes('established')) {
+    lines.push('    flow:established;');
+  }
+  contents.forEach(value => {
+    lines.push(`    content:"${escapeSuricataContent(value)}";`);
+  });
+  lines.push(`    classtype:${classtype};`);
+  lines.push('    sid:9100001;');
+  lines.push('    rev:1;');
+  lines.push(')');
+
+  const warnings = [];
+  let score = 0;
+  if (contents.length === 0 && strategy !== 'ioc') {
+    warnings.push('Behavior and service-focused rules should usually include at least one stable content string.');
+    score -= 3;
+  }
+  selected.forEach(item => {
+    if (item.priority === 'High') score += 3;
+    if (item.priority === 'Medium') score += 1;
+    if (item.priority === 'Low') score -= 2;
+    if ((item.kind === 'src_ip' || item.kind === 'dst_ip') && strategy !== 'ioc') {
+      warnings.push(`${item.kind} is selected outside IOC mode. Literal IPs are usually brittle for durable behavior rules.`);
+      score -= 2;
+    }
+    if ((item.kind === 'src_port' || item.kind === 'dst_port') && Number(item.value) >= 1024) {
+      warnings.push(`${item.kind}:${item.value} looks ephemeral. High client ports are usually weak anchors.`);
+      score -= 2;
+    }
+    if (item.kind === 'content' && String(item.value).length < 4) {
+      warnings.push(`content:"${item.value}" is very short and may overmatch benign traffic.`);
+      score -= 2;
+    }
+  });
+
+  const uniqueContents = new Set(contents);
+  if (uniqueContents.size !== contents.length) {
+    warnings.push('Duplicate content terms were selected. Remove duplicates before saving the draft.');
+    score -= 1;
+  }
+
+  let quality = 'Usable';
+  let qualityClass = 'medium';
+  let qualityNote = 'Balanced starting point. Review the warnings before opening the draft.';
+  if (score >= 6) {
+    quality = 'Strong';
+    qualityClass = 'high';
+    qualityNote = 'The current draft uses multiple stable anchors and looks like a solid first-pass detection.';
+  } else if (score <= -1) {
+    quality = 'Fragile';
+    qualityClass = 'low';
+    qualityNote = 'This draft may be too brittle or too generic. Remove low-priority anchors and prefer distinctive content.';
+  }
+  if (strategy === 'ioc' && (srcIps.length || dstIps.length) && contents.length === 0) {
+    quality = 'Overfit';
+    qualityClass = 'low';
+    qualityNote = 'Pure IOC rules are fast to build, but they rarely generalize to similar behavior.';
+  }
+
+  return {
+    rule: lines.join('\n'),
+    title: msg.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 80) || 'custom_suricata_detection',
+    description: `Analyst-authored Suricata ${strategy} rule built from record {{ source_record.id }}.`,
+    warnings,
+    quality,
+    qualityClass,
+    qualityNote,
+  };
+}
+
+function renderSuricataPreview() {
+  const draft = buildSuricataDraft();
+  document.getElementById('suricata-preview').textContent = draft.rule;
+  document.getElementById('suricata-quality').textContent = draft.quality;
+  document.getElementById('suricata-quality').className = `builder-chip-priority ${draft.qualityClass}`;
+  document.getElementById('suricata-quality-note').textContent = draft.qualityNote;
+  const warningsEl = document.getElementById('suricata-warnings');
+  warningsEl.innerHTML = draft.warnings.length
+    ? draft.warnings.map(w => `<li>${w}</li>`).join('')
+    : '<li>No obvious guardrail warnings for the current selection.</li>';
+  document.getElementById('draft-title').value = draft.title;
+  document.getElementById('draft-description').value = draft.description;
+  document.getElementById('draft-rule-content').value = draft.rule;
+}
+
+function syncSuricataDraftFields() {
+  renderSuricataPreview();
+  return true;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('input[name="suricata-strategy"]').forEach(radio => {
+    radio.addEventListener('change', resetStrategyDefaults);
+  });
+  document.querySelectorAll('.suricata-atom').forEach(cb => {
+    cb.addEventListener('change', renderSuricataPreview);
+  });
+  resetStrategyDefaults();
+});
+</script>
+
+{% endif %}
 {% endblock %}

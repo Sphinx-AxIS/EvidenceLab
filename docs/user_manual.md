@@ -457,6 +457,8 @@ EvidenceLab also supports a guided, no-AI authoring workflow:
 5. Review the deterministic field recommendations again inside the builder.
 6. Open the prefilled draft and refine it before saving or deploying.
 
+When using the Suricata builder, the page keeps the full source record JSON visible and adds a guided no-AI workflow: review the normalized flow, choose a detection strategy, select High/Medium/Low candidate atoms, and watch the Suricata rule preview update automatically.
+
 This workflow is designed to help junior analysts build detections without requiring AI assistance.
 
 ### Reviewing a Rule

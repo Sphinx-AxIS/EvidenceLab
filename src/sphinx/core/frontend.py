@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -373,6 +374,276 @@ def _record_interpretation(record_type: str, raw: dict[str, Any] | None) -> str:
     if record_type.startswith(("suricata_", "zeek_", "tshark_")):
         return "Network-derived records should be reviewed for packet-visible behavior before writing a Suricata signature."
     return "Inspect the key fields and case context to decide whether this record represents stable, repeatable behavior worth detecting."
+
+
+_SERVICE_PORT_NAMES = {
+    "20": "FTP data",
+    "21": "FTP control",
+    "22": "SSH",
+    "25": "SMTP",
+    "53": "DNS",
+    "80": "HTTP",
+    "110": "POP3",
+    "143": "IMAP",
+    "443": "HTTPS",
+    "445": "SMB",
+    "3389": "RDP",
+}
+
+_SURICATA_CONTENT_PATTERNS = [
+    (re.compile(r"unset\s+histfile", re.IGNORECASE), "unset HISTFILE", "High", "Good anchor. Uncommon in normal application traffic and strongly associated with anti-forensics in shell activity.", "anti-forensics"),
+    (re.compile(r"crontab\s+-l", re.IGNORECASE), "crontab -l", "High", "Good anchor. Indicates persistence discovery or manipulation rather than normal application protocol content.", "persistence"),
+    (re.compile(r"sed\s+-i", re.IGNORECASE), "sed -i", "Medium", "Useful tampering indicator, but it is more common than the strongest shell artifacts.", "log-tampering"),
+    (re.compile(r"wget\b", re.IGNORECASE), "wget", "Medium", "Command download activity can be useful, but often needs a second anchor.", "shell-activity"),
+    (re.compile(r"curl\b", re.IGNORECASE), "curl", "Medium", "Command download activity can be useful, but often needs a second anchor.", "shell-activity"),
+    (re.compile(r"chmod\b", re.IGNORECASE), "chmod", "Medium", "Permission changes may be suspicious, but they usually need another confirming string.", "shell-activity"),
+    (re.compile(r"\bid\b", re.IGNORECASE), "id", "Low", "Too short and too common to stand alone as a durable content match.", "shell-activity"),
+    (re.compile(r"^\s*w\s*$", re.IGNORECASE), "w", "Low", "Too short and too generic for a durable content-based signature.", "shell-activity"),
+]
+
+
+def _to_int_port(value: Any) -> int | None:
+    try:
+        port = int(str(value))
+    except Exception:
+        return None
+    return port if 0 < port <= 65535 else None
+
+
+def _normalize_payload_line(text: str) -> str:
+    return " ".join(text.replace("\t", " ").split()).strip()
+
+
+def _extract_suricata_content_candidates(payload_text: str) -> tuple[list[dict[str, str]], list[str]]:
+    candidates: list[dict[str, str]] = []
+    semantic_tags: list[str] = []
+    seen_values: set[str] = set()
+
+    normalized_lines = [
+        _normalize_payload_line(part)
+        for part in re.split(r"[\r\n]+", payload_text)
+        if _normalize_payload_line(part)
+    ]
+
+    for line in normalized_lines:
+        for pattern, normalized_value, priority, reason, semantic_tag in _SURICATA_CONTENT_PATTERNS:
+            if not pattern.search(line):
+                continue
+            if normalized_value in seen_values:
+                continue
+            seen_values.add(normalized_value)
+            candidates.append({
+                "id": f"content_{re.sub(r'[^a-z0-9]+', '_', normalized_value.lower()).strip('_')}",
+                "kind": "content",
+                "label": f'content:"{normalized_value}"',
+                "value": normalized_value,
+                "priority": priority,
+                "reason": reason,
+                "selected": priority == "High",
+            })
+            if semantic_tag not in semantic_tags:
+                semantic_tags.append(semantic_tag)
+
+    if not candidates:
+        for line in normalized_lines[:6]:
+            if len(line) < 4:
+                continue
+            priority = "Low" if len(line) < 8 else "Medium"
+            reason = (
+                "This string may help, but verify that it is stable and not too session-specific before using it."
+                if priority == "Medium"
+                else "This string is short and may be too generic for a durable rule."
+            )
+            if line in seen_values:
+                continue
+            seen_values.add(line)
+            candidates.append({
+                "id": f"content_{re.sub(r'[^a-z0-9]+', '_', line.lower()).strip('_')[:40]}",
+                "kind": "content",
+                "label": f'content:"{line}"',
+                "value": line,
+                "priority": priority,
+                "reason": reason,
+                "selected": priority == "Medium",
+            })
+
+    return candidates[:8], semantic_tags
+
+
+def _build_suricata_builder_data(source_record: dict[str, Any] | None) -> dict[str, Any]:
+    if not source_record or not isinstance(source_record.get("raw"), dict):
+        return {
+            "flow": {},
+            "strategies": [],
+            "atoms": [],
+            "semantic_tags": [],
+            "default_strategy": "behavior",
+        }
+
+    raw = source_record["raw"]
+    proto = str(raw.get("proto") or "tcp").lower()
+    src_ip = str(raw.get("src_ip") or "")
+    dst_ip = str(raw.get("dst_ip") or "")
+    src_port = str(raw.get("src_port") or "")
+    dst_port = str(raw.get("dst_port") or "")
+    payload_text = ""
+    for key in ("payload_printable", "ascii_printable", "stream_text", "payload", "data"):
+        value = raw.get(key)
+        if isinstance(value, str) and value.strip():
+            payload_text = value
+            break
+
+    src_port_num = _to_int_port(src_port)
+    dst_port_num = _to_int_port(dst_port)
+    src_service_name = _SERVICE_PORT_NAMES.get(src_port)
+    dst_service_name = _SERVICE_PORT_NAMES.get(dst_port)
+
+    direction_guess = ""
+    service_port_role = ""
+    service_port_value = ""
+    service_name = ""
+    if src_service_name and (dst_port_num is None or dst_port_num >= 1024):
+        direction_guess = f"Likely server response from {src_service_name} on source port {src_port} to a high client port."
+        service_port_role = "src"
+        service_port_value = src_port
+        service_name = src_service_name
+    elif dst_service_name and (src_port_num is None or src_port_num >= 1024):
+        direction_guess = f"Likely client request to {dst_service_name} on destination port {dst_port}."
+        service_port_role = "dst"
+        service_port_value = dst_port
+        service_name = dst_service_name
+    elif src_service_name:
+        direction_guess = f"Source port {src_port} maps to {src_service_name}. Confirm direction before using it."
+        service_port_role = "src"
+        service_port_value = src_port
+        service_name = src_service_name
+    elif dst_service_name:
+        direction_guess = f"Destination port {dst_port} maps to {dst_service_name}. Confirm direction before using it."
+        service_port_role = "dst"
+        service_port_value = dst_port
+        service_name = dst_service_name
+
+    content_candidates, semantic_tags = _extract_suricata_content_candidates(payload_text)
+    if payload_text and "shell-activity" not in semantic_tags:
+        semantic_tags.append("shell-activity")
+
+    atoms: list[dict[str, Any]] = [
+        {
+            "id": f"proto_{proto}",
+            "kind": "proto",
+            "label": f"protocol:{proto}",
+            "value": proto,
+            "priority": "Medium",
+            "reason": "Protocol belongs in the Suricata header and helps scope the rule correctly.",
+            "selected": True,
+        },
+        {
+            "id": "flow_established",
+            "kind": "flow",
+            "label": "flow:established",
+            "value": "established",
+            "priority": "Medium",
+            "reason": "Established-flow matching usually reduces false positives for stream-based packet rules.",
+            "selected": True,
+        },
+    ]
+
+    if service_port_value:
+        atoms.append({
+            "id": f"{service_port_role}_port_{service_port_value}",
+            "kind": f"{service_port_role}_port",
+            "label": f"{service_port_role}_port:{service_port_value}",
+            "value": service_port_value,
+            "priority": "Medium",
+            "reason": f"Useful service context. {service_name} is often more stable than an ephemeral peer port.",
+            "selected": True,
+        })
+
+    if src_port and src_port != service_port_value:
+        atoms.append({
+            "id": f"src_port_{src_port}",
+            "kind": "src_port",
+            "label": f"src_port:{src_port}",
+            "value": src_port,
+            "priority": "Low" if (src_port_num and src_port_num >= 1024) else "Medium",
+            "reason": "Use only if this port is stable across sessions. Ephemeral ports are weak anchors.",
+            "selected": False,
+        })
+    if dst_port and dst_port != service_port_value:
+        atoms.append({
+            "id": f"dst_port_{dst_port}",
+            "kind": "dst_port",
+            "label": f"dst_port:{dst_port}",
+            "value": dst_port,
+            "priority": "Low" if (dst_port_num and dst_port_num >= 1024) else "Medium",
+            "reason": "Use only if this port is stable across sessions. High client ports are usually too brittle.",
+            "selected": False,
+        })
+
+    if src_ip:
+        atoms.append({
+            "id": "src_ip",
+            "kind": "src_ip",
+            "label": f"src_ip:{src_ip}",
+            "value": src_ip,
+            "priority": "Low",
+            "reason": "Use only for IOC-style detections. A literal IP usually does not generalize to similar behavior.",
+            "selected": False,
+        })
+    if dst_ip:
+        atoms.append({
+            "id": "dst_ip",
+            "kind": "dst_ip",
+            "label": f"dst_ip:{dst_ip}",
+            "value": dst_ip,
+            "priority": "Low",
+            "reason": "Use only for IOC-style detections. Literal peer IPs are often brittle and environment-specific.",
+            "selected": False,
+        })
+
+    atoms.extend(content_candidates)
+
+    flow = {
+        "proto": proto,
+        "src_ip": src_ip,
+        "src_port": src_port,
+        "dst_ip": dst_ip,
+        "dst_port": dst_port,
+        "packet_count": raw.get("packet_count", ""),
+        "stream_index": raw.get("stream_index", ""),
+        "payload_bytes": raw.get("payload_bytes", ""),
+        "printable_chars": raw.get("printable_chars", ""),
+        "printable_ratio": raw.get("printable_ratio", ""),
+        "payload_preview": payload_text[:320],
+        "service_name": service_name,
+        "direction_guess": direction_guess,
+        "service_port_role": service_port_role,
+        "service_port_value": service_port_value,
+    }
+
+    return {
+        "flow": flow,
+        "strategies": [
+            {
+                "id": "behavior",
+                "label": "Behavior rule",
+                "description": "Best default. Focus on suspicious command content and stable service context.",
+            },
+            {
+                "id": "service",
+                "label": "Service-specific rule",
+                "description": "Useful when the port or protocol context is a stable part of the detection.",
+            },
+            {
+                "id": "ioc",
+                "label": "IOC rule",
+                "description": "Fast but brittle. Use only when you intentionally want exact IP-based matching.",
+            },
+        ],
+        "atoms": atoms,
+        "semantic_tags": semantic_tags,
+        "default_strategy": "behavior",
+    }
 
 
 # ── Auth pages ──────────────────────────────────────
@@ -2717,6 +2988,14 @@ async def detection_rule_builder_suricata(request: Request, case_id: str, record
 
     source_record = None
     source_recommendations = None
+    source_raw_json = "{}"
+    builder_data = {
+        "flow": {},
+        "strategies": [],
+        "atoms": [],
+        "semantic_tags": [],
+        "default_strategy": "behavior",
+    }
     if record_id:
         with get_cursor() as cur:
             cur.execute(
@@ -2726,39 +3005,15 @@ async def detection_rule_builder_suricata(request: Request, case_id: str, record
             source_record = cur.fetchone()
         if source_record:
             source_recommendations = build_rule_recommendations(case_id, source_record["record_type"], source_record.get("raw"))
-
-    if source_record and source_record["record_type"].startswith("tshark_"):
-        raw = source_record.get("raw") or {}
-        content = ""
-        if isinstance(raw, dict):
-            for key in ("ascii_printable", "payload", "stream_text", "data"):
-                value = raw.get(key)
-                if isinstance(value, str) and value.strip():
-                    content = value.strip()
-                    break
-        if len(content) > 120:
-            content = content[:117] + "..."
-    else:
-        content = ""
-
-    cleaned_content = content.replace('"', "") if content else ""
-
-    starter_rule = "\n".join([
-        "alert http $HOME_NET any -> $EXTERNAL_NET any (",
-        '  msg:"EvidenceLab analyst-authored detection";',
-        '  flow:established,to_server;',
-        f'  content:"{cleaned_content}";' if cleaned_content else '  content:"replace-me";',
-        "  classtype:trojan-activity;",
-        "  sid:9100001;",
-        "  rev:1;",
-        ")",
-    ])
+            source_raw_json = json.dumps(source_record.get("raw") or {}, indent=2, default=str)
+            builder_data = _build_suricata_builder_data(source_record)
 
     return templates.TemplateResponse(request, "detection_rule_builder_suricata.html", _ctx(
         request, user, "detection_rules", case_id=case_id,
         source_record=source_record,
         source_recommendations=source_recommendations,
-        starter_rule=starter_rule,
+        source_raw_json=source_raw_json,
+        builder_data=builder_data,
     ))
 
 
