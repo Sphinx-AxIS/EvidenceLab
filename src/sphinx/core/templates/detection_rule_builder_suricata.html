@@ -212,11 +212,23 @@ function resetStrategyDefaults() {
   document.querySelectorAll('.suricata-atom').forEach(cb => {
     const kind = cb.dataset.kind;
     const priority = cb.dataset.priority;
+    const singlePacket = cb.dataset.singlePacket === 'true';
+    const literalFallbackValue = cb.dataset.literalFallbackValue || '';
     let selected = false;
     if (kind === 'proto') selected = true;
-    if (kind === 'flow' && strategy !== 'ioc') selected = true;
-    if ((kind === 'src_port' || kind === 'dst_port') && priority !== 'Low' && strategy !== 'ioc') selected = true;
-    if (kind === 'content' && priority === 'High' && strategy !== 'ioc') selected = true;
+    if (kind === 'flow' && strategy !== 'ioc') {
+      selected = false;
+    }
+    if ((kind === 'src_port' || kind === 'dst_port') && strategy !== 'ioc') {
+      selected = false;
+    }
+    if (kind === 'content' && strategy !== 'ioc') {
+      if (priority === 'High' && (singlePacket || literalFallbackValue)) {
+        selected = true;
+      } else {
+        selected = false;
+      }
+    }
     if ((kind === 'src_ip' || kind === 'dst_ip') && strategy === 'ioc') selected = true;
     cb.checked = selected;
   });
