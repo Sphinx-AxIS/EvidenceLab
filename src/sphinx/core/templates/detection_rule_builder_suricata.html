@@ -10,7 +10,7 @@
   <li><strong>Candidate Detection Atoms</strong> show High, Medium, and Low options that can be added to the draft with a click.</li>
   <li><strong>Live Rule Preview</strong> renders the selected facts into Suricata syntax automatically.</li>
   <li><strong>Warnings</strong> call out brittle choices such as exact IPs in behavior mode or content strings that are too short.</li>
-  <li><strong>Raw Data (JSON)</strong> keeps the full source record visible while you refine the rule.</li>
+  <li><strong>Raw Data (JSON)</strong> and payload previews are rendered as escaped literal text so hostile evidence content cannot break the page layout.</li>
 </ul>
 {% endblock %}
 
@@ -73,7 +73,7 @@
   {% if builder_data.flow.payload_preview %}
   <div style="margin-top:0.75rem;">
     <div class="table-title">Printable Payload Preview</div>
-    <pre class="builder-preview">{{ builder_data.flow.payload_preview }}</pre>
+    <pre class="builder-preview">{{ builder_data.flow.payload_preview|forceescape }}</pre>
   </div>
   {% endif %}
 </div>
@@ -152,7 +152,7 @@
 <div class="table-wrap" style="margin-top:1rem;">
   <div class="table-title">Raw Data (JSON)</div>
   <div class="json-viewer" style="padding:1rem;">
-    <pre><code>{{ source_raw_json }}</code></pre>
+    <pre><code>{{ source_raw_json|forceescape }}</code></pre>
   </div>
 </div>
 

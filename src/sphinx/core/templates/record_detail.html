@@ -128,7 +128,7 @@
 <div class="table-wrap">
   <div class="table-title">Raw Data (JSON)</div>
   <div class="json-viewer" style="padding:1rem;">
-    <pre><code>{{ raw_json }}</code></pre>
+    <pre><code>{{ raw_json|forceescape }}</code></pre>
   </div>
 </div>
 {% endblock %}

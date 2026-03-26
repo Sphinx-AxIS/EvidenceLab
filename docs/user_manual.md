@@ -200,7 +200,7 @@ Click **Detail** on any record to view its full contents:
 - **Detection Context** — A merged table showing signature priority, type, field, value, context metric, and reason for candidate rule anchors.
 - **Extracted Entities** — Any IOCs (IP addresses, domains, hashes, emails, URLs, usernames) automatically extracted from this record.
 - Entity extraction is heuristic. The platform filters common false positives such as browser version strings and time-only values where possible.
-- **Raw Data** — The complete JSON data for the record, displayed in a formatted viewer.
+- **Raw Data** — The complete JSON data for the record, displayed in a formatted viewer as literal escaped text.
 
 If the record is a Windows event, the detail page includes a **Build Sigma Rule From Event** button that pivots directly into the guided Sigma authoring flow.
 That button appears alongside summary context so the analyst can make the decision with more confidence.
@@ -457,7 +457,7 @@ EvidenceLab also supports a guided, no-AI authoring workflow:
 5. Review the deterministic field recommendations again inside the builder.
 6. Open the prefilled draft and refine it before saving or deploying.
 
-When using the Suricata builder, the page keeps the full source record JSON visible and adds a guided no-AI workflow: review the normalized flow, choose a detection strategy, select High/Medium/Low candidate atoms, and watch the Suricata rule preview update automatically.
+When using the Suricata builder, the page keeps the full source record JSON visible and adds a guided no-AI workflow: review the normalized flow, choose a detection strategy, select High/Medium/Low candidate atoms, and watch the Suricata rule preview update automatically. Payload previews and JSON panes are rendered as escaped literal text so evidence content cannot be interpreted as page markup.
 
 This workflow is designed to help junior analysts build detections without requiring AI assistance.
 
