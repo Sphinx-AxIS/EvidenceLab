@@ -275,7 +275,7 @@ def _record_context_counts(case_id: str, record_type: str, raw: dict[str, Any] |
             "SELECT count(*) AS n FROM records WHERE case_id = %s AND record_type = %s",
             (case_id, record_type),
         )
-        counts.append({"label": "Records of this type in case", "value": str(cur.fetchone()["n"])})
+        counts.append({"label": f"Records of type: {record_type}", "value": str(cur.fetchone()["n"])})
 
         if record_type.startswith("win_evt_"):
             channel = raw.get("Channel")
