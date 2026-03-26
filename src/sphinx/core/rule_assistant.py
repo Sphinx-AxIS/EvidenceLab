@@ -210,11 +210,12 @@ def _recommend_windows(case_id: str, record_type: str, raw: dict[str, Any]) -> d
     for key, raw_value in event_data.items():
         if not isinstance(raw_value, str):
             continue
+        match_value = raw_value
         value = raw_value.strip()
         if not value:
             continue
 
-        present_count, exact_count = _windows_field_stats(case_id, record_type, event_id, key, value)
+        present_count, exact_count = _windows_field_stats(case_id, record_type, event_id, key, match_value)
         field_name = f"EventData.{key}"
 
         if key in _WINDOWS_AVOID_KEYS or _is_dynamic_value(value):
@@ -262,11 +263,12 @@ def _recommend_network(case_id: str, record_type: str, raw: dict[str, Any]) -> d
     for key, raw_value in raw.items():
         if not isinstance(raw_value, str):
             continue
+        match_value = raw_value
         value = raw_value.strip()
         if not value:
             continue
 
-        present_count, exact_count = _network_field_stats(case_id, record_type, key, value)
+        present_count, exact_count = _network_field_stats(case_id, record_type, key, match_value)
 
         if key in _NETWORK_AVOID_KEYS:
             avoid.append(_build_item(key, value, _NETWORK_AVOID_KEYS[key], present_count, exact_count))
