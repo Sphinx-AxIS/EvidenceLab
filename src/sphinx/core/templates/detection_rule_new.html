@@ -13,7 +13,7 @@
   <li>SID range for custom rules: 9100000+.</li>
   <li>You can format the draft across multiple lines in the editor; EvidenceLab normalizes it to a single executable Suricata rule before testing, saving, and deployment.</li>
   <li>You can test a draft Suricata rule against the latest uploaded PCAP for the current case before saving it.</li>
-  <li>If the primary test returns zero matches, EvidenceLab also runs a small set of diagnostic probe variants to help explain whether the miss is caused by header direction, stream-only matching, or the content pattern itself.</li>
+  <li>If the primary test returns zero matches, EvidenceLab also runs a small set of diagnostic probe variants to help explain whether the miss is caused by header direction, source-vs-destination service-port placement, stream-only matching, the content pattern itself, or a broader test-path issue.</li>
 </ul>
 
 <h4>Sigma Rules</h4>

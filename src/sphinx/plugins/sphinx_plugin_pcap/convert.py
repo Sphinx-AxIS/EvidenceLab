@@ -194,6 +194,15 @@ def _replace_header_direction(rule_content: str, direction: str) -> str:
                   rf"\1 \2 {direction} \3 \4 (", rule_content, count=1)
 
 
+def _replace_header(rule_content: str, src_net: str, src_port: str, direction: str, dst_net: str, dst_port: str) -> str:
+    return re.sub(
+        r"\b(any|\$[A-Z_]+|\[[^\]]+\])\s+([0-9a-zA-Z_\-$\[\],]+)\s+(?:->|<>)\s+(any|\$[A-Z_]+|\[[^\]]+\])\s+([0-9a-zA-Z_\-$\[\],]+)\s+\(",
+        f"{src_net} {src_port} {direction} {dst_net} {dst_port} (",
+        rule_content,
+        count=1,
+    )
+
+
 def _remove_flow_keyword(rule_content: str, keyword: str) -> str:
     pattern = re.compile(rf"\b{re.escape(keyword)}\b,?")
     updated = pattern.sub("", rule_content)
@@ -315,6 +324,25 @@ def _build_suricata_probe_variants(normalized_rule: str) -> list[dict[str, str]]
         "reason": "Checks whether the alert only appears when direction is allowed either way.",
         "rule": _replace_header_direction(normalized_rule, "<>"),
     })
+    probes.append({
+        "label": "Destination port 21",
+        "reason": "Checks whether the service port belongs on the destination side instead of the source side.",
+        "rule": _replace_header(normalized_rule, "any", "any", "->", "any", "21"),
+    })
+    probes.append({
+        "label": "Source port 21",
+        "reason": "Checks whether the service port belongs on the source side instead of the destination side.",
+        "rule": _replace_header(normalized_rule, "any", "21", "->", "any", "any"),
+    })
+    if literal_anchor:
+        broad_probe = _replace_rule_option(normalized_rule, "pcre", f'content:"{literal_anchor}";')
+        broad_probe = _replace_rule_option(broad_probe, "flow", None)
+        broad_probe = _replace_header(broad_probe, "any", "any", "<>", "any", "any")
+        probes.append({
+            "label": f'Broad any-any literal "{literal_anchor}"',
+            "reason": "Checks whether Suricata can see the core token anywhere in the PCAP without header or flow constraints.",
+            "rule": broad_probe,
+        })
     return probes
 
 
@@ -346,7 +374,7 @@ def test_suricata_rule(
     probes = []
     if base_result.get("match_count", 0) == 0:
         from sphinx.core.sig_generator import normalize_suricata_rule
-        for probe in _build_suricata_probe_variants(normalized_rule)[:5]:
+        for probe in _build_suricata_probe_variants(normalized_rule):
             probe_rule = normalize_suricata_rule(probe["rule"])
             probe_result = _run_suricata_rule_test_once(pcap, probe_rule, home_net=home_net)
             probes.append({
