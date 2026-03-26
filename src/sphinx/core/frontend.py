@@ -560,6 +560,29 @@ def _content_atom_provenance(value: str, payload_text: str, frame_payloads: list
     }
 
 
+def _single_packet_literal_fallback(value: str, frame_payloads: list[dict[str, Any]]) -> dict[str, str]:
+    tokens = [
+        token for token in re.split(r"[^A-Za-z0-9_./-]+", value)
+        if len(token) >= 6
+    ]
+    if not tokens:
+        return {"value": "", "label": "", "reason_suffix": ""}
+
+    # Prefer the longest token that was seen wholly inside one payload-bearing frame.
+    prioritized = sorted(tokens, key=len, reverse=True)
+    for token in prioritized:
+        token_lower = token.lower()
+        for frame in frame_payloads:
+            frame_payload = _normalize_payload_line(str(frame.get("payload_printable") or "")).lower()
+            if token_lower and frame_payload and token_lower in frame_payload:
+                return {
+                    "value": token,
+                    "label": f'content:"{token}"',
+                    "reason_suffix": f' Recommended preview prefers the packet-scoped literal "{token}" because it was seen wholly inside one payload-bearing frame.',
+                }
+    return {"value": "", "label": "", "reason_suffix": ""}
+
+
 def _extract_suricata_content_candidates(payload_text: str, frame_payloads: list[dict[str, Any]] | None = None) -> tuple[list[dict[str, str]], list[str]]:
     candidates: list[dict[str, str]] = []
     semantic_tags: list[str] = []
@@ -592,8 +615,16 @@ def _extract_suricata_content_candidates(payload_text: str, frame_payloads: list
                 "service_port_role": provenance["service_port_role"],
                 "service_port_value": provenance["service_port_value"],
                 "direction_hint": provenance["direction_hint"],
+                "literal_fallback_value": "",
+                "literal_fallback_label": "",
                 "selected": priority == "High",
             })
+            if not provenance["single_packet"]:
+                fallback = _single_packet_literal_fallback(normalized_value, frame_payloads)
+                if fallback["value"]:
+                    candidates[-1]["literal_fallback_value"] = fallback["value"]
+                    candidates[-1]["literal_fallback_label"] = fallback["label"]
+                    candidates[-1]["reason"] += fallback["reason_suffix"]
             if semantic_tag not in semantic_tags:
                 semantic_tags.append(semantic_tag)
 
@@ -623,8 +654,16 @@ def _extract_suricata_content_candidates(payload_text: str, frame_payloads: list
                 "service_port_role": provenance["service_port_role"],
                 "service_port_value": provenance["service_port_value"],
                 "direction_hint": provenance["direction_hint"],
+                "literal_fallback_value": "",
+                "literal_fallback_label": "",
                 "selected": priority == "Medium",
             })
+            if not provenance["single_packet"]:
+                fallback = _single_packet_literal_fallback(line, frame_payloads)
+                if fallback["value"]:
+                    candidates[-1]["literal_fallback_value"] = fallback["value"]
+                    candidates[-1]["literal_fallback_label"] = fallback["label"]
+                    candidates[-1]["reason"] += fallback["reason_suffix"]
 
     return candidates[:8], semantic_tags
 

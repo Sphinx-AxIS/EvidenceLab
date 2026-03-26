@@ -124,6 +124,8 @@
             data-service-role="{{ atom.service_port_role or '' }}"
             data-service-port="{{ atom.service_port_value or '' }}"
             data-direction-hint="{{ atom.direction_hint or '' }}"
+            data-literal-fallback-value="{{ atom.literal_fallback_value or '' }}"
+            data-literal-fallback-label="{{ atom.literal_fallback_label or '' }}"
             {% if atom.selected %}checked{% endif %}
           >
         </div>
@@ -257,6 +259,8 @@ function buildSuricataDraft() {
     serviceRole: cb.dataset.serviceRole || '',
     servicePort: cb.dataset.servicePort || '',
     directionHint: cb.dataset.directionHint || '',
+    literalFallbackValue: cb.dataset.literalFallbackValue || '',
+    literalFallbackLabel: cb.dataset.literalFallbackLabel || '',
   }));
 
   const selectedByKind = kind => selected.filter(item => item.kind === kind).map(item => item.value);
@@ -362,8 +366,12 @@ function buildSuricataDraft() {
   }
   contentItems.forEach(item => {
     if (matchStyle === 'recommended' && !item.singlePacket) {
-      const pattern = buildResilientPcre(item.value);
-      lines.push(`    pcre:"/${pattern}/si";`);
+      if (item.literalFallbackValue) {
+        lines.push(`    content:"${escapeSuricataContent(item.literalFallbackValue)}";`);
+      } else {
+        const pattern = buildResilientPcre(item.value);
+        lines.push(`    pcre:"/${pattern}/si";`);
+      }
     } else {
       lines.push(`    content:"${escapeSuricataContent(item.value)}";`);
     }
@@ -397,7 +405,11 @@ function buildSuricataDraft() {
     }
     if (item.kind === 'content' && !item.singlePacket) {
       if (matchStyle === 'recommended') {
-        warnings.push(`content:"${item.value}" requires stream reassembly, so the preview converted it to a resilient PCRE pattern and added stream-aware flow flags.`);
+        if (item.literalFallbackValue) {
+          warnings.push(`content:"${item.value}" requires reassembly, so the preview switched to the packet-scoped literal ${item.literalFallbackLabel} instead of relying on the broader phrase.`);
+        } else {
+          warnings.push(`content:"${item.value}" requires stream reassembly, so the preview converted it to a resilient PCRE pattern and added stream-aware flow flags.`);
+        }
       } else {
         warnings.push(`content:"${item.value}" was only confirmed after stream reassembly. Literal content matching may miss it if packet boundaries change.`);
       }
