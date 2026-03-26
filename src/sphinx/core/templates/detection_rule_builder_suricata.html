@@ -10,6 +10,7 @@
   <li><strong>Content Match Style</strong> lets the analyst keep simple literal content matches or switch to resilient PCRE when stream reassembly matters.</li>
   <li><strong>Candidate Detection Atoms</strong> show High, Medium, and Low options that can be added to the draft with a click.</li>
   <li><strong>Frame Provenance</strong> shows whether a candidate string was seen inside one frame or only after stream reassembly.</li>
+  <li><strong>Anchor-Aware Direction</strong> uses the selected content anchor's actual frame provenance to decide whether the draft should point <code>to_server</code> or <code>to_client</code> when possible.</li>
   <li><strong>Live Rule Preview</strong> renders the selected facts into Suricata syntax automatically.</li>
   <li><strong>Warnings</strong> call out brittle choices such as exact IPs in behavior mode or content strings that are too short.</li>
   <li><strong>Raw Data (JSON)</strong> and payload previews are rendered as escaped literal text so hostile evidence content cannot break the page layout.</li>
@@ -119,6 +120,9 @@
             data-priority="{{ atom.priority }}"
             data-single-packet="{{ 'true' if atom.single_packet else 'false' }}"
             data-provenance="{{ atom.provenance or '' }}"
+            data-service-role="{{ atom.service_port_role or '' }}"
+            data-service-port="{{ atom.service_port_value or '' }}"
+            data-direction-hint="{{ atom.direction_hint or '' }}"
             {% if atom.selected %}checked{% endif %}
           >
         </div>
@@ -249,6 +253,9 @@ function buildSuricataDraft() {
     priority: cb.dataset.priority,
     singlePacket: cb.dataset.singlePacket === 'true',
     provenance: cb.dataset.provenance || '',
+    serviceRole: cb.dataset.serviceRole || '',
+    servicePort: cb.dataset.servicePort || '',
+    directionHint: cb.dataset.directionHint || '',
   }));
 
   const selectedByKind = kind => selected.filter(item => item.kind === kind).map(item => item.value);
@@ -266,6 +273,13 @@ function buildSuricataDraft() {
   const contentItems = selected.filter(item => item.kind === 'content');
   const flowBits = selectedByKind('flow');
   const hasReassemblyContent = contentItems.some(item => !item.singlePacket);
+  const contentDirectionHints = contentItems
+    .map(item => ({
+      serviceRole: item.serviceRole,
+      servicePort: item.servicePort,
+      directionHint: item.directionHint,
+    }))
+    .filter(item => item.serviceRole || item.servicePort || item.directionHint);
 
   if (srcPorts.length) {
     if (strategy === 'ioc' || !isEphemeralPort(srcPorts[0])) {
@@ -280,6 +294,26 @@ function buildSuricataDraft() {
   if (strategy === 'ioc') {
     if (srcIps.length) srcNet = srcIps[0];
     if (dstIps.length) dstNet = dstIps[0];
+  }
+
+  let effectiveServiceRole = flow.service_port_role || '';
+  let effectiveServicePort = flow.service_port_value || '';
+  let effectiveDirectionHint = '';
+  if (contentDirectionHints.length) {
+    const preferred = contentDirectionHints.find(item => item.serviceRole && item.servicePort) || contentDirectionHints[0];
+    effectiveServiceRole = preferred.serviceRole || effectiveServiceRole;
+    effectiveServicePort = preferred.servicePort || effectiveServicePort;
+    effectiveDirectionHint = preferred.directionHint || '';
+  }
+
+  if (strategy !== 'ioc' && effectiveServicePort) {
+    if (effectiveServiceRole === 'src') {
+      srcPort = effectiveServicePort;
+      dstPort = 'any';
+    } else if (effectiveServiceRole === 'dst') {
+      srcPort = 'any';
+      dstPort = effectiveServicePort;
+    }
   }
 
   const tags = SURICATA_BUILDER.semantic_tags || [];
@@ -310,9 +344,9 @@ function buildSuricataDraft() {
     flowKeywords.push('established');
   }
   if (strategy !== 'ioc') {
-    if (flow.service_port_role === 'src') {
+    if (effectiveDirectionHint === 'to_client' || effectiveServiceRole === 'src') {
       flowKeywords.push('to_client');
-    } else if (flow.service_port_role === 'dst') {
+    } else if (effectiveDirectionHint === 'to_server' || effectiveServiceRole === 'dst') {
       flowKeywords.push('to_server');
     }
   }
@@ -377,6 +411,9 @@ function buildSuricataDraft() {
     if (srcPorts.some(isEphemeralPort) || dstPorts.some(isEphemeralPort)) {
       warnings.push('Ephemeral ports were selected, but the preview ignored them. Use IOC mode only if you intentionally want that level of specificity.');
     }
+  }
+  if (contentDirectionHints.length && effectiveServiceRole && effectiveServiceRole !== flow.service_port_role) {
+    warnings.push(`The preview used the selected content anchor's frame provenance to override the stream-wide direction guess and scope the rule to port ${effectiveServicePort}.`);
   }
 
   let quality = 'Usable';

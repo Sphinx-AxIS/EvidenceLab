@@ -13,6 +13,7 @@
   <li>SID range for custom rules: 9100000+.</li>
   <li>You can format the draft across multiple lines in the editor; EvidenceLab normalizes it to a single executable Suricata rule before testing, saving, and deployment.</li>
   <li>You can test a draft Suricata rule against the latest uploaded PCAP for the current case before saving it.</li>
+  <li>If the primary test returns zero matches, EvidenceLab also runs a small set of diagnostic probe variants to help explain whether the miss is caused by header direction, stream-only matching, or the content pattern itself.</li>
 </ul>
 
 <h4>Sigma Rules</h4>
@@ -75,6 +76,42 @@
   <div style="margin-top:0.75rem;">
     <div class="table-title">Suricata Output</div>
     <pre><code>{{ test_result.stderr|forceescape }}</code></pre>
+  </div>
+  {% endif %}
+
+  {% if test_result.probe_results %}
+  <div class="table-wrap" style="margin-top:0.75rem;">
+    <div class="table-title">Automatic Probe Diagnostics</div>
+    <table>
+      <thead><tr><th>Probe</th><th>Matches</th><th>Status</th><th>Reason</th></tr></thead>
+      <tbody>
+        {% for probe in test_result.probe_results %}
+        <tr>
+          <td>{{ probe.label }}</td>
+          <td class="text-mono">{{ probe.match_count }}</td>
+          <td>{{ probe.status }}</td>
+          <td>{{ probe.reason }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div style="margin-top:0.75rem;">
+    <div class="table-title">Probe Details</div>
+    {% for probe in test_result.probe_results %}
+    <div class="card" style="margin-top:0.5rem;padding:0.75rem;">
+      <strong>{{ probe.label }}</strong>
+      <div class="text-muted" style="margin-top:0.35rem;font-size:0.85rem;">{{ probe.reason }}</div>
+      <div class="text-muted" style="margin-top:0.35rem;font-size:0.85rem;">Matches: <span class="text-mono">{{ probe.match_count }}</span> | Exit code: <span class="text-mono">{{ probe.exit_code }}</span></div>
+      <pre style="margin-top:0.5rem;"><code>{{ probe.rule|forceescape }}</code></pre>
+      {% if probe.stderr %}
+      <details style="margin-top:0.5rem;">
+        <summary>Probe Suricata Output</summary>
+        <pre><code>{{ probe.stderr|forceescape }}</code></pre>
+      </details>
+      {% endif %}
+    </div>
+    {% endfor %}
   </div>
   {% endif %}
 </div>

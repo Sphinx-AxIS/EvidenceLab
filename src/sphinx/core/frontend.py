@@ -486,38 +486,77 @@ def _summarize_frame_numbers(frame_numbers: list[int | str]) -> str:
 def _content_atom_provenance(value: str, payload_text: str, frame_payloads: list[dict[str, Any]]) -> dict[str, Any]:
     needle = _normalize_payload_line(value).lower()
     if not needle:
-        return {"single_packet": False, "frame_numbers": [], "label": "Frame provenance unavailable."}
+        return {
+            "single_packet": False,
+            "frame_numbers": [],
+            "label": "Frame provenance unavailable.",
+            "service_port_role": "",
+            "service_port_value": "",
+            "direction_hint": "",
+        }
 
+    matched_frames: list[dict[str, Any]] = []
     matching_frames: list[int] = []
     for frame in frame_payloads:
         frame_number = frame.get("frame_number")
         frame_payload = _normalize_payload_line(str(frame.get("payload_printable") or "")).lower()
         if needle and frame_payload and needle in frame_payload:
+            matched_frames.append(frame)
             try:
                 matching_frames.append(int(frame_number))
             except Exception:
                 continue
 
+    def summarize_direction(frames: list[dict[str, Any]]) -> tuple[str, str, str]:
+        role = ""
+        port_value = ""
+        direction_hint = ""
+        for frame in frames:
+            frame_src_port = str(frame.get("src_port") or "")
+            frame_dst_port = str(frame.get("dst_port") or "")
+            if frame_src_port in _SERVICE_PORT_NAMES:
+                role = "src"
+                port_value = frame_src_port
+                direction_hint = "to_client"
+                break
+            if frame_dst_port in _SERVICE_PORT_NAMES:
+                role = "dst"
+                port_value = frame_dst_port
+                direction_hint = "to_server"
+                break
+        return role, port_value, direction_hint
+
     if matching_frames:
+        service_port_role, service_port_value, direction_hint = summarize_direction(matched_frames)
         return {
             "single_packet": True,
             "frame_numbers": sorted(set(matching_frames)),
             "label": _summarize_frame_numbers(matching_frames),
+            "service_port_role": service_port_role,
+            "service_port_value": service_port_value,
+            "direction_hint": direction_hint,
         }
 
     payload_normalized = _normalize_payload_line(payload_text).lower()
     if needle and payload_normalized and needle in payload_normalized:
         frame_numbers = [frame.get("frame_number") for frame in frame_payloads if frame.get("frame_number") not in (None, "")]
+        service_port_role, service_port_value, direction_hint = summarize_direction(frame_payloads)
         return {
             "single_packet": False,
             "frame_numbers": frame_numbers,
             "label": "Requires stream reassembly. Not seen wholly inside one payload-bearing frame.",
+            "service_port_role": service_port_role,
+            "service_port_value": service_port_value,
+            "direction_hint": direction_hint,
         }
 
     return {
         "single_packet": False,
         "frame_numbers": [],
         "label": "Not traced to a specific frame from the stored payload preview.",
+        "service_port_role": "",
+        "service_port_value": "",
+        "direction_hint": "",
     }
 
 
@@ -550,6 +589,9 @@ def _extract_suricata_content_candidates(payload_text: str, frame_payloads: list
                 "reason": reason,
                 "provenance": provenance["label"],
                 "single_packet": provenance["single_packet"],
+                "service_port_role": provenance["service_port_role"],
+                "service_port_value": provenance["service_port_value"],
+                "direction_hint": provenance["direction_hint"],
                 "selected": priority == "High",
             })
             if semantic_tag not in semantic_tags:
@@ -578,6 +620,9 @@ def _extract_suricata_content_candidates(payload_text: str, frame_payloads: list
                 "reason": reason,
                 "provenance": provenance["label"],
                 "single_packet": provenance["single_packet"],
+                "service_port_role": provenance["service_port_role"],
+                "service_port_value": provenance["service_port_value"],
+                "direction_hint": provenance["direction_hint"],
                 "selected": priority == "Medium",
             })
 

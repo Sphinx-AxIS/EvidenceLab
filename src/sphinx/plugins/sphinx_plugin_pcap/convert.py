@@ -179,25 +179,52 @@ def _extract_rule_identity(rule_content: str) -> tuple[str | None, str | None]:
     return sid, msg
 
 
-def test_suricata_rule(
-    pcap_path: str,
-    rule_content: str,
+def _replace_rule_option(rule_content: str, option_name: str, replacement: str | None) -> str:
+    pattern = re.compile(rf"{option_name}\s*:[^;]*;")
+    updated = pattern.sub("", rule_content)
+    updated = re.sub(r"\(\s+", "(", updated)
+    if replacement:
+        updated = updated.replace("(", f"({replacement} ", 1)
+    updated = re.sub(r"\s+\)", " )", updated)
+    return re.sub(r"\s{2,}", " ", updated).strip()
+
+
+def _replace_header_direction(rule_content: str, direction: str) -> str:
+    return re.sub(r"\b(any|\$[A-Z_]+|\[[^\]]+\])\s+([0-9a-zA-Z_\-$\[\],]+)\s+->\s+(any|\$[A-Z_]+|\[[^\]]+\])\s+([0-9a-zA-Z_\-$\[\],]+)\s+\(",
+                  rf"\1 \2 {direction} \3 \4 (", rule_content, count=1)
+
+
+def _remove_flow_keyword(rule_content: str, keyword: str) -> str:
+    pattern = re.compile(rf"\b{re.escape(keyword)}\b,?")
+    updated = pattern.sub("", rule_content)
+    updated = re.sub(r",\s*,", ",", updated)
+    updated = re.sub(r"flow:\s*,", "flow:", updated)
+    updated = updated.replace(",;", ";")
+    updated = updated.replace("flow:;", "")
+    return re.sub(r"\s{2,}", " ", updated).strip()
+
+
+def _extract_probe_anchor(rule_content: str) -> str | None:
+    pcre_match = re.search(r'pcre\s*:\s*"/(.+?)/[A-Za-z]*"', rule_content)
+    if pcre_match:
+        pattern = pcre_match.group(1)
+        tokens = re.findall(r"[A-Za-z0-9_./-]+", pattern)
+        if tokens:
+            return max(tokens, key=len)
+    content_match = re.search(r'content\s*:\s*"([^"]+)"', rule_content)
+    if content_match:
+        return content_match.group(1)
+    return None
+
+
+def _run_suricata_rule_test_once(
+    pcap: Path,
+    normalized_rule: str,
     home_net: str | None = None,
 ) -> dict[str, Any]:
-    """Run a draft Suricata rule against a PCAP and summarize matches."""
-    pcap = Path(pcap_path)
-    if not pcap.is_file():
-        return {"status": "error", "error": f"PCAP file not found: {pcap_path}"}
-
     suri_bin = find_suricata()
     if not suri_bin:
         return {"status": "error", "error": "Suricata is not installed in the REPL container."}
-
-    if not rule_content.strip():
-        return {"status": "error", "error": "Rule content is empty."}
-
-    from sphinx.core.sig_generator import normalize_suricata_rule
-    normalized_rule = normalize_suricata_rule(rule_content)
 
     sid, msg = _extract_rule_identity(normalized_rule)
 
@@ -246,12 +273,93 @@ def test_suricata_rule(
             "status": status,
             "match_count": len(matches),
             "sample_matches": sample_matches,
-            "pcap_file": pcap.name,
             "sid": sid or "",
             "msg": msg or "",
             "stderr": (result.stderr or "")[:4000],
             "exit_code": result.returncode,
+            "normalized_rule": normalized_rule,
         }
+
+
+def _build_suricata_probe_variants(normalized_rule: str) -> list[dict[str, str]]:
+    anchor = _extract_probe_anchor(normalized_rule)
+    probes: list[dict[str, str]] = []
+    if not anchor:
+        return probes
+
+    literal_anchor = re.sub(r'[^A-Za-z0-9_./-]+', "", anchor)
+    if literal_anchor:
+        probes.append({
+            "label": f'Literal anchor content "{literal_anchor}"',
+            "reason": "Checks whether a simpler literal content clause can match the stream at all.",
+            "rule": _replace_rule_option(normalized_rule, "pcre", f'content:"{literal_anchor}";'),
+        })
+        probes.append({
+            "label": f'Relaxed PCRE /{literal_anchor}/si',
+            "reason": "Checks whether the core token appears anywhere in the inspected stream buffer.",
+            "rule": _replace_rule_option(normalized_rule, "pcre", f'pcre:"/{literal_anchor}/si";'),
+        })
+
+    probes.append({
+        "label": "Without only_stream",
+        "reason": "Checks whether the match is being missed because the draft is restricted to the stream buffer only.",
+        "rule": _remove_flow_keyword(normalized_rule, "only_stream"),
+    })
+    probes.append({
+        "label": "Without directional flow constraint",
+        "reason": "Checks whether the current to_client/to_server assumption is wrong for this PCAP.",
+        "rule": _remove_flow_keyword(_remove_flow_keyword(normalized_rule, "to_client"), "to_server"),
+    })
+    probes.append({
+        "label": "Bidirectional header",
+        "reason": "Checks whether the alert only appears when direction is allowed either way.",
+        "rule": _replace_header_direction(normalized_rule, "<>"),
+    })
+    return probes
+
+
+def test_suricata_rule(
+    pcap_path: str,
+    rule_content: str,
+    home_net: str | None = None,
+) -> dict[str, Any]:
+    """Run a draft Suricata rule against a PCAP and summarize matches."""
+    pcap = Path(pcap_path)
+    if not pcap.is_file():
+        return {"status": "error", "error": f"PCAP file not found: {pcap_path}"}
+
+    suri_bin = find_suricata()
+    if not suri_bin:
+        return {"status": "error", "error": "Suricata is not installed in the REPL container."}
+
+    if not rule_content.strip():
+        return {"status": "error", "error": "Rule content is empty."}
+
+    from sphinx.core.sig_generator import normalize_suricata_rule
+    normalized_rule = normalize_suricata_rule(rule_content)
+    base_result = _run_suricata_rule_test_once(pcap, normalized_rule, home_net=home_net)
+    base_result["pcap_file"] = pcap.name
+
+    if base_result.get("status") == "error":
+        return base_result
+
+    probes = []
+    if base_result.get("match_count", 0) == 0:
+        from sphinx.core.sig_generator import normalize_suricata_rule
+        for probe in _build_suricata_probe_variants(normalized_rule)[:5]:
+            probe_rule = normalize_suricata_rule(probe["rule"])
+            probe_result = _run_suricata_rule_test_once(pcap, probe_rule, home_net=home_net)
+            probes.append({
+                "label": probe["label"],
+                "reason": probe["reason"],
+                "match_count": probe_result.get("match_count", 0),
+                "status": probe_result.get("status", "error"),
+                "exit_code": probe_result.get("exit_code", -1),
+                "rule": probe_rule,
+                "stderr": probe_result.get("stderr", ""),
+            })
+    base_result["probe_results"] = probes
+    return base_result
 
 
 def parse_eve_json(output_dir: Path) -> dict[str, list[dict]]:
