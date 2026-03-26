@@ -444,7 +444,7 @@ Each rule shows its title, type, status, origin case, MITRE IDs, and creation da
 3. Select the **Rule Type** (Suricata or Sigma).
 4. Write the **Rule Content** in the appropriate syntax.
 5. Optionally add a **Description**.
-6. Optionally click **Test Against Latest Case PCAP** to run the draft rule offline against the most recent uploaded PCAP for the case and review the match summary.
+6. Optionally click **Test Against Latest Case PCAP** to run the draft rule offline against the most recent uploaded PCAP for the case and review the match summary. EvidenceLab now retains uploaded PCAPs so analysts can test rules after ingest.
 7. Click **Create Rule** (saves as pending review) or **Create & Deploy** (immediately active).
 
 ### Guided Deterministic Authoring

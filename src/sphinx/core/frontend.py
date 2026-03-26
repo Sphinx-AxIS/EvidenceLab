@@ -429,6 +429,36 @@ def _render_detection_rule_new_form(
         form_rule_content=rule_content,
         test_result=test_result,
     ))
+
+
+def _find_latest_case_pcap(case_id: str) -> Path | None:
+    with get_cursor() as cur:
+        cur.execute(
+            """SELECT summary->>'source_pcap_path' AS source_pcap_path
+               FROM background_jobs
+               WHERE case_id = %s
+                 AND job_type = 'pcap_ingest'
+                 AND COALESCE(summary->>'source_pcap_path', '') <> ''
+               ORDER BY created_at DESC
+               LIMIT 10""",
+            (case_id,),
+        )
+        for row in cur.fetchall():
+            candidate = Path(row["source_pcap_path"])
+            if candidate.is_file():
+                return candidate
+
+    upload_dir = Path("/app/data/pcap_uploads") / case_id
+    if not upload_dir.exists():
+        return None
+
+    candidates = [
+        p for p in upload_dir.iterdir()
+        if p.is_file() and p.suffix.lower() in {".pcap", ".pcapng", ".cap"}
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda p: p.stat().st_mtime)
     return port if 0 < port <= 65535 else None
 
 
@@ -1421,11 +1451,12 @@ async def ingest_pcap_submit(
     job_id = None
     try:
         with get_cursor() as cur:
+            from psycopg.types.json import Jsonb
             cur.execute(
                 """INSERT INTO background_jobs (case_id, job_type, status, input_name, summary)
-                   VALUES (%s, 'pcap_ingest', 'running', %s, '{}')
+                   VALUES (%s, 'pcap_ingest', 'running', %s, %s)
                    RETURNING id""",
-                (case_id, fname),
+                (case_id, fname, Jsonb({"source_pcap_path": str(pcap_path)})),
             )
             job_id = cur.fetchone()["id"]
             cur.connection.commit()
@@ -1542,11 +1573,9 @@ async def ingest_pcap_submit(
                         state["record_counts"] = result["record_counts"]
                     if result.get("errors"):
                         state["errors"] = result["errors"]
+                    state["source_pcap_path"] = str(pcap_path)
                     summary = {k: v for k, v in state.items() if not k.startswith("_")}
 
-                # Clean up PCAP on success
-                if final_status in ("ok", "partial"):
-                    pcap_path.unlink(missing_ok=True)
                 _update_job(_job_id, final_status, summary)
             finally:
                 client.close()
@@ -1557,7 +1586,8 @@ async def ingest_pcap_submit(
                 state["status"] = "failed"
                 state["stage"] = "error"
                 state["errors"] = [str(e)]
-            _update_job(_job_id, "failed", {"error": str(e)})
+                state["source_pcap_path"] = str(pcap_path)
+            _update_job(_job_id, "failed", {"error": str(e), "source_pcap_path": str(pcap_path)})
         finally:
             stop_poll.set()
 
@@ -3065,17 +3095,8 @@ async def detection_rule_new_submit(
                 rule_content=rule_content,
             )
 
-        upload_dir = Path("/app/data/pcap_uploads") / case_id
-        pcap_candidates = []
-        if upload_dir.exists():
-            for pattern in ("*.pcap", "*.pcapng", "*.cap"):
-                pcap_candidates.extend(upload_dir.glob(pattern))
-        pcap_candidates = sorted(
-            [p for p in pcap_candidates if p.is_file()],
-            key=lambda p: p.stat().st_mtime,
-            reverse=True,
-        )
-        if not pcap_candidates:
+        latest_pcap = _find_latest_case_pcap(case_id)
+        if not latest_pcap:
             return _render_detection_rule_new_form(
                 request, user, case_id,
                 error="No uploaded PCAP was found for this case. Upload a PCAP first, then test the rule.",
@@ -3095,7 +3116,6 @@ async def detection_rule_new_submit(
         except Exception:
             pass
 
-        latest_pcap = pcap_candidates[0]
         from sphinx.core.repl_client import ReplClient
         client = ReplClient()
         try:

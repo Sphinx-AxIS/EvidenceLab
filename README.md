@@ -70,7 +70,7 @@ LLM inference runs on the host via [LM Studio](https://lmstudio.ai/) (OpenAI-com
 
 The Suricata builder now walks the analyst through a no-AI workflow: review the normalized flow, choose a detection strategy, click High/Medium/Low candidate atoms, and watch the rule preview update automatically while the full source record JSON stays visible. Payload previews are shown as escaped JSON-style strings, and JSON panes are rendered as escaped literal text.
 
-On the manual Suricata rule form, analysts can also test a draft rule against the latest uploaded PCAP for the current case before saving or deploying it.
+On the manual Suricata rule form, analysts can also test a draft rule against the latest uploaded PCAP for the current case before saving or deploying it. Uploaded PCAPs are retained so this replay path remains available after ingest.
 
 ## Suricata Rules
 
