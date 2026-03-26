@@ -19,6 +19,18 @@ log = logging.getLogger(__name__)
 SURICATA_SID_START = 9100000
 
 
+def normalize_suricata_rule(rule_content: str) -> str:
+    """Collapse a Suricata rule into a single executable line.
+
+    Analysts may write or generate nicely formatted multi-line rules in the UI.
+    Suricata still expects each rule as one logical line in the rules file.
+    """
+    lines = [line.strip() for line in (rule_content or "").splitlines() if line.strip()]
+    if not lines:
+        return ""
+    return " ".join(lines)
+
+
 def fetch_evidence_for_finding(finding_id: int) -> tuple[dict, list[dict]]:
     """Fetch a finding and its supporting evidence records.
 
@@ -356,7 +368,7 @@ def _rebuild_suricata_rules_file(rules_dir: str = "/app/data/suricata-rules") ->
         # Use only the first line of the title (may contain multi-line markdown)
         title_line = rule["title"].split("\n")[0].strip()[:100]
         lines.append(f"# Rule ID: {rule['id']} | Finding: {rule['finding_id']} | {title_line}")
-        lines.append(rule["rule_content"])
+        lines.append(normalize_suricata_rule(rule["rule_content"]))
         lines.append("")
 
     rules_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -403,7 +415,7 @@ def parse_suricata_rules_file(content: str, source_file: str = "") -> list[dict]
     """
     rules = []
     for line in content.splitlines():
-        line = line.strip()
+        line = normalize_suricata_rule(line)
         if not line or line.startswith("#"):
             continue
 

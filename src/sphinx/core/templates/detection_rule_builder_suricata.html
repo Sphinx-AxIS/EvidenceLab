@@ -184,6 +184,11 @@ function escapeSuricataContent(value) {
   return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
+function isEphemeralPort(value) {
+  const port = Number(value);
+  return Number.isFinite(port) && port >= 1024;
+}
+
 function buildSuricataDraft() {
   const flow = SURICATA_BUILDER.flow || {};
   const strategy = getSelectedStrategy();
@@ -208,8 +213,16 @@ function buildSuricataDraft() {
   const contents = selectedByKind('content');
   const flowBits = selectedByKind('flow');
 
-  if (srcPorts.length) srcPort = srcPorts[0];
-  if (dstPorts.length) dstPort = dstPorts[0];
+  if (srcPorts.length) {
+    if (strategy === 'ioc' || !isEphemeralPort(srcPorts[0])) {
+      srcPort = srcPorts[0];
+    }
+  }
+  if (dstPorts.length) {
+    if (strategy === 'ioc' || !isEphemeralPort(dstPorts[0])) {
+      dstPort = dstPorts[0];
+    }
+  }
   if (strategy === 'ioc') {
     if (srcIps.length) srcNet = srcIps[0];
     if (dstIps.length) dstNet = dstIps[0];
@@ -277,6 +290,11 @@ function buildSuricataDraft() {
   if (uniqueContents.size !== contents.length) {
     warnings.push('Duplicate content terms were selected. Remove duplicates before saving the draft.');
     score -= 1;
+  }
+  if (strategy !== 'ioc') {
+    if (srcPorts.some(isEphemeralPort) || dstPorts.some(isEphemeralPort)) {
+      warnings.push('Ephemeral ports were selected, but the preview ignored them. Use IOC mode only if you intentionally want that level of specificity.');
+    }
   }
 
   let quality = 'Usable';

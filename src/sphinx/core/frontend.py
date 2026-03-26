@@ -3168,7 +3168,8 @@ async def detection_rule_new_submit(
     # Assign SID for Suricata rules
     sid = None
     if rule_type == "suricata":
-        from sphinx.core.sig_generator import _next_suricata_sid
+        from sphinx.core.sig_generator import _next_suricata_sid, normalize_suricata_rule
+        rule_content = normalize_suricata_rule(rule_content)
         sid = _next_suricata_sid()
 
     status = "approved" if action == "create_and_deploy" else "pending_review"
@@ -3267,6 +3268,16 @@ async def detection_rule_edit(request: Request, case_id: str, rule_id: int, rule
 
     with get_cursor() as cur:
         cur.execute(
+            "SELECT rule_type FROM detection_rules WHERE id = %s AND (case_id = %s OR case_id = '' OR case_id IS NULL)",
+            (rule_id, case_id),
+        )
+        rule = cur.fetchone()
+    if rule and rule["rule_type"] == "suricata":
+        from sphinx.core.sig_generator import normalize_suricata_rule
+        rule_content = normalize_suricata_rule(rule_content)
+
+    with get_cursor() as cur:
+        cur.execute(
             "UPDATE detection_rules SET rule_content = %s, updated_at = now() WHERE id = %s AND (case_id = %s OR case_id = '' OR case_id IS NULL)",
             (rule_content, rule_id, case_id),
         )
@@ -3360,6 +3371,10 @@ async def detection_rule_regenerate(request: Request, case_id: str, rule_id: int
             result = generate_sigma_rule(settings, finding, evidence)
         else:
             result = generate_suricata_rule(settings, finding, evidence)
+
+        if rule["rule_type"] == "suricata":
+            from sphinx.core.sig_generator import normalize_suricata_rule
+            result["rule_content"] = normalize_suricata_rule(result["rule_content"])
 
         with get_cursor() as cur:
             cur.execute(

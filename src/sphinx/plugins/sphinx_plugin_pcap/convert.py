@@ -196,12 +196,15 @@ def test_suricata_rule(
     if not rule_content.strip():
         return {"status": "error", "error": "Rule content is empty."}
 
-    sid, msg = _extract_rule_identity(rule_content)
+    from sphinx.core.sig_generator import normalize_suricata_rule
+    normalized_rule = normalize_suricata_rule(rule_content)
+
+    sid, msg = _extract_rule_identity(normalized_rule)
 
     with tempfile.TemporaryDirectory(prefix="sphinx_rule_test_") as tmpdir:
         tmp_path = Path(tmpdir)
         rules_path = tmp_path / "candidate.rules"
-        rules_path.write_text(rule_content.strip() + "\n", encoding="utf-8")
+        rules_path.write_text(normalized_rule + "\n", encoding="utf-8")
 
         output_dir = tmp_path / "suricata"
         result = run_suricata(
