@@ -335,6 +335,31 @@ def _record_context_counts(case_id: str, record_type: str, raw: dict[str, Any] |
     return counts[:8]
 
 
+def _flatten_rule_recommendations(record_type: str, rule_recommendations: dict[str, Any]) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    priority_map = {
+        "recommended": "High",
+        "optional": "Medium",
+        "avoid": "Low",
+    }
+
+    for bucket in ("recommended", "optional", "avoid"):
+        for item in rule_recommendations.get(bucket, []) or []:
+            reason = item.get("reason", "")
+            prevalence = item.get("prevalence", "")
+            if prevalence:
+                reason = f"{reason} {prevalence}".strip()
+            rows.append({
+                "sig_priority": priority_map[bucket],
+                "type": record_type,
+                "field": item.get("field", ""),
+                "value": item.get("value", ""),
+                "context_metric": item.get("exact_count", "") or "0",
+                "reason": reason,
+            })
+    return rows
+
+
 def _record_interpretation(record_type: str, raw: dict[str, Any] | None) -> str:
     raw = raw or {}
     if record_type == "win_evt_security":
@@ -716,6 +741,7 @@ async def record_detail(request: Request, case_id: str, record_id: str):
     context_counts = _record_context_counts(case_id, record["record_type"], record.get("raw"))
     interpretation = _record_interpretation(record["record_type"], record.get("raw"))
     rule_recommendations = build_rule_recommendations(case_id, record["record_type"], record.get("raw"))
+    recommendation_rows = _flatten_rule_recommendations(record["record_type"], rule_recommendations)
     can_build_sigma = record["record_type"].startswith("win_evt_")
     can_build_suricata = record["record_type"].startswith(("suricata_", "zeek_", "tshark_"))
 
@@ -727,6 +753,7 @@ async def record_detail(request: Request, case_id: str, record_id: str):
         highlights=highlights, context_counts=context_counts,
         interpretation=interpretation,
         rule_recommendations=rule_recommendations,
+        recommendation_rows=recommendation_rows,
         can_build_sigma=can_build_sigma,
         can_build_suricata=can_build_suricata,
     ))

@@ -160,6 +160,8 @@ def _build_item(field: str, value: str, reason: str, present_count: int = 0, exa
         "value": _short(value),
         "reason": reason,
         "prevalence": prevalence,
+        "present_count": str(present_count),
+        "exact_count": str(exact_count),
     }
 
 

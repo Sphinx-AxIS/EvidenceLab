@@ -20,7 +20,7 @@ LLM inference runs on the host via [LM Studio](https://lmstudio.ai/) (OpenAI-com
 - **Live Ingest Visibility** -- The Ingest page and Dashboard both show current background ingest jobs and progress for long-running PCAP processing.
 - **Suricata + Zeek + tshark** -- PCAP files are automatically processed by all three tools during ingest.
 - **Detection Rules** -- Import, create, edit, and deploy Suricata and Sigma rules through the web UI. LLM can also generate rules from investigation findings.
-- **Deterministic Rule Assistance** -- Rank candidate fields as recommended, optional, or avoid using explicit heuristics and case-local prevalence to help analysts build Sigma and Suricata rules without AI.
+- **Deterministic Rule Assistance** -- Show merged detection-context tables with signature priority, field/value anchors, and case-local counts to help analysts build Sigma and Suricata rules without AI.
 - **RLM Investigation Loop** -- Step-bounded reasoning loop where the LLM writes and executes Python in a sandboxed REPL to investigate evidence.
 - **Dashboard & Analytics** -- Interactive hunting workspace with ATT&CK-inspired Windows starter filters, pre-computed SQL analytics, false-positive-aware entity extraction, and record browsing.
 - **Windows ATT&CK Mapping Filters** -- The Analytics page can load tactic, technique, and EventID starter filters from the bundled Windows ATT&CK mapping dataset.

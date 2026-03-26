@@ -6,9 +6,8 @@
 <p>Use this page to understand what a record means before deciding whether to create a detection from it.</p>
 <ul>
   <li><strong>What Am I Looking At?</strong> highlights the most important fields from the event.</li>
-  <li><strong>Case Context</strong> shows how common this record type and related field values are in the case.</li>
+  <li><strong>Detection Context</strong> combines case counts with deterministic field recommendations so you can judge which anchors are stable enough for a rule.</li>
   <li><strong>Extracted Entities</strong> are heuristic IOC candidates. Common false positives such as browser version strings and bare time values are filtered where possible.</li>
-  <li><strong>Deterministic Rule Hints</strong> rank candidate fields as recommended, optional, or avoid using explicit no-AI heuristics and case-local prevalence checks.</li>
   <li>Only after reviewing those sections should you pivot into Sigma or Suricata authoring.</li>
 </ul>
 {% endblock %}
@@ -58,95 +57,39 @@
   {% endif %}
 </div>
 
-{% if context_counts %}
+{% if context_counts or recommendation_rows %}
 <div class="card mb-2">
-  <h3>Case Context</h3>
+  <h3>Detection Context</h3>
   <p style="color:var(--text-muted);font-size:0.9rem;">
-    Before writing a rule, check whether this event is rare, repeated, noisy, or tied to a stable behavior in the case.
+    Context Metric is the count of records in the current case that contain the matching type, field, and value. Use it to compare broad case volume against candidate signature anchors.
   </p>
   <div class="table-wrap" style="margin-top:0.75rem;">
     <table>
-      <thead><tr><th>Context Metric</th><th>Count</th></tr></thead>
+      <thead><tr><th>SigPriority</th><th>Type</th><th>Field</th><th>Value</th><th>Context Metric</th><th>Reason</th></tr></thead>
       <tbody>
         {% for item in context_counts %}
         <tr>
+          <td></td>
+          <td class="text-mono">{{ record.record_type }}</td>
           <td>{{ item.label }}</td>
+          <td></td>
           <td class="text-mono">{{ item.value }}</td>
+          <td class="text-muted">Case-wide count for this related record pattern.</td>
         </tr>
         {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-{% endif %}
-
-{% if rule_recommendations and (rule_recommendations.recommended or rule_recommendations.optional or rule_recommendations.avoid) %}
-<div class="card mb-2">
-  <h3>{{ rule_recommendations.headline }}</h3>
-  <p style="color:var(--text-muted);font-size:0.9rem;">{{ rule_recommendations.summary }}</p>
-
-  {% if rule_recommendations.recommended %}
-  <div class="table-wrap" style="margin-top:0.75rem;">
-    <div class="table-title">Recommended</div>
-    <table>
-      <thead><tr><th>Field</th><th>Value</th><th>Why</th></tr></thead>
-      <tbody>
-        {% for item in rule_recommendations.recommended %}
+        {% for item in recommendation_rows %}
         <tr>
+          <td>{{ item.sig_priority }}</td>
+          <td class="text-mono">{{ item.type }}</td>
           <td class="text-mono">{{ item.field }}</td>
           <td class="text-mono" style="font-size:0.8rem;">{{ item.value }}</td>
-          <td>
-            <div>{{ item.reason }}</div>
-            {% if item.prevalence %}<div class="text-muted" style="font-size:0.78rem;">{{ item.prevalence }}</div>{% endif %}
-          </td>
+          <td class="text-mono">{{ item.context_metric }}</td>
+          <td>{{ item.reason }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-  {% endif %}
-
-  {% if rule_recommendations.optional %}
-  <div class="table-wrap" style="margin-top:0.75rem;">
-    <div class="table-title">Optional</div>
-    <table>
-      <thead><tr><th>Field</th><th>Value</th><th>Why</th></tr></thead>
-      <tbody>
-        {% for item in rule_recommendations.optional %}
-        <tr>
-          <td class="text-mono">{{ item.field }}</td>
-          <td class="text-mono" style="font-size:0.8rem;">{{ item.value }}</td>
-          <td>
-            <div>{{ item.reason }}</div>
-            {% if item.prevalence %}<div class="text-muted" style="font-size:0.78rem;">{{ item.prevalence }}</div>{% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% endif %}
-
-  {% if rule_recommendations.avoid %}
-  <div class="table-wrap" style="margin-top:0.75rem;">
-    <div class="table-title">Avoid</div>
-    <table>
-      <thead><tr><th>Field</th><th>Value</th><th>Why</th></tr></thead>
-      <tbody>
-        {% for item in rule_recommendations.avoid %}
-        <tr>
-          <td class="text-mono">{{ item.field }}</td>
-          <td class="text-mono" style="font-size:0.8rem;">{{ item.value }}</td>
-          <td>
-            <div>{{ item.reason }}</div>
-            {% if item.prevalence %}<div class="text-muted" style="font-size:0.78rem;">{{ item.prevalence }}</div>{% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% endif %}
 </div>
 {% endif %}
 

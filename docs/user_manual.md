@@ -197,7 +197,7 @@ Common record types include:
 Click **Detail** on any record to view its full contents:
 
 - **Record metadata** — ID, type, and timestamp in summary cards.
-- **Deterministic Rule Hints** — Candidate fields ranked as recommended, optional, or avoid using explicit heuristics and case-local prevalence.
+- **Detection Context** — A merged table showing signature priority, type, field, value, context metric, and reason for candidate rule anchors.
 - **Extracted Entities** — Any IOCs (IP addresses, domains, hashes, emails, URLs, usernames) automatically extracted from this record.
 - Entity extraction is heuristic. The platform filters common false positives such as browser version strings and time-only values where possible.
 - **Raw Data** — The complete JSON data for the record, displayed in a formatted viewer.
@@ -451,13 +451,11 @@ Each rule shows its title, type, status, origin case, MITRE IDs, and creation da
 EvidenceLab also supports a guided, no-AI authoring workflow:
 
 1. Hunt in **Analytics** and inspect a candidate event on the **Record Detail** page.
-2. Review the **Deterministic Rule Hints** section, which ranks fields as:
-   - **Recommended** — strong first-choice anchors
-   - **Optional** — useful scoping fields that may still be environment-specific
-   - **Avoid** — ephemeral or overly brittle values
-3. Open the Sigma or Suricata builder from the record detail page.
-4. Review the deterministic field recommendations again inside the builder.
-5. Open the prefilled draft and refine it before saving or deploying.
+2. Review the **Detection Context** table, which ranks fields with `SigPriority` values of `High`, `Medium`, or `Low`.
+3. Use the `Context Metric` column to see how often that same type, field, and value appears in the current case.
+4. Open the Sigma or Suricata builder from the record detail page.
+5. Review the deterministic field recommendations again inside the builder.
+6. Open the prefilled draft and refine it before saving or deploying.
 
 This workflow is designed to help junior analysts build detections without requiring AI assistance.
 
