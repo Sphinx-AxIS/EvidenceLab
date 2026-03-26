@@ -7,6 +7,7 @@
 <ul>
   <li><strong>Flow Review</strong> keeps the key packet and stream facts visible.</li>
   <li><strong>Detection Strategy</strong> lets the analyst choose IOC, behavior, or service-focused logic before selecting anchors.</li>
+  <li><strong>Content Match Style</strong> lets the analyst keep simple literal content matches or switch to resilient PCRE when stream reassembly matters.</li>
   <li><strong>Candidate Detection Atoms</strong> show High, Medium, and Low options that can be added to the draft with a click.</li>
   <li><strong>Frame Provenance</strong> shows whether a candidate string was seen inside one frame or only after stream reassembly.</li>
   <li><strong>Live Rule Preview</strong> renders the selected facts into Suricata syntax automatically.</li>
@@ -133,7 +134,30 @@
 </div>
 
 <div class="card mb-2">
-  <h3>Step 4: Live Rule Preview</h3>
+  <h3>Step 4: Choose Content Match Style</h3>
+  <p style="color:var(--text-muted);font-size:0.9rem;">
+    When a selected string only exists after stream reassembly, the recommended mode renders it as a resilient PCRE instead of a literal content match.
+  </p>
+  <div class="builder-chip-grid" style="margin-top:0.75rem;">
+    <label class="builder-chip-card">
+      <div class="builder-chip-title">
+        <strong>Recommended</strong>
+        <input type="radio" name="suricata-match-style" value="recommended" checked>
+      </div>
+      <div class="text-muted" style="margin-top:0.5rem;font-size:0.85rem;">Use literal <code>content</code> for single-packet anchors and switch to resilient <code>pcre</code> for anchors that require reassembly.</div>
+    </label>
+    <label class="builder-chip-card">
+      <div class="builder-chip-title">
+        <strong>Literal Content Only</strong>
+        <input type="radio" name="suricata-match-style" value="literal">
+      </div>
+      <div class="text-muted" style="margin-top:0.5rem;font-size:0.85rem;">Always render selected strings as exact <code>content</code> clauses, even if they may depend on stream reassembly.</div>
+    </label>
+  </div>
+</div>
+
+<div class="card mb-2">
+  <h3>Step 5: Live Rule Preview</h3>
   <p style="color:var(--text-muted);font-size:0.9rem;">
     The preview updates as you choose anchors. Junior analysts should focus on selecting stable facts here rather than hand-writing Suricata syntax first.
   </p>
@@ -171,6 +195,11 @@ function getSelectedStrategy() {
   return checked ? checked.value : (SURICATA_BUILDER.default_strategy || 'behavior');
 }
 
+function getSelectedMatchStyle() {
+  const checked = document.querySelector('input[name="suricata-match-style"]:checked');
+  return checked ? checked.value : 'recommended';
+}
+
 function resetStrategyDefaults() {
   const strategy = getSelectedStrategy();
   document.querySelectorAll('.suricata-atom').forEach(cb => {
@@ -191,6 +220,18 @@ function escapeSuricataContent(value) {
   return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
+function escapePcreValue(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildResilientPcre(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  const tokens = text.split(/\s+/).filter(Boolean);
+  const renderedTokens = tokens.map(token => token.split('').map(ch => escapePcreValue(ch)).join('\\s*'));
+  return renderedTokens.join('\\s+');
+}
+
 function isEphemeralPort(value) {
   const port = Number(value);
   return Number.isFinite(port) && port >= 1024;
@@ -199,6 +240,7 @@ function isEphemeralPort(value) {
 function buildSuricataDraft() {
   const flow = SURICATA_BUILDER.flow || {};
   const strategy = getSelectedStrategy();
+  const matchStyle = getSelectedMatchStyle();
   const selected = Array.from(document.querySelectorAll('.suricata-atom:checked')).map(cb => ({
     kind: cb.dataset.kind,
     value: cb.dataset.value,
@@ -219,7 +261,7 @@ function buildSuricataDraft() {
   const dstPorts = selectedByKind('dst_port');
   const srcIps = selectedByKind('src_ip');
   const dstIps = selectedByKind('dst_ip');
-  const contents = selectedByKind('content');
+  const contentItems = selected.filter(item => item.kind === 'content');
   const flowBits = selectedByKind('flow');
 
   if (srcPorts.length) {
@@ -263,8 +305,13 @@ function buildSuricataDraft() {
   if (flowBits.includes('established')) {
     lines.push('    flow:established;');
   }
-  contents.forEach(value => {
-    lines.push(`    content:"${escapeSuricataContent(value)}";`);
+  contentItems.forEach(item => {
+    if (matchStyle === 'recommended' && !item.singlePacket) {
+      const pattern = buildResilientPcre(item.value);
+      lines.push(`    pcre:"/${pattern}/i";`);
+    } else {
+      lines.push(`    content:"${escapeSuricataContent(item.value)}";`);
+    }
   });
   lines.push(`    classtype:${classtype};`);
   lines.push('    sid:9100001;');
@@ -273,7 +320,7 @@ function buildSuricataDraft() {
 
   const warnings = [];
   let score = 0;
-  if (contents.length === 0 && strategy !== 'ioc') {
+  if (contentItems.length === 0 && strategy !== 'ioc') {
     warnings.push('Behavior and service-focused rules should usually include at least one stable content string.');
     score -= 3;
   }
@@ -294,13 +341,17 @@ function buildSuricataDraft() {
       score -= 2;
     }
     if (item.kind === 'content' && !item.singlePacket) {
-      warnings.push(`content:"${item.value}" was only confirmed after stream reassembly. Validate that this anchor survives packet boundaries before relying on it.`);
+      if (matchStyle === 'recommended') {
+        warnings.push(`content:"${item.value}" requires stream reassembly, so the preview converted it to a resilient PCRE pattern.`);
+      } else {
+        warnings.push(`content:"${item.value}" was only confirmed after stream reassembly. Literal content matching may miss it if packet boundaries change.`);
+      }
       score -= 1;
     }
   });
 
-  const uniqueContents = new Set(contents);
-  if (uniqueContents.size !== contents.length) {
+  const uniqueContents = new Set(contentItems.map(item => item.value));
+  if (uniqueContents.size !== contentItems.length) {
     warnings.push('Duplicate content terms were selected. Remove duplicates before saving the draft.');
     score -= 1;
   }
@@ -322,7 +373,7 @@ function buildSuricataDraft() {
     qualityClass = 'low';
     qualityNote = 'This draft may be too brittle or too generic. Remove low-priority anchors and prefer distinctive content.';
   }
-  if (strategy === 'ioc' && (srcIps.length || dstIps.length) && contents.length === 0) {
+  if (strategy === 'ioc' && (srcIps.length || dstIps.length) && contentItems.length === 0) {
     quality = 'Overfit';
     qualityClass = 'low';
     qualityNote = 'Pure IOC rules are fast to build, but they rarely generalize to similar behavior.';
@@ -362,6 +413,9 @@ function syncSuricataDraftFields() {
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('input[name="suricata-strategy"]').forEach(radio => {
     radio.addEventListener('change', resetStrategyDefaults);
+  });
+  document.querySelectorAll('input[name="suricata-match-style"]').forEach(radio => {
+    radio.addEventListener('change', renderSuricataPreview);
   });
   document.querySelectorAll('.suricata-atom').forEach(cb => {
     cb.addEventListener('change', renderSuricataPreview);
