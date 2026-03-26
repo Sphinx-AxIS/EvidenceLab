@@ -12,10 +12,12 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import shutil
 import subprocess
 import time
 from pathlib import Path
+import tempfile
 from typing import Any
 
 import psycopg
@@ -144,6 +146,7 @@ def run_suricata(
     suri_bin: str, pcap_path: Path, output_dir: Path,
     config_path: str | None = None,
     home_net: str | None = None,
+    rule_file: str | None = None,
 ) -> subprocess.CompletedProcess:
     output_dir.mkdir(parents=True, exist_ok=True)
     if not config_path:
@@ -152,6 +155,8 @@ def run_suricata(
     cmd = [suri_bin, "-r", str(pcap_path.resolve()), "-l", str(output_dir)]
     if config_path:
         cmd += ["-c", config_path]
+    if rule_file:
+        cmd += ["-S", rule_file]
     cmd += ["--set", "outputs.0.eve-log.filename=eve.json"]
 
     # Case-specific HOME_NET takes priority over environment variable
@@ -164,6 +169,86 @@ def run_suricata(
     if result.stderr:
         log.warning("Suricata stderr: %s", result.stderr[:2000])
     return result
+
+
+def _extract_rule_identity(rule_content: str) -> tuple[str | None, str | None]:
+    sid_match = re.search(r"\bsid\s*:\s*(\d+)\s*;", rule_content)
+    msg_match = re.search(r'msg\s*:\s*"([^"]+)"', rule_content)
+    sid = sid_match.group(1) if sid_match else None
+    msg = msg_match.group(1) if msg_match else None
+    return sid, msg
+
+
+def test_suricata_rule(
+    pcap_path: str,
+    rule_content: str,
+    home_net: str | None = None,
+) -> dict[str, Any]:
+    """Run a draft Suricata rule against a PCAP and summarize matches."""
+    pcap = Path(pcap_path)
+    if not pcap.is_file():
+        return {"status": "error", "error": f"PCAP file not found: {pcap_path}"}
+
+    suri_bin = find_suricata()
+    if not suri_bin:
+        return {"status": "error", "error": "Suricata is not installed in the REPL container."}
+
+    if not rule_content.strip():
+        return {"status": "error", "error": "Rule content is empty."}
+
+    sid, msg = _extract_rule_identity(rule_content)
+
+    with tempfile.TemporaryDirectory(prefix="sphinx_rule_test_") as tmpdir:
+        tmp_path = Path(tmpdir)
+        rules_path = tmp_path / "candidate.rules"
+        rules_path.write_text(rule_content.strip() + "\n", encoding="utf-8")
+
+        output_dir = tmp_path / "suricata"
+        result = run_suricata(
+            suri_bin,
+            pcap,
+            output_dir,
+            home_net=home_net,
+            rule_file=str(rules_path),
+        )
+        eve_records = parse_eve_json(output_dir)
+        alerts = eve_records.get("alert", [])
+
+        matches = []
+        for alert in alerts:
+            alert_obj = alert.get("alert") or {}
+            sig_id = str(alert_obj.get("signature_id") or "")
+            sig_msg = str(alert_obj.get("signature") or "")
+            if sid and sig_id == sid:
+                matches.append(alert)
+                continue
+            if not sid and msg and sig_msg == msg:
+                matches.append(alert)
+
+        sample_matches = []
+        for alert in matches[:5]:
+            alert_obj = alert.get("alert") or {}
+            sample_matches.append({
+                "timestamp": str(alert.get("timestamp") or ""),
+                "src_ip": str(alert.get("src_ip") or ""),
+                "src_port": str(alert.get("src_port") or ""),
+                "dest_ip": str(alert.get("dest_ip") or ""),
+                "dest_port": str(alert.get("dest_port") or ""),
+                "signature": str(alert_obj.get("signature") or ""),
+                "severity": str(alert_obj.get("severity") or ""),
+            })
+
+        status = "ok" if result.returncode == 0 else "partial"
+        return {
+            "status": status,
+            "match_count": len(matches),
+            "sample_matches": sample_matches,
+            "pcap_file": pcap.name,
+            "sid": sid or "",
+            "msg": msg or "",
+            "stderr": (result.stderr or "")[:4000],
+            "exit_code": result.returncode,
+        }
 
 
 def parse_eve_json(output_dir: Path) -> dict[str, list[dict]]:

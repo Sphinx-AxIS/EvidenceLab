@@ -407,6 +407,28 @@ def _to_int_port(value: Any) -> int | None:
         port = int(str(value))
     except Exception:
         return None
+
+
+def _render_detection_rule_new_form(
+    request: Request,
+    user: dict,
+    case_id: str,
+    *,
+    error: str = "",
+    title: str = "",
+    rule_type: str = "",
+    description: str = "",
+    rule_content: str = "",
+    test_result: dict | None = None,
+):
+    return templates.TemplateResponse(request, "detection_rule_new.html", _ctx(
+        request, user, "detection_rules", case_id=case_id, error=error,
+        form_title=title,
+        form_rule_type=rule_type or "suricata",
+        form_description=description,
+        form_rule_content=rule_content,
+        test_result=test_result,
+    ))
     return port if 0 < port <= 65535 else None
 
 
@@ -2831,13 +2853,14 @@ async def detection_rule_new_form(
     user = _get_user(request)
     if not user:
         return RedirectResponse(url="/ui/login", status_code=303)
-    return templates.TemplateResponse(request, "detection_rule_new.html", _ctx(
-        request, user, "detection_rules", case_id=case_id, error=error,
-        form_title=title,
-        form_rule_type=rule_type or "suricata",
-        form_description=description,
-        form_rule_content=rule_content,
-    ))
+    return _render_detection_rule_new_form(
+        request, user, case_id,
+        error=error,
+        title=title,
+        rule_type=rule_type,
+        description=description,
+        rule_content=rule_content,
+    )
 
 
 @router.get("/cases/{case_id}/detection-rules/builder", response_class=HTMLResponse)
@@ -3030,6 +3053,89 @@ async def detection_rule_new_submit(
     user = _get_user(request)
     if not user:
         return RedirectResponse(url="/ui/login", status_code=303)
+
+    if action == "test_suricata":
+        if rule_type != "suricata":
+            return _render_detection_rule_new_form(
+                request, user, case_id,
+                error="Suricata rule testing is only available for Suricata rules.",
+                title=title,
+                rule_type=rule_type,
+                description=description,
+                rule_content=rule_content,
+            )
+
+        upload_dir = Path("/app/data/pcap_uploads") / case_id
+        pcap_candidates = []
+        if upload_dir.exists():
+            for pattern in ("*.pcap", "*.pcapng", "*.cap"):
+                pcap_candidates.extend(upload_dir.glob(pattern))
+        pcap_candidates = sorted(
+            [p for p in pcap_candidates if p.is_file()],
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        if not pcap_candidates:
+            return _render_detection_rule_new_form(
+                request, user, case_id,
+                error="No uploaded PCAP was found for this case. Upload a PCAP first, then test the rule.",
+                title=title,
+                rule_type=rule_type,
+                description=description,
+                rule_content=rule_content,
+            )
+
+        case_home_net = None
+        try:
+            with get_cursor() as cur:
+                cur.execute("SELECT home_net FROM cases WHERE id = %s", (case_id,))
+                row = cur.fetchone()
+                if row and row["home_net"]:
+                    case_home_net = "[" + ",".join(row["home_net"]) + "]"
+        except Exception:
+            pass
+
+        latest_pcap = pcap_candidates[0]
+        from sphinx.core.repl_client import ReplClient
+        client = ReplClient()
+        try:
+            if not client.connect():
+                raise RuntimeError("REPL server is unavailable.")
+            test_result = client.test_suricata_rule(
+                str(latest_pcap),
+                rule_content,
+                home_net=case_home_net,
+            )
+        except Exception as e:
+            return _render_detection_rule_new_form(
+                request, user, case_id,
+                error=f"Suricata rule test failed: {str(e)[:200]}",
+                title=title,
+                rule_type=rule_type,
+                description=description,
+                rule_content=rule_content,
+            )
+        finally:
+            client.close()
+
+        if test_result.get("status") == "error":
+            return _render_detection_rule_new_form(
+                request, user, case_id,
+                error=f"Suricata rule test failed: {str(test_result.get('error', 'unknown error'))[:200]}",
+                title=title,
+                rule_type=rule_type,
+                description=description,
+                rule_content=rule_content,
+            )
+
+        return _render_detection_rule_new_form(
+            request, user, case_id,
+            title=title,
+            rule_type=rule_type,
+            description=description,
+            rule_content=rule_content,
+            test_result=test_result,
+        )
 
     # Get case name for provenance
     case_name = ""

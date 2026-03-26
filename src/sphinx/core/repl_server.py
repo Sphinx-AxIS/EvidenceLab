@@ -343,6 +343,16 @@ class ReplHandler(socketserver.StreamRequestHandler):
                         )
                     except Exception as e:
                         resp = {"status": "error", "error": str(e)}
+                elif cmd == "suricata_rule_test":
+                    try:
+                        from sphinx.plugins.sphinx_plugin_pcap.convert import test_suricata_rule
+                        resp = test_suricata_rule(
+                            pcap_path=msg["pcap_path"],
+                            rule_content=msg["rule_content"],
+                            home_net=msg.get("home_net"),
+                        )
+                    except Exception as e:
+                        resp = {"status": "error", "error": str(e)}
                 elif cmd == "ping":
                     resp = {"status": "ok", "pong": True}
                 else:

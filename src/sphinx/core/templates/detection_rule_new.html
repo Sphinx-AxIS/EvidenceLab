@@ -11,6 +11,7 @@
   <li>Use <code>$HOME_NET</code> and <code>$EXTERNAL_NET</code> variables, not literal IPs.</li>
   <li>Include: msg, content/pcre matchers, classtype, sid, rev.</li>
   <li>SID range for custom rules: 9100000+.</li>
+  <li>You can test a draft Suricata rule against the latest uploaded PCAP for the current case before saving it.</li>
 </ul>
 
 <h4>Sigma Rules</h4>
@@ -28,6 +29,54 @@
 
 {% if error %}
 <div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+{% if test_result %}
+<div class="card mb-2" style="max-width:800px;">
+  <h3>Suricata Test Result</h3>
+  <p class="text-muted" style="font-size:0.9rem;">
+    Offline test against <span class="text-mono">{{ test_result.pcap_file }}</span>.
+  </p>
+  <div class="table-wrap" style="margin-top:0.75rem;">
+    <table>
+      <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Status</td><td>{{ test_result.status }}</td></tr>
+        <tr><td>Match Count</td><td class="text-mono">{{ test_result.match_count }}</td></tr>
+        <tr><td>Rule SID</td><td class="text-mono">{{ test_result.sid or '—' }}</td></tr>
+        <tr><td>Rule Message</td><td>{{ test_result.msg or '—' }}</td></tr>
+        <tr><td>Suricata Exit Code</td><td class="text-mono">{{ test_result.exit_code }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  {% if test_result.sample_matches %}
+  <div class="table-wrap" style="margin-top:0.75rem;">
+    <div class="table-title">Sample Matches</div>
+    <table>
+      <thead><tr><th>Timestamp</th><th>Source</th><th>Destination</th><th>Signature</th><th>Severity</th></tr></thead>
+      <tbody>
+        {% for match in test_result.sample_matches %}
+        <tr>
+          <td class="text-mono" style="font-size:0.78rem;">{{ match.timestamp }}</td>
+          <td class="text-mono">{{ match.src_ip }}:{{ match.src_port }}</td>
+          <td class="text-mono">{{ match.dest_ip }}:{{ match.dest_port }}</td>
+          <td>{{ match.signature }}</td>
+          <td class="text-mono">{{ match.severity }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if test_result.stderr %}
+  <div style="margin-top:0.75rem;">
+    <div class="table-title">Suricata Output</div>
+    <pre><code>{{ test_result.stderr|forceescape }}</code></pre>
+  </div>
+  {% endif %}
+</div>
 {% endif %}
 
 <form method="POST" action="/ui/cases/{{ case_id }}/detection-rules/new" style="max-width:800px;">
@@ -61,6 +110,7 @@
 
   <div class="flex gap-1">
     <button type="submit" class="btn btn-primary">Create Rule</button>
+    <button type="submit" name="action" value="test_suricata" class="btn">Test Against Latest Case PCAP</button>
     <button type="submit" name="action" value="create_and_deploy" class="btn btn-primary" style="background:var(--green);border-color:var(--green);">Create &amp; Deploy</button>
     <a href="/ui/cases/{{ case_id }}/detection-rules" class="btn">Cancel</a>
   </div>

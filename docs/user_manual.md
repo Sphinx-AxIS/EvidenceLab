@@ -444,7 +444,8 @@ Each rule shows its title, type, status, origin case, MITRE IDs, and creation da
 3. Select the **Rule Type** (Suricata or Sigma).
 4. Write the **Rule Content** in the appropriate syntax.
 5. Optionally add a **Description**.
-6. Click **Create Rule** (saves as pending review) or **Create & Deploy** (immediately active).
+6. Optionally click **Test Against Latest Case PCAP** to run the draft rule offline against the most recent uploaded PCAP for the case and review the match summary.
+7. Click **Create Rule** (saves as pending review) or **Create & Deploy** (immediately active).
 
 ### Guided Deterministic Authoring
 
@@ -457,7 +458,7 @@ EvidenceLab also supports a guided, no-AI authoring workflow:
 5. Review the deterministic field recommendations again inside the builder.
 6. Open the prefilled draft and refine it before saving or deploying.
 
-When using the Suricata builder, the page keeps the full source record JSON visible and adds a guided no-AI workflow: review the normalized flow, choose a detection strategy, select High/Medium/Low candidate atoms, and watch the Suricata rule preview update automatically. Payload previews are shown in an escaped JSON-style string format, and JSON panes are rendered as escaped literal text so evidence content cannot be interpreted as page markup.
+When using the Suricata builder, the page keeps the full source record JSON visible and adds a guided no-AI workflow: review the normalized flow, choose a detection strategy, select High/Medium/Low candidate atoms, and watch the Suricata rule preview update automatically. Payload previews are shown in an escaped JSON-style string format, and JSON panes are rendered as escaped literal text so evidence content cannot be interpreted as page markup. After opening the draft in the manual editor, the analyst can test the rule against the latest uploaded case PCAP before saving it.
 
 This workflow is designed to help junior analysts build detections without requiring AI assistance.
 

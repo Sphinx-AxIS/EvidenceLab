@@ -112,3 +112,21 @@ class ReplClient:
         if home_net:
             msg["home_net"] = home_net
         return self._send(msg)
+
+    def test_suricata_rule(
+        self,
+        pcap_path: str,
+        rule_content: str,
+        home_net: str | None = None,
+    ) -> dict[str, Any]:
+        """Run a draft Suricata rule against a PCAP and return a match summary."""
+        if self._sock:
+            self._sock.settimeout(900)
+        msg: dict[str, Any] = {
+            "cmd": "suricata_rule_test",
+            "pcap_path": pcap_path,
+            "rule_content": rule_content,
+        }
+        if home_net:
+            msg["home_net"] = home_net
+        return self._send(msg)
