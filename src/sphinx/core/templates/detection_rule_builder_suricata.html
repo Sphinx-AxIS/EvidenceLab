@@ -11,6 +11,7 @@
   <li><strong>Candidate Detection Atoms</strong> show High, Medium, and Low options that can be added to the draft with a click.</li>
   <li><strong>Frame Provenance</strong> shows whether a candidate string was seen inside one frame or only after stream reassembly.</li>
   <li><strong>Anchor-Aware Direction</strong> uses the selected content anchor's actual frame provenance to decide whether the draft should point <code>to_server</code> or <code>to_client</code> when possible.</li>
+  <li><strong>Flow Guardrails</strong> keep <code>flow</code> keywords for stream-dependent anchors, but avoid adding them by default when a selected literal anchor was seen wholly inside a single payload-bearing frame.</li>
   <li><strong>Live Rule Preview</strong> renders the selected facts into Suricata syntax automatically.</li>
   <li><strong>Warnings</strong> call out brittle choices such as exact IPs in behavior mode or content strings that are too short.</li>
   <li><strong>Raw Data (JSON)</strong> and payload previews are rendered as escaped literal text so hostile evidence content cannot break the page layout.</li>
@@ -273,6 +274,7 @@ function buildSuricataDraft() {
   const contentItems = selected.filter(item => item.kind === 'content');
   const flowBits = selectedByKind('flow');
   const hasReassemblyContent = contentItems.some(item => !item.singlePacket);
+  const hasSinglePacketContent = contentItems.some(item => item.singlePacket);
   const contentDirectionHints = contentItems
     .map(item => ({
       serviceRole: item.serviceRole,
@@ -340,17 +342,18 @@ function buildSuricataDraft() {
   lines.push(`alert ${proto} ${srcNet} ${srcPort} ${direction} ${dstNet} ${dstPort} (`);
   lines.push(`    msg:"${escapeSuricataContent(msg)}";`);
   const flowKeywords = [];
-  if (flowBits.includes('established')) {
+  const useRecommendedFlowKeywords = matchStyle === 'recommended' && hasReassemblyContent;
+  if (flowBits.includes('established') && (useRecommendedFlowKeywords || contentItems.length === 0 || strategy === 'ioc')) {
     flowKeywords.push('established');
   }
-  if (strategy !== 'ioc') {
+  if (strategy !== 'ioc' && useRecommendedFlowKeywords) {
     if (effectiveDirectionHint === 'to_client' || effectiveServiceRole === 'src') {
       flowKeywords.push('to_client');
     } else if (effectiveDirectionHint === 'to_server' || effectiveServiceRole === 'dst') {
       flowKeywords.push('to_server');
     }
   }
-  if (matchStyle === 'recommended' && hasReassemblyContent) {
+  if (useRecommendedFlowKeywords) {
     flowKeywords.push('only_stream');
   }
   if (flowKeywords.length) {
@@ -414,6 +417,9 @@ function buildSuricataDraft() {
   }
   if (contentDirectionHints.length && effectiveServiceRole && effectiveServiceRole !== flow.service_port_role) {
     warnings.push(`The preview used the selected content anchor's frame provenance to override the stream-wide direction guess and scope the rule to port ${effectiveServicePort}.`);
+  }
+  if (matchStyle === 'recommended' && hasSinglePacketContent && !hasReassemblyContent && flowBits.includes('established')) {
+    warnings.push('The preview omitted flow keywords because the selected anchor was seen wholly inside a single payload-bearing frame, and packet-scoped literals are often more reliable without extra flow constraints.');
   }
 
   let quality = 'Usable';
