@@ -493,6 +493,10 @@ def _content_atom_provenance(value: str, payload_text: str, frame_payloads: list
             "service_port_role": "",
             "service_port_value": "",
             "direction_hint": "",
+            "src_ip": "",
+            "dst_ip": "",
+            "src_port": "",
+            "dst_port": "",
         }
 
     matched_frames: list[dict[str, Any]] = []
@@ -507,13 +511,22 @@ def _content_atom_provenance(value: str, payload_text: str, frame_payloads: list
             except Exception:
                 continue
 
-    def summarize_direction(frames: list[dict[str, Any]]) -> tuple[str, str, str]:
+    def summarize_direction(frames: list[dict[str, Any]]) -> tuple[str, str, str, str, str, str, str]:
         role = ""
         port_value = ""
         direction_hint = ""
+        endpoint_src_ip = ""
+        endpoint_dst_ip = ""
+        endpoint_src_port = ""
+        endpoint_dst_port = ""
         for frame in frames:
             frame_src_port = str(frame.get("src_port") or "")
             frame_dst_port = str(frame.get("dst_port") or "")
+            if not endpoint_src_ip:
+                endpoint_src_ip = str(frame.get("src_ip") or "")
+                endpoint_dst_ip = str(frame.get("dst_ip") or "")
+                endpoint_src_port = frame_src_port
+                endpoint_dst_port = frame_dst_port
             if frame_src_port in _SERVICE_PORT_NAMES:
                 role = "src"
                 port_value = frame_src_port
@@ -524,10 +537,26 @@ def _content_atom_provenance(value: str, payload_text: str, frame_payloads: list
                 port_value = frame_dst_port
                 direction_hint = "to_server"
                 break
-        return role, port_value, direction_hint
+        return (
+            role,
+            port_value,
+            direction_hint,
+            endpoint_src_ip,
+            endpoint_dst_ip,
+            endpoint_src_port,
+            endpoint_dst_port,
+        )
 
     if matching_frames:
-        service_port_role, service_port_value, direction_hint = summarize_direction(matched_frames)
+        (
+            service_port_role,
+            service_port_value,
+            direction_hint,
+            endpoint_src_ip,
+            endpoint_dst_ip,
+            endpoint_src_port,
+            endpoint_dst_port,
+        ) = summarize_direction(matched_frames)
         return {
             "single_packet": True,
             "frame_numbers": sorted(set(matching_frames)),
@@ -535,12 +564,24 @@ def _content_atom_provenance(value: str, payload_text: str, frame_payloads: list
             "service_port_role": service_port_role,
             "service_port_value": service_port_value,
             "direction_hint": direction_hint,
+            "src_ip": endpoint_src_ip,
+            "dst_ip": endpoint_dst_ip,
+            "src_port": endpoint_src_port,
+            "dst_port": endpoint_dst_port,
         }
 
     payload_normalized = _normalize_payload_line(payload_text).lower()
     if needle and payload_normalized and needle in payload_normalized:
         frame_numbers = [frame.get("frame_number") for frame in frame_payloads if frame.get("frame_number") not in (None, "")]
-        service_port_role, service_port_value, direction_hint = summarize_direction(frame_payloads)
+        (
+            service_port_role,
+            service_port_value,
+            direction_hint,
+            endpoint_src_ip,
+            endpoint_dst_ip,
+            endpoint_src_port,
+            endpoint_dst_port,
+        ) = summarize_direction(frame_payloads)
         return {
             "single_packet": False,
             "frame_numbers": frame_numbers,
@@ -548,6 +589,10 @@ def _content_atom_provenance(value: str, payload_text: str, frame_payloads: list
             "service_port_role": service_port_role,
             "service_port_value": service_port_value,
             "direction_hint": direction_hint,
+            "src_ip": endpoint_src_ip,
+            "dst_ip": endpoint_dst_ip,
+            "src_port": endpoint_src_port,
+            "dst_port": endpoint_dst_port,
         }
 
     return {
@@ -557,6 +602,10 @@ def _content_atom_provenance(value: str, payload_text: str, frame_payloads: list
         "service_port_role": "",
         "service_port_value": "",
         "direction_hint": "",
+        "src_ip": "",
+        "dst_ip": "",
+        "src_port": "",
+        "dst_port": "",
     }
 
 
@@ -615,6 +664,10 @@ def _extract_suricata_content_candidates(payload_text: str, frame_payloads: list
                 "service_port_role": provenance["service_port_role"],
                 "service_port_value": provenance["service_port_value"],
                 "direction_hint": provenance["direction_hint"],
+                "anchor_src_ip": provenance["src_ip"],
+                "anchor_dst_ip": provenance["dst_ip"],
+                "anchor_src_port": provenance["src_port"],
+                "anchor_dst_port": provenance["dst_port"],
                 "literal_fallback_value": "",
                 "literal_fallback_label": "",
                 "selected": priority == "High",
@@ -654,6 +707,10 @@ def _extract_suricata_content_candidates(payload_text: str, frame_payloads: list
                 "service_port_role": provenance["service_port_role"],
                 "service_port_value": provenance["service_port_value"],
                 "direction_hint": provenance["direction_hint"],
+                "anchor_src_ip": provenance["src_ip"],
+                "anchor_dst_ip": provenance["dst_ip"],
+                "anchor_src_port": provenance["src_port"],
+                "anchor_dst_port": provenance["dst_port"],
                 "literal_fallback_value": "",
                 "literal_fallback_label": "",
                 "selected": priority == "Medium",
@@ -727,6 +784,36 @@ def _build_suricata_builder_data(source_record: dict[str, Any] | None) -> dict[s
     if payload_text and "shell-activity" not in semantic_tags:
         semantic_tags.append("shell-activity")
 
+    preferred_anchor = next(
+        (
+            candidate for candidate in content_candidates
+            if candidate.get("priority") == "High"
+            and (
+                candidate.get("anchor_src_ip")
+                or candidate.get("anchor_dst_ip")
+                or candidate.get("anchor_src_port")
+                or candidate.get("anchor_dst_port")
+            )
+        ),
+        None,
+    ) or next(
+        (
+            candidate for candidate in content_candidates
+            if (
+                candidate.get("anchor_src_ip")
+                or candidate.get("anchor_dst_ip")
+                or candidate.get("anchor_src_port")
+                or candidate.get("anchor_dst_port")
+            )
+        ),
+        None,
+    )
+
+    display_src_ip = str((preferred_anchor or {}).get("anchor_src_ip") or src_ip)
+    display_dst_ip = str((preferred_anchor or {}).get("anchor_dst_ip") or dst_ip)
+    display_src_port = str((preferred_anchor or {}).get("anchor_src_port") or src_port)
+    display_dst_port = str((preferred_anchor or {}).get("anchor_dst_port") or dst_port)
+
     atoms: list[dict[str, Any]] = [
         {
             "id": f"proto_{proto}",
@@ -759,43 +846,43 @@ def _build_suricata_builder_data(source_record: dict[str, Any] | None) -> dict[s
             "selected": True,
         })
 
-    if src_port and src_port != service_port_value:
+    if display_src_port and display_src_port != service_port_value:
         atoms.append({
-            "id": f"src_port_{src_port}",
+            "id": f"src_port_{display_src_port}",
             "kind": "src_port",
-            "label": f"src_port:{src_port}",
-            "value": src_port,
-            "priority": "Low" if (src_port_num and src_port_num >= 1024) else "Medium",
+            "label": f"src_port:{display_src_port}",
+            "value": display_src_port,
+            "priority": "Low" if (_to_int_port(display_src_port) and _to_int_port(display_src_port) >= 1024) else "Medium",
             "reason": "Use only if this port is stable across sessions. Ephemeral ports are weak anchors.",
             "selected": False,
         })
-    if dst_port and dst_port != service_port_value:
+    if display_dst_port and display_dst_port != service_port_value:
         atoms.append({
-            "id": f"dst_port_{dst_port}",
+            "id": f"dst_port_{display_dst_port}",
             "kind": "dst_port",
-            "label": f"dst_port:{dst_port}",
-            "value": dst_port,
-            "priority": "Low" if (dst_port_num and dst_port_num >= 1024) else "Medium",
+            "label": f"dst_port:{display_dst_port}",
+            "value": display_dst_port,
+            "priority": "Low" if (_to_int_port(display_dst_port) and _to_int_port(display_dst_port) >= 1024) else "Medium",
             "reason": "Use only if this port is stable across sessions. High client ports are usually too brittle.",
             "selected": False,
         })
 
-    if src_ip:
+    if display_src_ip:
         atoms.append({
             "id": "src_ip",
             "kind": "src_ip",
-            "label": f"src_ip:{src_ip}",
-            "value": src_ip,
+            "label": f"src_ip:{display_src_ip}",
+            "value": display_src_ip,
             "priority": "Low",
             "reason": "Use only for IOC-style detections. A literal IP usually does not generalize to similar behavior.",
             "selected": False,
         })
-    if dst_ip:
+    if display_dst_ip:
         atoms.append({
             "id": "dst_ip",
             "kind": "dst_ip",
-            "label": f"dst_ip:{dst_ip}",
-            "value": dst_ip,
+            "label": f"dst_ip:{display_dst_ip}",
+            "value": display_dst_ip,
             "priority": "Low",
             "reason": "Use only for IOC-style detections. Literal peer IPs are often brittle and environment-specific.",
             "selected": False,
@@ -818,6 +905,8 @@ def _build_suricata_builder_data(source_record: dict[str, Any] | None) -> dict[s
         "payload_preview_json": json.dumps(payload_text[:320], ensure_ascii=True),
         "service_name": service_name,
         "direction_guess": direction_guess,
+        "anchor_source": f"{display_src_ip}:{display_src_port}" if display_src_ip or display_src_port else "",
+        "anchor_destination": f"{display_dst_ip}:{display_dst_port}" if display_dst_ip or display_dst_port else "",
         "service_port_role": service_port_role,
         "service_port_value": service_port_value,
         "frame_count": len(frame_numbers) or len(frame_payloads),

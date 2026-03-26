@@ -6,6 +6,7 @@
 <p>Use this page to turn a selected packet-derived record into a Suricata draft without starting from raw syntax.</p>
 <ul>
   <li><strong>Flow Review</strong> keeps the key packet and stream facts visible.</li>
+  <li><strong>Anchor Frame Context</strong> can differ from the stream summary. When EvidenceLab can tie a selected content anchor to specific payload-bearing frames, the source/destination endpoint anchors follow that frame context.</li>
   <li><strong>Detection Strategy</strong> lets the analyst choose IOC, behavior, or service-focused logic before selecting anchors.</li>
   <li><strong>Content Match Style</strong> lets the analyst keep simple literal content matches or switch to resilient PCRE when stream reassembly matters.</li>
   <li><strong>Candidate Detection Atoms</strong> show High, Medium, and Low options that can be added to the draft with a click.</li>
@@ -65,6 +66,10 @@
         <tr><td>Protocol</td><td class="text-mono">{{ builder_data.flow.proto or '—' }}</td></tr>
         <tr><td>Source</td><td class="text-mono">{{ builder_data.flow.src_ip or '—' }}:{{ builder_data.flow.src_port or '—' }}</td></tr>
         <tr><td>Destination</td><td class="text-mono">{{ builder_data.flow.dst_ip or '—' }}:{{ builder_data.flow.dst_port or '—' }}</td></tr>
+        {% if builder_data.flow.anchor_source or builder_data.flow.anchor_destination %}
+        <tr><td>Anchor Frame Source</td><td class="text-mono">{{ builder_data.flow.anchor_source or '—' }}</td></tr>
+        <tr><td>Anchor Frame Destination</td><td class="text-mono">{{ builder_data.flow.anchor_destination or '—' }}</td></tr>
+        {% endif %}
         <tr><td>Packets / Stream</td><td class="text-mono">{{ builder_data.flow.packet_count or '—' }} packets, stream {{ builder_data.flow.stream_index or '—' }}</td></tr>
         <tr><td>Payload Frames</td><td>{{ builder_data.flow.frame_numbers_preview or 'Frame provenance was not captured for this stream.' }}</td></tr>
         <tr><td>Payload Summary</td><td class="text-mono">{{ builder_data.flow.payload_bytes or '—' }} bytes, {{ builder_data.flow.printable_chars or '—' }} printable chars, ratio {{ builder_data.flow.printable_ratio or '—' }}</td></tr>
@@ -299,19 +304,22 @@ function buildSuricataDraft() {
     }))
     .filter(item => item.serviceRole || item.servicePort || item.directionHint);
 
-  if (srcPorts.length) {
-    if (strategy === 'ioc' || !isEphemeralPort(srcPorts[0])) {
-      srcPort = srcPorts[0];
-    }
+  const hasExplicitSrcPort = srcPorts.length > 0;
+  const hasExplicitDstPort = dstPorts.length > 0;
+  const hasExplicitSrcIp = srcIps.length > 0;
+  const hasExplicitDstIp = dstIps.length > 0;
+
+  if (hasExplicitSrcPort) {
+    srcPort = srcPorts[0];
   }
-  if (dstPorts.length) {
-    if (strategy === 'ioc' || !isEphemeralPort(dstPorts[0])) {
-      dstPort = dstPorts[0];
-    }
+  if (hasExplicitDstPort) {
+    dstPort = dstPorts[0];
   }
-  if (strategy === 'ioc') {
-    if (srcIps.length) srcNet = srcIps[0];
-    if (dstIps.length) dstNet = dstIps[0];
+  if (hasExplicitSrcIp) {
+    srcNet = srcIps[0];
+  }
+  if (hasExplicitDstIp) {
+    dstNet = dstIps[0];
   }
 
   let effectiveServiceRole = flow.service_port_role || '';
@@ -324,7 +332,7 @@ function buildSuricataDraft() {
     effectiveDirectionHint = preferred.directionHint || '';
   }
 
-  if (strategy !== 'ioc' && effectiveServicePort) {
+  if (strategy !== 'ioc' && effectiveServicePort && !hasExplicitSrcPort && !hasExplicitDstPort) {
     if (effectiveServiceRole === 'src') {
       srcPort = effectiveServicePort;
       dstPort = 'any';
@@ -359,7 +367,7 @@ function buildSuricataDraft() {
   lines.push(`    msg:"${escapeSuricataContent(msg)}";`);
   const flowKeywords = [];
   const useRecommendedFlowKeywords = matchStyle === 'recommended' && hasReassemblyContent;
-  if (flowBits.includes('established') && (useRecommendedFlowKeywords || contentItems.length === 0 || strategy === 'ioc')) {
+  if (flowBits.includes('established')) {
     flowKeywords.push('established');
   }
   if (strategy !== 'ioc' && useRecommendedFlowKeywords) {
@@ -404,11 +412,11 @@ function buildSuricataDraft() {
     if (item.priority === 'Medium') score += 1;
     if (item.priority === 'Low') score -= 2;
     if ((item.kind === 'src_ip' || item.kind === 'dst_ip') && strategy !== 'ioc') {
-      warnings.push(`${item.kind} is selected outside IOC mode. Literal IPs are usually brittle for durable behavior rules.`);
+      warnings.push(`${item.kind} is selected and will be carried into the header. Literal IPs are usually brittle for durable behavior rules.`);
       score -= 2;
     }
     if ((item.kind === 'src_port' || item.kind === 'dst_port') && Number(item.value) >= 1024) {
-      warnings.push(`${item.kind}:${item.value} looks ephemeral. High client ports are usually weak anchors.`);
+      warnings.push(`${item.kind}:${item.value} is selected and will be carried into the header, but high client ports are usually weak anchors.`);
       score -= 2;
     }
     if (item.kind === 'content' && String(item.value).length < 4) {
@@ -435,7 +443,7 @@ function buildSuricataDraft() {
     score -= 1;
   }
   if (strategy !== 'ioc') {
-    if (srcPorts.some(isEphemeralPort) || dstPorts.some(isEphemeralPort)) {
+    if ((srcPorts.some(isEphemeralPort) || dstPorts.some(isEphemeralPort)) && !(hasExplicitSrcPort || hasExplicitDstPort)) {
       warnings.push('Ephemeral ports were selected, but the preview ignored them. Use IOC mode only if you intentionally want that level of specificity.');
     }
   }
