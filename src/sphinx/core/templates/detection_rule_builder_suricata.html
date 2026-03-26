@@ -322,8 +322,8 @@ function buildSuricataDraft() {
     dstNet = dstIps[0];
   }
 
-  let effectiveServiceRole = flow.service_port_role || '';
-  let effectiveServicePort = flow.service_port_value || '';
+  let effectiveServiceRole = '';
+  let effectiveServicePort = '';
   let effectiveDirectionHint = '';
   if (contentDirectionHints.length) {
     const preferred = contentDirectionHints.find(item => item.serviceRole && item.servicePort) || contentDirectionHints[0];
@@ -332,7 +332,7 @@ function buildSuricataDraft() {
     effectiveDirectionHint = preferred.directionHint || '';
   }
 
-  if (strategy !== 'ioc' && effectiveServicePort && !hasExplicitSrcPort && !hasExplicitDstPort) {
+  if (strategy !== 'ioc' && contentItems.length > 0 && effectiveServicePort && !hasExplicitSrcPort && !hasExplicitDstPort) {
     if (effectiveServiceRole === 'src') {
       srcPort = effectiveServicePort;
       dstPort = 'any';
@@ -447,7 +447,7 @@ function buildSuricataDraft() {
       warnings.push('Ephemeral ports were selected, but the preview ignored them. Use IOC mode only if you intentionally want that level of specificity.');
     }
   }
-  if (contentDirectionHints.length && effectiveServiceRole && effectiveServiceRole !== flow.service_port_role) {
+  if (contentItems.length > 0 && contentDirectionHints.length && effectiveServiceRole && effectiveServiceRole !== (flow.service_port_role || '')) {
     warnings.push(`The preview used the selected content anchor's frame provenance to override the stream-wide direction guess and scope the rule to port ${effectiveServicePort}.`);
   }
   if (matchStyle === 'recommended' && hasSinglePacketContent && !hasReassemblyContent && flowBits.includes('established')) {
