@@ -228,8 +228,10 @@ function buildResilientPcre(value) {
   const text = String(value || '').trim();
   if (!text) return '';
   const tokens = text.split(/\s+/).filter(Boolean);
-  const renderedTokens = tokens.map(token => token.split('').map(ch => escapePcreValue(ch)).join('\\s*'));
-  return renderedTokens.join('\\s+');
+  if (tokens.length === 1) {
+    return escapePcreValue(tokens[0]);
+  }
+  return tokens.map(token => escapePcreValue(token)).join('.{0,32}');
 }
 
 function isEphemeralPort(value) {
@@ -324,7 +326,7 @@ function buildSuricataDraft() {
   contentItems.forEach(item => {
     if (matchStyle === 'recommended' && !item.singlePacket) {
       const pattern = buildResilientPcre(item.value);
-      lines.push(`    pcre:"/${pattern}/i";`);
+      lines.push(`    pcre:"/${pattern}/si";`);
     } else {
       lines.push(`    content:"${escapeSuricataContent(item.value)}";`);
     }
