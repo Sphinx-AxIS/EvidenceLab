@@ -68,7 +68,7 @@ LLM inference runs on the host via [LM Studio](https://lmstudio.ai/) (OpenAI-com
 6. Create an investigation task from the **Tasks** page
 7. Review LLM findings and generate a report
 
-The Suricata builder now walks the analyst through a no-AI workflow: review the normalized flow, choose a detection strategy, click High/Medium/Low candidate atoms, and watch the rule preview update automatically while the full source record JSON stays visible. Payload previews are shown as escaped JSON-style strings, JSON panes are rendered as escaped literal text, and high ephemeral ports are ignored by default for behavior/service-style drafts.
+The Suricata builder now walks the analyst through a no-AI workflow: review the normalized flow, choose a detection strategy, click High/Medium/Low candidate atoms, and watch the rule preview update automatically while the full source record JSON stays visible. Payload previews are shown as escaped JSON-style strings, JSON panes are rendered as escaped literal text, high ephemeral ports are ignored by default for behavior/service-style drafts, and candidate content atoms now call out whether they were seen in a single frame or only after stream reassembly.
 
 On the manual Suricata rule form, analysts can also test a draft rule against the latest uploaded PCAP for the current case before saving or deploying it. Uploaded PCAPs are retained so this replay path remains available after ingest.
 

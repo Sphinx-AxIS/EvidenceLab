@@ -8,6 +8,7 @@
   <li><strong>Flow Review</strong> keeps the key packet and stream facts visible.</li>
   <li><strong>Detection Strategy</strong> lets the analyst choose IOC, behavior, or service-focused logic before selecting anchors.</li>
   <li><strong>Candidate Detection Atoms</strong> show High, Medium, and Low options that can be added to the draft with a click.</li>
+  <li><strong>Frame Provenance</strong> shows whether a candidate string was seen inside one frame or only after stream reassembly.</li>
   <li><strong>Live Rule Preview</strong> renders the selected facts into Suricata syntax automatically.</li>
   <li><strong>Warnings</strong> call out brittle choices such as exact IPs in behavior mode or content strings that are too short.</li>
   <li><strong>Raw Data (JSON)</strong> and payload previews are rendered as escaped literal text so hostile evidence content cannot break the page layout.</li>
@@ -62,6 +63,7 @@
         <tr><td>Source</td><td class="text-mono">{{ builder_data.flow.src_ip or '—' }}:{{ builder_data.flow.src_port or '—' }}</td></tr>
         <tr><td>Destination</td><td class="text-mono">{{ builder_data.flow.dst_ip or '—' }}:{{ builder_data.flow.dst_port or '—' }}</td></tr>
         <tr><td>Packets / Stream</td><td class="text-mono">{{ builder_data.flow.packet_count or '—' }} packets, stream {{ builder_data.flow.stream_index or '—' }}</td></tr>
+        <tr><td>Payload Frames</td><td>{{ builder_data.flow.frame_numbers_preview or 'Frame provenance was not captured for this stream.' }}</td></tr>
         <tr><td>Payload Summary</td><td class="text-mono">{{ builder_data.flow.payload_bytes or '—' }} bytes, {{ builder_data.flow.printable_chars or '—' }} printable chars, ratio {{ builder_data.flow.printable_ratio or '—' }}</td></tr>
         <tr><td>Direction Guess</td><td>{{ builder_data.flow.direction_guess or 'No strong client/server guess was derived from the ports.' }}</td></tr>
         {% if builder_data.semantic_tags %}
@@ -114,11 +116,16 @@
             data-kind="{{ atom.kind }}"
             data-value="{{ atom.value }}"
             data-priority="{{ atom.priority }}"
+            data-single-packet="{{ 'true' if atom.single_packet else 'false' }}"
+            data-provenance="{{ atom.provenance or '' }}"
             {% if atom.selected %}checked{% endif %}
           >
         </div>
         <div style="margin-top:0.5rem;"><code>{{ atom.label }}</code></div>
         <div class="text-muted" style="margin-top:0.35rem;font-size:0.84rem;">{{ atom.reason }}</div>
+        {% if atom.provenance %}
+        <div class="text-muted" style="margin-top:0.35rem;font-size:0.8rem;"><strong>Frame provenance:</strong> {{ atom.provenance }}</div>
+        {% endif %}
       </label>
     </div>
     {% endfor %}
@@ -196,6 +203,8 @@ function buildSuricataDraft() {
     kind: cb.dataset.kind,
     value: cb.dataset.value,
     priority: cb.dataset.priority,
+    singlePacket: cb.dataset.singlePacket === 'true',
+    provenance: cb.dataset.provenance || '',
   }));
 
   const selectedByKind = kind => selected.filter(item => item.kind === kind).map(item => item.value);
@@ -283,6 +292,10 @@ function buildSuricataDraft() {
     if (item.kind === 'content' && String(item.value).length < 4) {
       warnings.push(`content:"${item.value}" is very short and may overmatch benign traffic.`);
       score -= 2;
+    }
+    if (item.kind === 'content' && !item.singlePacket) {
+      warnings.push(`content:"${item.value}" was only confirmed after stream reassembly. Validate that this anchor survives packet boundaries before relying on it.`);
+      score -= 1;
     }
   });
 

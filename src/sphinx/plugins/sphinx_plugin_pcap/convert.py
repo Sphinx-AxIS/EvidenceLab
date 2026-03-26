@@ -314,6 +314,7 @@ def run_tshark_streams(
         tshark_bin, "-r", str(pcap_path.resolve()),
         "-T", "fields",
         "-e", "tcp.stream",
+        "-e", "frame.number",
         "-e", "frame.time_epoch",
         "-e", "ip.src",
         "-e", "ip.dst",
@@ -335,7 +336,7 @@ def run_tshark_streams(
     streams: dict[int, dict] = {}
     for line in result.stdout.splitlines():
         parts = line.split("\t")
-        if len(parts) < 7:
+        if len(parts) < 8:
             continue
         try:
             stream_idx = int(parts[0])
@@ -345,22 +346,42 @@ def run_tshark_streams(
         if stream_idx not in streams:
             streams[stream_idx] = {
                 "stream_index": stream_idx,
-                "first_ts": parts[1],
-                "last_ts": parts[1],
-                "src_ip": parts[2],
-                "dst_ip": parts[3],
-                "src_port": parts[4],
-                "dst_port": parts[5],
+                "first_ts": parts[2],
+                "last_ts": parts[2],
+                "src_ip": parts[3],
+                "dst_ip": parts[4],
+                "src_port": parts[5],
+                "dst_port": parts[6],
                 "hex_parts": [],
+                "frame_numbers": [],
+                "frame_payloads": [],
                 "packet_count": 0,
             }
 
         s = streams[stream_idx]
-        s["last_ts"] = parts[1]
+        s["last_ts"] = parts[2]
         s["packet_count"] += 1
-        hex_data = parts[6].replace(":", "") if len(parts) > 6 and parts[6] else ""
+        frame_number = parts[1].strip()
+        if frame_number:
+            try:
+                s["frame_numbers"].append(int(frame_number))
+            except ValueError:
+                pass
+        hex_data = parts[7].replace(":", "") if len(parts) > 7 and parts[7] else ""
         if hex_data:
             s["hex_parts"].append(hex_data)
+            frame_ascii, frame_printable_count = _hex_to_printable(hex_data)
+            s["frame_payloads"].append({
+                "frame_number": int(frame_number) if frame_number.isdigit() else frame_number,
+                "ts": parts[2],
+                "src_ip": parts[3],
+                "dst_ip": parts[4],
+                "src_port": parts[5],
+                "dst_port": parts[6],
+                "payload_bytes": len(hex_data) // 2,
+                "printable_chars": frame_printable_count,
+                "payload_printable": frame_ascii[:512],
+            })
 
     # Convert hex -> printable ASCII, filter, collect records
     records = []
@@ -391,6 +412,8 @@ def run_tshark_streams(
             "printable_chars": printable_count,
             "printable_ratio": round(ratio, 3),
             "payload_printable": payload_ascii[:32000],
+            "frame_numbers": s["frame_numbers"],
+            "frame_payloads": s["frame_payloads"][:200],
         })
 
     # Also write streams.jsonl for reference

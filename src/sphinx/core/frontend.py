@@ -466,10 +466,66 @@ def _normalize_payload_line(text: str) -> str:
     return " ".join(text.replace("\t", " ").split()).strip()
 
 
-def _extract_suricata_content_candidates(payload_text: str) -> tuple[list[dict[str, str]], list[str]]:
+def _summarize_frame_numbers(frame_numbers: list[int | str]) -> str:
+    clean = []
+    for value in frame_numbers:
+        try:
+            clean.append(int(value))
+        except Exception:
+            continue
+    if not clean:
+        return "frame provenance unavailable"
+    clean = sorted(set(clean))
+    if len(clean) == 1:
+        return f"Seen in frame {clean[0]}."
+    if len(clean) <= 4:
+        return "Seen in frames " + ", ".join(str(n) for n in clean) + "."
+    return "Seen in frames " + ", ".join(str(n) for n in clean[:4]) + f" and {len(clean) - 4} more."
+
+
+def _content_atom_provenance(value: str, payload_text: str, frame_payloads: list[dict[str, Any]]) -> dict[str, Any]:
+    needle = _normalize_payload_line(value).lower()
+    if not needle:
+        return {"single_packet": False, "frame_numbers": [], "label": "Frame provenance unavailable."}
+
+    matching_frames: list[int] = []
+    for frame in frame_payloads:
+        frame_number = frame.get("frame_number")
+        frame_payload = _normalize_payload_line(str(frame.get("payload_printable") or "")).lower()
+        if needle and frame_payload and needle in frame_payload:
+            try:
+                matching_frames.append(int(frame_number))
+            except Exception:
+                continue
+
+    if matching_frames:
+        return {
+            "single_packet": True,
+            "frame_numbers": sorted(set(matching_frames)),
+            "label": _summarize_frame_numbers(matching_frames),
+        }
+
+    payload_normalized = _normalize_payload_line(payload_text).lower()
+    if needle and payload_normalized and needle in payload_normalized:
+        frame_numbers = [frame.get("frame_number") for frame in frame_payloads if frame.get("frame_number") not in (None, "")]
+        return {
+            "single_packet": False,
+            "frame_numbers": frame_numbers,
+            "label": "Requires stream reassembly. Not seen wholly inside one payload-bearing frame.",
+        }
+
+    return {
+        "single_packet": False,
+        "frame_numbers": [],
+        "label": "Not traced to a specific frame from the stored payload preview.",
+    }
+
+
+def _extract_suricata_content_candidates(payload_text: str, frame_payloads: list[dict[str, Any]] | None = None) -> tuple[list[dict[str, str]], list[str]]:
     candidates: list[dict[str, str]] = []
     semantic_tags: list[str] = []
     seen_values: set[str] = set()
+    frame_payloads = frame_payloads or []
 
     normalized_lines = [
         _normalize_payload_line(part)
@@ -484,6 +540,7 @@ def _extract_suricata_content_candidates(payload_text: str) -> tuple[list[dict[s
             if normalized_value in seen_values:
                 continue
             seen_values.add(normalized_value)
+            provenance = _content_atom_provenance(normalized_value, payload_text, frame_payloads)
             candidates.append({
                 "id": f"content_{re.sub(r'[^a-z0-9]+', '_', normalized_value.lower()).strip('_')}",
                 "kind": "content",
@@ -491,6 +548,8 @@ def _extract_suricata_content_candidates(payload_text: str) -> tuple[list[dict[s
                 "value": normalized_value,
                 "priority": priority,
                 "reason": reason,
+                "provenance": provenance["label"],
+                "single_packet": provenance["single_packet"],
                 "selected": priority == "High",
             })
             if semantic_tag not in semantic_tags:
@@ -509,6 +568,7 @@ def _extract_suricata_content_candidates(payload_text: str) -> tuple[list[dict[s
             if line in seen_values:
                 continue
             seen_values.add(line)
+            provenance = _content_atom_provenance(line, payload_text, frame_payloads)
             candidates.append({
                 "id": f"content_{re.sub(r'[^a-z0-9]+', '_', line.lower()).strip('_')[:40]}",
                 "kind": "content",
@@ -516,6 +576,8 @@ def _extract_suricata_content_candidates(payload_text: str) -> tuple[list[dict[s
                 "value": line,
                 "priority": priority,
                 "reason": reason,
+                "provenance": provenance["label"],
+                "single_packet": provenance["single_packet"],
                 "selected": priority == "Medium",
             })
 
@@ -538,6 +600,8 @@ def _build_suricata_builder_data(source_record: dict[str, Any] | None) -> dict[s
     dst_ip = str(raw.get("dst_ip") or "")
     src_port = str(raw.get("src_port") or "")
     dst_port = str(raw.get("dst_port") or "")
+    frame_payloads = raw.get("frame_payloads") if isinstance(raw.get("frame_payloads"), list) else []
+    frame_numbers = raw.get("frame_numbers") if isinstance(raw.get("frame_numbers"), list) else []
     payload_text = ""
     for key in ("payload_printable", "ascii_printable", "stream_text", "payload", "data"):
         value = raw.get(key)
@@ -575,7 +639,7 @@ def _build_suricata_builder_data(source_record: dict[str, Any] | None) -> dict[s
         service_port_value = dst_port
         service_name = dst_service_name
 
-    content_candidates, semantic_tags = _extract_suricata_content_candidates(payload_text)
+    content_candidates, semantic_tags = _extract_suricata_content_candidates(payload_text, frame_payloads)
     if payload_text and "shell-activity" not in semantic_tags:
         semantic_tags.append("shell-activity")
 
@@ -672,6 +736,8 @@ def _build_suricata_builder_data(source_record: dict[str, Any] | None) -> dict[s
         "direction_guess": direction_guess,
         "service_port_role": service_port_role,
         "service_port_value": service_port_value,
+        "frame_count": len(frame_numbers) or len(frame_payloads),
+        "frame_numbers_preview": _summarize_frame_numbers(frame_numbers[:12]) if frame_numbers else "",
     }
 
     return {
