@@ -343,6 +343,38 @@ def _build_suricata_probe_variants(normalized_rule: str) -> list[dict[str, str]]
             "reason": "Checks whether Suricata can see the core token anywhere in the PCAP without header or flow constraints.",
             "rule": broad_probe,
         })
+        dst_to_server = _replace_rule_option(normalized_rule, "pcre", f'content:"{literal_anchor}";')
+        dst_to_server = _replace_rule_option(dst_to_server, "flow", "flow:established,to_server;")
+        dst_to_server = _replace_header(dst_to_server, "any", "any", "->", "any", "21")
+        probes.append({
+            "label": "Destination port 21 + to_server literal",
+            "reason": "Checks the common client-to-service case with the service port on the destination side and a literal content match.",
+            "rule": dst_to_server,
+        })
+        src_to_client = _replace_rule_option(normalized_rule, "pcre", f'content:"{literal_anchor}";')
+        src_to_client = _replace_rule_option(src_to_client, "flow", "flow:established,to_client;")
+        src_to_client = _replace_header(src_to_client, "any", "21", "->", "any", "any")
+        probes.append({
+            "label": "Source port 21 + to_client literal",
+            "reason": "Checks the common service-to-client response case with the service port on the source side and a literal content match.",
+            "rule": src_to_client,
+        })
+        dst_no_flow = _replace_rule_option(normalized_rule, "pcre", f'content:"{literal_anchor}";')
+        dst_no_flow = _replace_rule_option(dst_no_flow, "flow", None)
+        dst_no_flow = _replace_header(dst_no_flow, "any", "any", "->", "any", "21")
+        probes.append({
+            "label": "Destination port 21 literal without flow",
+            "reason": "Checks whether the service port belongs on the destination side but the flow state/direction keywords are too restrictive.",
+            "rule": dst_no_flow,
+        })
+        src_no_flow = _replace_rule_option(normalized_rule, "pcre", f'content:"{literal_anchor}";')
+        src_no_flow = _replace_rule_option(src_no_flow, "flow", None)
+        src_no_flow = _replace_header(src_no_flow, "any", "21", "->", "any", "any")
+        probes.append({
+            "label": "Source port 21 literal without flow",
+            "reason": "Checks whether the service port belongs on the source side but the flow state/direction keywords are too restrictive.",
+            "rule": src_no_flow,
+        })
     return probes
 
 
