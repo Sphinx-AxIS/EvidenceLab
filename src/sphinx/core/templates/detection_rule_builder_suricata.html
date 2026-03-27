@@ -15,6 +15,7 @@
   <li><strong>Anchor-Aware Direction</strong> uses the selected content anchor's actual frame provenance to decide whether the draft should point <code>to_server</code> or <code>to_client</code> when possible.</li>
   <li><strong>Direction Flow Card</strong> exposes the current active anchor direction as an explicit <code>flow:to_server</code> or <code>flow:to_client</code> option instead of hiding it behind inference.</li>
   <li><strong>Endpoint Override Controls</strong> let the analyst swap <code>src</code>/<code>dst</code> and choose from observed IPs or ports when the parser's initial orientation needs to be corrected.</li>
+  <li><strong>Flow Override Controls</strong> let the analyst pick from common Suricata <code>flow</code> keywords directly in the card when they need to relax or tighten the draft.</li>
   <li><strong>Flow Guardrails</strong> keep <code>flow</code> keywords for stream-dependent anchors, but avoid adding them by default when a selected literal anchor was seen wholly inside a single payload-bearing frame.</li>
   <li><strong>Live Rule Preview</strong> renders the selected facts into Suricata syntax automatically.</li>
   <li><strong>Warnings</strong> call out brittle choices such as exact IPs in behavior mode or content strings that are too short.</li>
@@ -171,6 +172,26 @@
           </select>
         </div>
         {% endif %}
+        {% if atom.kind in ['flow', 'flow_direction'] %}
+        <div class="builder-override-row">
+          <select class="suricata-flow-override-value" data-base-kind="{{ atom.kind }}">
+            {% if atom.kind == 'flow' %}
+            <option value="established" {% if atom.value == 'established' %}selected{% endif %}>established</option>
+            <option value="not_established">not_established</option>
+            <option value="stateless">stateless</option>
+            <option value="only_stream">only_stream</option>
+            <option value="no_stream">no_stream</option>
+            <option value="only_frag">only_frag</option>
+            <option value="no_frag">no_frag</option>
+            {% else %}
+            <option value="to_server" {% if atom.value == 'to_server' %}selected{% endif %}>to_server</option>
+            <option value="to_client" {% if atom.value == 'to_client' %}selected{% endif %}>to_client</option>
+            <option value="from_client">from_client</option>
+            <option value="from_server">from_server</option>
+            {% endif %}
+          </select>
+        </div>
+        {% endif %}
         <div class="text-muted" style="margin-top:0.35rem;font-size:0.84rem;">{{ atom.reason }}</div>
         {% if atom.provenance %}
         <div class="text-muted" style="margin-top:0.35rem;font-size:0.8rem;"><strong>Frame provenance:</strong> {{ atom.provenance }}</div>
@@ -309,7 +330,10 @@ function buildSuricataDraft() {
   const matchStyle = getSelectedMatchStyle();
   const selected = Array.from(document.querySelectorAll('.suricata-atom:checked')).map(cb => ({
     kind: (cb.closest('label')?.querySelector('.suricata-override-kind')?.value) || cb.dataset.kind,
-    value: (cb.closest('label')?.querySelector('.suricata-override-value')?.value) || cb.dataset.value,
+    value:
+      (cb.closest('label')?.querySelector('.suricata-override-value')?.value) ||
+      (cb.closest('label')?.querySelector('.suricata-flow-override-value')?.value) ||
+      cb.dataset.value,
     priority: cb.dataset.priority,
     singlePacket: cb.dataset.singlePacket === 'true',
     provenance: cb.dataset.provenance || '',
@@ -420,9 +444,7 @@ function buildSuricataDraft() {
   lines.push(`    msg:"${escapeSuricataContent(msg)}";`);
   const flowKeywords = [];
   const useRecommendedFlowKeywords = matchStyle === 'recommended' && hasReassemblyContent;
-  if (flowBits.includes('established')) {
-    flowKeywords.push('established');
-  }
+  flowBits.forEach(value => flowKeywords.push(value));
   if (strategy !== 'ioc' && useRecommendedFlowKeywords) {
     if (effectiveDirectionHint === 'to_client' || effectiveServiceRole === 'src') {
       flowKeywords.push('to_client');
@@ -431,7 +453,7 @@ function buildSuricataDraft() {
     }
   }
   if (flowDirectionBits.length && !useRecommendedFlowKeywords) {
-    flowKeywords.push(flowDirectionBits[0]);
+    flowDirectionBits.forEach(value => flowKeywords.push(value));
   }
   if (useRecommendedFlowKeywords) {
     flowKeywords.push('only_stream');
@@ -569,7 +591,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.suricata-atom').forEach(cb => {
     cb.addEventListener('change', renderSuricataPreview);
   });
-  document.querySelectorAll('.suricata-override-kind, .suricata-override-value').forEach(select => {
+  document.querySelectorAll('.suricata-override-kind, .suricata-override-value, .suricata-flow-override-value').forEach(select => {
     select.addEventListener('change', renderSuricataPreview);
     select.addEventListener('click', event => event.stopPropagation());
     select.addEventListener('mousedown', event => event.stopPropagation());
