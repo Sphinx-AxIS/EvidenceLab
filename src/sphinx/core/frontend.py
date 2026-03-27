@@ -6,10 +6,11 @@ import json
 import logging
 import re
 from pathlib import Path
+from urllib.parse import quote
 from typing import Optional
 
 from fastapi import APIRouter, Form, Request, UploadFile, File
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from sphinx.core.auth import create_token, verify_password
@@ -141,6 +142,37 @@ def _suggest_rule_type(record_type: str) -> str:
     if record_type.startswith(("suricata_", "zeek_", "tshark_")):
         return "suricata"
     return ""
+
+
+def _is_xhr(request: Request) -> bool:
+    return request.headers.get("x-requested-with", "").lower() == "xmlhttprequest"
+
+
+def _create_background_job(case_id: str, job_type: str, input_name: str, summary: dict | None = None) -> int | None:
+    job_id = None
+    try:
+        with get_cursor() as cur:
+            from psycopg.types.json import Jsonb
+            cur.execute(
+                """INSERT INTO background_jobs (case_id, job_type, status, input_name, summary)
+                   VALUES (%s, %s, 'running', %s, %s)
+                   RETURNING id""",
+                (case_id, job_type, input_name, Jsonb(summary or {})),
+            )
+            job_id = cur.fetchone()["id"]
+            cur.connection.commit()
+    except Exception as e:
+        log.warning("Could not create job record for %s: %s", job_type, e)
+    return job_id
+
+
+def _redirect_with_status(case_id: str, *, message: str = "", error: str = "") -> str:
+    base = f"/ui/cases/{case_id}/ingest"
+    if message:
+        return f"{base}?message={quote(message)}"
+    if error:
+        return f"{base}?error={quote(error)}"
+    return base
 
 
 def _sigma_service_from_channel(channel: str) -> str:
@@ -1819,44 +1851,111 @@ async def ingest_submit(
     registry = get_registry()
     handler = registry.ingest_handlers.get(record_type)
     if not handler:
-        return RedirectResponse(
-            url=f"/ui/cases/{case_id}/ingest?error=Unknown+handler:+{record_type}",
-            status_code=303,
-        )
+        error_url = _redirect_with_status(case_id, error=f"Unknown handler: {record_type}")
+        return RedirectResponse(url=error_url, status_code=303)
 
-    try:
-        content = await file.read()
-        text = content.decode("utf-8")
+    import threading
 
-        # Support JSON array or JSONL
-        text = text.strip()
-        if text.startswith("["):
-            records = json.loads(text)
-        else:
-            records = [json.loads(line) for line in text.splitlines() if line.strip()]
+    fname = file.filename or "upload.json"
+    content = await file.read()
+    job_id = _create_background_job(case_id, "json_ingest", fname, {
+        "record_type": record_type,
+        "stage": "queued",
+        "pct": 0,
+        "progress_unit": "records",
+    })
+    _job_id = job_id or int(_time.time() * 1000)
 
-        if not records:
-            return RedirectResponse(
-                url=f"/ui/cases/{case_id}/ingest?error=No+records+found+in+file",
-                status_code=303,
-            )
+    def _run_json_ingest() -> None:
+        with _LIVE_JOBS_LOCK:
+            _LIVE_JOBS[_job_id] = {
+                "status": "running",
+                "stage": "parsing JSON",
+                "pct": 5,
+                "processed_count": 0,
+                "total_inserted": 0,
+                "total_expected": 0,
+                "progress_unit": "records",
+                "record_counts": {},
+                "errors": [],
+                "elapsed_s": 0,
+                "_start": _time.time(),
+            }
 
-        inserted = handler(case_id, records)
-        return RedirectResponse(
-            url=f"/ui/cases/{case_id}/ingest?message=Ingested+{inserted}+{record_type}+records",
-            status_code=303,
-        )
-    except json.JSONDecodeError as e:
-        return RedirectResponse(
-            url=f"/ui/cases/{case_id}/ingest?error=Invalid+JSON:+{e}",
-            status_code=303,
-        )
-    except Exception as e:
-        log.error("Ingest failed: %s", e)
-        return RedirectResponse(
-            url=f"/ui/cases/{case_id}/ingest?error=Ingest+failed:+{e}",
-            status_code=303,
-        )
+        try:
+            text = content.decode("utf-8").strip()
+            if text.startswith("["):
+                records = json.loads(text)
+            else:
+                records = [json.loads(line) for line in text.splitlines() if line.strip()]
+
+            if not records:
+                raise ValueError("No records found in file")
+
+            total_expected = len(records)
+            with _LIVE_JOBS_LOCK:
+                state = _LIVE_JOBS[_job_id]
+                state["total_expected"] = total_expected
+                state["stage"] = "ingesting records"
+                state["pct"] = 10
+
+            inserted_total = 0
+            chunk_size = 250
+            for offset in range(0, total_expected, chunk_size):
+                chunk = records[offset:offset + chunk_size]
+                inserted = handler(case_id, chunk)
+                inserted_total += inserted
+                processed = min(offset + len(chunk), total_expected)
+                with _LIVE_JOBS_LOCK:
+                    state = _LIVE_JOBS[_job_id]
+                    state["processed_count"] = processed
+                    state["total_inserted"] = inserted_total
+                    state["record_counts"] = {record_type: inserted_total}
+                    state["elapsed_s"] = round(_time.time() - state["_start"], 1)
+                    state["pct"] = min(100, 10 + int((processed / max(total_expected, 1)) * 85))
+
+            message = f"Ingested {inserted_total} {record_type} records"
+            with _LIVE_JOBS_LOCK:
+                state = _LIVE_JOBS[_job_id]
+                state.update(
+                    status="done",
+                    stage="complete",
+                    pct=100,
+                    processed_count=total_expected,
+                    total_inserted=inserted_total,
+                    elapsed_s=round(_time.time() - state["_start"], 1),
+                    message=message,
+                )
+                summary = {k: v for k, v in state.items() if not k.startswith("_")}
+            _update_job(job_id, "done", summary)
+        except json.JSONDecodeError as e:
+            error = f"Invalid JSON: {e}"
+            log.error("JSON ingest failed: %s", e)
+            with _LIVE_JOBS_LOCK:
+                state = _LIVE_JOBS.get(_job_id, {})
+                state.update(status="failed", stage="error", errors=[error], error=error)
+                summary = {k: v for k, v in state.items() if not k.startswith("_")}
+            _update_job(job_id, "failed", summary)
+        except Exception as e:
+            error = f"Ingest failed: {e}"
+            log.error("Ingest failed: %s", e)
+            with _LIVE_JOBS_LOCK:
+                state = _LIVE_JOBS.get(_job_id, {})
+                state.update(status="failed", stage="error", errors=[str(e)], error=error)
+                summary = {k: v for k, v in state.items() if not k.startswith("_")}
+            _update_job(job_id, "failed", summary)
+
+    threading.Thread(target=_run_json_ingest, daemon=True).start()
+
+    if _is_xhr(request):
+        return JSONResponse({
+            "accepted": True,
+            "job_id": _job_id,
+            "status_url": f"/ui/cases/{case_id}/jobs/{_job_id}/status",
+            "job_type": "json_ingest",
+        })
+
+    return RedirectResponse(url=_redirect_with_status(case_id, message=f"JSON ingest started for {fname}"), status_code=303)
 
 
 @router.post("/cases/{case_id}/ingest/evtx")
@@ -1874,64 +1973,145 @@ async def ingest_evtx_submit(
     suffix = Path(fname).suffix.lower()
     if suffix != ".evtx":
         return RedirectResponse(
-            url=f"/ui/cases/{case_id}/ingest?error=Invalid+file+type:+{suffix}+(expected+.evtx)",
+            url=_redirect_with_status(case_id, error=f"Invalid file type: {suffix} (expected .evtx)"),
             status_code=303,
         )
 
-    try:
-        from tempfile import NamedTemporaryFile
-        from urllib.parse import quote
+    import threading
+    from tempfile import NamedTemporaryFile
 
-        from sphinx.plugins.sphinx_plugin_winevt.evtx import parse_evtx
+    content = await file.read()
+    job_id = _create_background_job(case_id, "evtx_ingest", fname, {
+        "stage": "queued",
+        "pct": 0,
+        "progress_unit": "events",
+    })
+    _job_id = job_id or int(_time.time() * 1000)
 
-        content = await file.read()
-        with NamedTemporaryFile(prefix="sphinx_evtx_", suffix=".evtx", delete=True) as tmp:
-            tmp.write(content)
-            tmp.flush()
-            grouped, stats = parse_evtx(tmp.name)
+    def _run_evtx_ingest() -> None:
+        with _LIVE_JOBS_LOCK:
+            _LIVE_JOBS[_job_id] = {
+                "status": "running",
+                "stage": "counting EVTX events",
+                "pct": 1,
+                "processed_count": 0,
+                "total_inserted": 0,
+                "total_expected": 0,
+                "progress_unit": "events",
+                "record_counts": {},
+                "errors": [],
+                "elapsed_s": 0,
+                "_start": _time.time(),
+            }
 
-        inserted_total = 0
-        inserted_by_type: list[str] = []
+        try:
+            from sphinx.plugins.sphinx_plugin_winevt.evtx import parse_evtx
 
-        for record_type, records in grouped.items():
-            handler = registry.ingest_handlers.get(record_type)
-            if not handler:
-                continue
-            inserted = handler(case_id, records)
-            inserted_total += inserted
-            inserted_by_type.append(f"{record_type}:{inserted}")
+            with NamedTemporaryFile(prefix="sphinx_evtx_", suffix=".evtx", delete=True) as tmp:
+                tmp.write(content)
+                tmp.flush()
 
-        if inserted_total == 0:
-            err = (
-                f"No supported Windows events found in {fname}. "
-                f"Parsed={stats['total_events']}, unsupported={stats['unsupported_events']}, "
-                f"errors={stats['parse_errors']}"
+                def _progress(stats: dict[str, int]) -> None:
+                    total = int(stats.get("total_expected") or 0)
+                    processed = int(stats.get("total_events") or 0)
+                    pct = 5
+                    if total > 0:
+                        pct = min(60, 5 + int((processed / total) * 55))
+                    with _LIVE_JOBS_LOCK:
+                        state = _LIVE_JOBS[_job_id]
+                        state["stage"] = "parsing EVTX events"
+                        state["total_expected"] = total
+                        state["processed_count"] = processed
+                        state["elapsed_s"] = round(_time.time() - state["_start"], 1)
+                        state["pct"] = pct
+
+                grouped, stats = parse_evtx(tmp.name, progress_callback=_progress)
+
+            supported_total = sum(len(records) for records in grouped.values())
+            inserted_total = 0
+            inserted_by_type: list[str] = []
+            with _LIVE_JOBS_LOCK:
+                state = _LIVE_JOBS[_job_id]
+                state["stage"] = "ingesting Windows events"
+                state["progress_unit"] = "records"
+                state["total_expected"] = supported_total
+                state["processed_count"] = 0
+                state["pct"] = 65
+
+            for record_type, records in grouped.items():
+                handler = registry.ingest_handlers.get(record_type)
+                if not handler:
+                    continue
+                inserted = handler(case_id, records)
+                inserted_total += inserted
+                inserted_by_type.append(f"{record_type}:{inserted}")
+                with _LIVE_JOBS_LOCK:
+                    state = _LIVE_JOBS[_job_id]
+                    state["processed_count"] = inserted_total
+                    state["total_inserted"] = inserted_total
+                    state["record_counts"][record_type] = inserted
+                    state["elapsed_s"] = round(_time.time() - state["_start"], 1)
+                    if supported_total > 0:
+                        state["pct"] = min(100, 65 + int((inserted_total / supported_total) * 35))
+
+            if inserted_total == 0:
+                error = (
+                    f"No supported Windows events found in {fname}. "
+                    f"Parsed={stats['total_events']}, unsupported={stats['unsupported_events']}, "
+                    f"errors={stats['parse_errors']}"
+                )
+                with _LIVE_JOBS_LOCK:
+                    state = _LIVE_JOBS[_job_id]
+                    state.update(status="failed", stage="complete", pct=100, error=error, errors=[error])
+                    summary = {k: v for k, v in state.items() if not k.startswith("_")}
+                _update_job(job_id, "failed", summary)
+                return
+
+            detail = ", ".join(inserted_by_type)
+            message = (
+                f"Ingested {inserted_total} Windows event records from {fname} "
+                f"({detail}). Unsupported={stats['unsupported_events']}, parse_errors={stats['parse_errors']}"
             )
-            return RedirectResponse(
-                url=f"/ui/cases/{case_id}/ingest?error={quote(err)}",
-                status_code=303,
-            )
+            with _LIVE_JOBS_LOCK:
+                state = _LIVE_JOBS[_job_id]
+                state.update(
+                    status="done",
+                    stage="complete",
+                    pct=100,
+                    total_inserted=inserted_total,
+                    processed_count=inserted_total,
+                    elapsed_s=round(_time.time() - state["_start"], 1),
+                    message=message,
+                )
+                summary = {k: v for k, v in state.items() if not k.startswith("_")}
+            _update_job(job_id, "done", summary)
+        except ImportError as e:
+            error = f"EVTX support is not installed: {e}"
+            with _LIVE_JOBS_LOCK:
+                state = _LIVE_JOBS.get(_job_id, {})
+                state.update(status="failed", stage="error", errors=[error], error=error)
+                summary = {k: v for k, v in state.items() if not k.startswith("_")}
+            _update_job(job_id, "failed", summary)
+        except Exception as e:
+            error = f"EVTX ingest failed: {e}"
+            log.error("EVTX ingest failed: %s", e)
+            with _LIVE_JOBS_LOCK:
+                state = _LIVE_JOBS.get(_job_id, {})
+                state.update(status="failed", stage="error", errors=[str(e)], error=error)
+                summary = {k: v for k, v in state.items() if not k.startswith("_")}
+            _update_job(job_id, "failed", summary)
 
-        detail = ", ".join(inserted_by_type)
-        msg = (
-            f"Ingested {inserted_total} Windows event records from {fname} "
-            f"({detail}). Unsupported={stats['unsupported_events']}, parse_errors={stats['parse_errors']}"
-        )
-        return RedirectResponse(
-            url=f"/ui/cases/{case_id}/ingest?message={quote(msg)}",
-            status_code=303,
-        )
-    except ImportError as e:
-        return RedirectResponse(
-            url=f"/ui/cases/{case_id}/ingest?error=EVTX+support+is+not+installed:+{e}",
-            status_code=303,
-        )
-    except Exception as e:
-        log.error("EVTX ingest failed: %s", e)
-        return RedirectResponse(
-            url=f"/ui/cases/{case_id}/ingest?error=EVTX+ingest+failed:+{e}",
-            status_code=303,
-        )
+    threading.Thread(target=_run_evtx_ingest, daemon=True).start()
+
+    if _is_xhr(request):
+        return JSONResponse({
+            "accepted": True,
+            "job_id": _job_id,
+            "status_url": f"/ui/cases/{case_id}/jobs/{_job_id}/status",
+            "job_type": "evtx_ingest",
+        })
+
+    return RedirectResponse(url=_redirect_with_status(case_id, message=f"EVTX ingest started for {fname}"), status_code=303)
 
 
 @router.post("/cases/{case_id}/ingest/pcap")
@@ -2017,6 +2197,7 @@ async def ingest_pcap_submit(
                 with _LIVE_JOBS_LOCK:
                     state = _LIVE_JOBS.get(job_id)
                     if state and state["status"] == "running":
+                        state["processed_count"] = total
                         state["total_inserted"] = total
                         state["record_counts"] = counts
                         state["elapsed_s"] = round(time.time() - state["_start"], 1)
@@ -2046,8 +2227,10 @@ async def ingest_pcap_submit(
                 "status": "running",
                 "stage": "starting conversion",
                 "pct": 0,
+                "processed_count": 0,
                 "total_inserted": 0,
                 "total_expected": 0,
+                "progress_unit": "records",
                 "record_counts": {},
                 "errors": [],
                 "elapsed_s": 0,
@@ -2089,6 +2272,7 @@ async def ingest_pcap_submit(
                     state["stage"] = "complete"
                     state["elapsed_s"] = elapsed
                     if result.get("total_inserted"):
+                        state["processed_count"] = result["total_inserted"]
                         state["total_inserted"] = result["total_inserted"]
                     if result.get("total_expected") is not None:
                         state["total_expected"] = result.get("total_expected", 0)
@@ -2096,6 +2280,8 @@ async def ingest_pcap_submit(
                         state["record_counts"] = result["record_counts"]
                     if result.get("errors"):
                         state["errors"] = result["errors"]
+                    if final_status in ("ok", "done"):
+                        state["message"] = f"Ingested {state.get('total_inserted', 0)} records from {fname}"
                     state["source_pcap_path"] = str(pcap_path)
                     summary = {k: v for k, v in state.items() if not k.startswith("_")}
 
@@ -2116,6 +2302,14 @@ async def ingest_pcap_submit(
 
     thread = threading.Thread(target=_run_pcap_convert, daemon=True)
     thread.start()
+
+    if _is_xhr(request):
+        return JSONResponse({
+            "accepted": True,
+            "job_id": _job_id,
+            "status_url": f"/ui/cases/{case_id}/jobs/{_job_id}/status",
+            "job_type": "pcap_ingest",
+        })
 
     return RedirectResponse(
         url=f"/ui/cases/{case_id}/ingest?message=PCAP+uploaded+({fname}).+Conversion+running+in+background+(tshark,+Suricata,+Zeek).",
@@ -2156,10 +2350,14 @@ async def job_status_json(request: Request, case_id: str, job_id: int):
                 "status": live["status"],
                 "pct": live.get("pct", 0),
                 "stage": live.get("stage", ""),
+                "processed_count": live.get("processed_count", live.get("total_inserted", 0)),
                 "total_inserted": live.get("total_inserted", 0),
                 "total_expected": live.get("total_expected", 0),
+                "progress_unit": live.get("progress_unit", "records"),
                 "record_counts": live.get("record_counts", {}),
                 "errors": live.get("errors", []),
+                "message": live.get("message", ""),
+                "error": live.get("error", ""),
                 "elapsed_s": live.get("elapsed_s", 0),
             }
             return HTMLResponse(_json.dumps(data), media_type="application/json")
@@ -2202,10 +2400,14 @@ async def job_status_json(request: Request, case_id: str, job_id: int):
         "status": status,
         "pct": summary.get("pct", 0),
         "stage": summary.get("stage", ""),
+        "processed_count": summary.get("processed_count", summary.get("total_inserted", 0)),
         "total_inserted": summary.get("total_inserted", 0),
         "total_expected": summary.get("total_expected", 0),
+        "progress_unit": summary.get("progress_unit", "records"),
         "record_counts": summary.get("record_counts", {}),
         "errors": summary.get("errors", []),
+        "message": summary.get("message", ""),
+        "error": summary.get("error", ""),
         "elapsed_s": summary.get("elapsed_s", 0),
     }
     return HTMLResponse(_json.dumps(data), media_type="application/json")

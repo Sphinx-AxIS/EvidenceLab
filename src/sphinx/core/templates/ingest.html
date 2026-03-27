@@ -15,7 +15,7 @@
 <h4>What Happens During Ingest</h4>
 <ul>
   <li>PCAP ingest runs in the background — you can monitor progress on the Dashboard.</li>
-  <li>The Ingest page now shows a form-level upload progress bar for every ingest mode. JSON and EVTX uploads switch to a processing state after the file reaches the server, and PCAP uploads then continue in the background jobs table with processed counts when totals are available.</li>
+  <li>The Ingest page now shows a form-level upload progress bar for every ingest mode. JSON, EVTX, and PCAP uploads can all poll server-side job progress, and EVTX/PCAP jobs show processed counts when totals are available.</li>
   <li>PCAP processing runs inside the isolated REPL container and writes derived records back into the case through an internal ingest path.</li>
   <li>JSON ingest is immediate — records are inserted and you're redirected back with a count.</li>
   <li>Deployed detection rules (Suricata and Sigma) automatically run against newly ingested evidence.</li>
@@ -293,6 +293,75 @@
     }, 450);
   }
 
+  function formatFormJobProgress(detail) {
+    var total = Number(detail.total_expected || 0);
+    var processed = Number(detail.processed_count || detail.total_inserted || 0);
+    var unit = detail.progress_unit || 'records';
+    var pct = Number(detail.pct || 0);
+    var stage = detail.stage || 'running';
+    if (total > 0) {
+      return {
+        barPct: Math.min(100, Math.max(pct, Math.floor((processed / total) * 100))),
+        text: stage + ' — ' + processed + ' / ' + total + ' ' + unit
+      };
+    }
+    return {
+      barPct: pct,
+      text: stage + ' — ' + processed + ' ' + unit
+    };
+  }
+
+  function pollSubmittedJob(jobId, statusUrl) {
+    if (processingPulse) {
+      clearInterval(processingPulse);
+      processingPulse = null;
+    }
+    var timer = setInterval(function() {
+      fetch(statusUrl)
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          var progress = formatFormJobProgress(d);
+          ingestStatusBar.style.background = 'var(--blue)';
+          ingestStatusBar.style.backgroundSize = '';
+          ingestStatusBar.style.backgroundPosition = '';
+          ingestStatusBar.style.width = progress.barPct + '%';
+          ingestStatusLabel.textContent = progress.text;
+
+          if (d.status === 'ok' || d.status === 'done' || d.status === 'partial' || d.status === 'failed' || d.status === 'error') {
+            clearInterval(timer);
+            ingestStatusBar.style.width = '100%';
+            if (d.status === 'ok' || d.status === 'done') {
+              ingestStatusBar.style.background = 'var(--green, #22c55e)';
+              ingestStatusLabel.textContent = d.message || 'Ingest complete. Reloading results...';
+              window.setTimeout(function() {
+                window.location = '/ui/cases/' + caseId + '/ingest?message=' + encodeURIComponent(d.message || 'Ingest complete');
+              }, 400);
+            } else if (d.status === 'partial') {
+              ingestStatusBar.style.background = 'var(--yellow, #eab308)';
+              ingestStatusLabel.textContent = (d.message || 'Ingest completed with warnings.') + ' Reloading results...';
+              window.setTimeout(function() {
+                var msg = d.message || 'Ingest completed with warnings';
+                window.location = '/ui/cases/' + caseId + '/ingest?message=' + encodeURIComponent(msg);
+              }, 500);
+            } else {
+              ingestStatusBar.style.background = 'var(--red, #ef4444)';
+              ingestStatusLabel.textContent = d.error || 'Ingest failed. Reloading results...';
+              submitBtn.disabled = false;
+              window.setTimeout(function() {
+                window.location = '/ui/cases/' + caseId + '/ingest?error=' + encodeURIComponent(d.error || 'Ingest failed');
+              }, 700);
+            }
+          }
+        })
+        .catch(function() {
+          clearInterval(timer);
+          ingestStatusBar.style.background = 'var(--red, #ef4444)';
+          ingestStatusLabel.textContent = 'Could not read job progress from the server.';
+          submitBtn.disabled = false;
+        });
+    }, 1000);
+  }
+
   modeSelect.addEventListener('change', function() {
     var mode = this.value;
     jsonOpts.style.display = mode === 'json' ? '' : 'none';
@@ -372,6 +441,7 @@
 
     var xhr = new XMLHttpRequest();
     xhr.open('POST', form.action, true);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
     xhr.upload.onprogress = function(evt) {
       if (!evt.lengthComputable) return;
       var pct = Math.min(100, Math.round((evt.loaded / evt.total) * 100));
@@ -400,6 +470,19 @@
         processingPulse = null;
       }
       if (xhr.status >= 200 && xhr.status < 400) {
+        var contentType = xhr.getResponseHeader('Content-Type') || '';
+        if (contentType.indexOf('application/json') !== -1) {
+          try {
+            var payload = JSON.parse(xhr.responseText || '{}');
+            if (payload.job_id && payload.status_url) {
+              ingestStatusLabel.textContent = 'Upload complete. Waiting for server progress...';
+              pollSubmittedJob(payload.job_id, payload.status_url);
+              return;
+            }
+          } catch (err) {
+            // fall back to redirect behavior below
+          }
+        }
         ingestStatusBar.style.width = '100%';
         ingestStatusBar.style.background = 'var(--green, #22c55e)';
         ingestStatusBar.style.backgroundSize = '';

@@ -17,7 +17,7 @@ LLM inference runs on the host via [LM Studio](https://lmstudio.ai/) (OpenAI-com
 ## Features
 
 - **Evidence Ingest** -- Upload PCAPs, Windows Event Logs (.evtx), or Volatility3 JSON output. Deterministic parsers extract structured records into PostgreSQL while preserving source event timestamps where available, including Security, PowerShell, Sysmon, Task Scheduler, WMI, Defender, Firewall, AppLocker, WinRM, RDP, SMB, LAPS, Application, and System Windows channels.
-- **Live Ingest Visibility** -- The Ingest page now shows a form-level upload progress bar for every ingest mode, and the Ingest page plus Dashboard show current background ingest jobs, progress bars, and processed-versus-total counts for long-running PCAP processing when totals are known.
+- **Live Ingest Visibility** -- The Ingest page now shows a form-level upload progress bar for every ingest mode, and JSON, EVTX, and PCAP uploads can all poll server-side ingest jobs instead of only relying on browser upload state. The Ingest page plus Dashboard also show background ingest jobs with processed-versus-total counts when totals are known.
 - **Clean Ingest UI** -- Advanced ingest handler names stay collapsed by default so the page focuses on upload modes, job progress, and case record counts.
 - **Suricata + Zeek + tshark** -- PCAP files are automatically processed by all three tools during ingest.
 - **Detection Rules** -- Import, create, edit, and deploy Suricata and Sigma rules through the web UI. LLM can also generate rules from investigation findings.

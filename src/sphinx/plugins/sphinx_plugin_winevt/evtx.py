@@ -16,6 +16,7 @@ record in the UI and use those same field names when authoring Sigma rules.
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Callable
 from typing import Any
 from xml.etree import ElementTree as ET
 
@@ -211,7 +212,10 @@ def classify_channel(channel: str) -> str | None:
     return None
 
 
-def parse_evtx(path: str) -> tuple[dict[str, list[dict[str, Any]]], dict[str, int]]:
+def parse_evtx(
+    path: str,
+    progress_callback: Callable[[dict[str, int]], None] | None = None,
+) -> tuple[dict[str, list[dict[str, Any]]], dict[str, int]]:
     """Parse an EVTX file into grouped handler payloads.
 
     Returns:
@@ -228,9 +232,18 @@ def parse_evtx(path: str) -> tuple[dict[str, list[dict[str, Any]]], dict[str, in
         "parse_errors": 0,
     }
 
+    total_expected = 0
+    if progress_callback is not None:
+        with Evtx(path) as log:
+            total_expected = sum(1 for _ in log.records())
+        progress_callback({
+            **stats,
+            "total_expected": total_expected,
+        })
+
     with Evtx(path) as log:
-        for record in log.records():
-            stats["total_events"] += 1
+        for idx, record in enumerate(log.records(), start=1):
+            stats["total_events"] = idx
             try:
                 normalized = _parse_event_xml(record.xml())
                 record_type = classify_channel(str(normalized.get("Channel", "")))
@@ -241,5 +254,10 @@ def parse_evtx(path: str) -> tuple[dict[str, list[dict[str, Any]]], dict[str, in
                 stats["supported_events"] += 1
             except Exception:
                 stats["parse_errors"] += 1
+            if progress_callback is not None and (idx == 1 or idx % 250 == 0 or (total_expected and idx == total_expected)):
+                progress_callback({
+                    **stats,
+                    "total_expected": total_expected or stats["total_events"],
+                })
 
     return dict(grouped), stats
