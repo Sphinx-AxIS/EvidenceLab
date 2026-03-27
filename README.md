@@ -24,6 +24,7 @@ LLM inference runs on the host via [LM Studio](https://lmstudio.ai/) (OpenAI-com
 - **Deterministic Rule Assistance** -- Show merged detection-context tables with signature priority, field/value anchors, and case-local counts to help analysts build Sigma and Suricata rules without AI.
 - **RLM Investigation Loop** -- Step-bounded reasoning loop where the LLM writes and executes Python in a sandboxed REPL to investigate evidence.
 - **Dashboard & Analytics** -- Interactive hunting workspace with ATT&CK-inspired Windows starter filters, pre-computed SQL analytics, false-positive-aware entity extraction, and record browsing.
+- **Windows Event Analytics Fields** -- Analytics now exposes nested Windows event paths such as `EventData.TargetUserName`, `EventData.Image`, and `System.TimeCreated.SystemTime` so analysts can query EVTX-derived data directly without writing SQL.
 - **Windows ATT&CK Mapping Filters** -- The Analytics page can load tactic, technique, and EventID starter filters from the bundled Windows ATT&CK mapping dataset.
 - **Plugin System** -- Evidence types are handled by plugins (`pcap`, `winevt`, `memory`, `threat-hunter`), each with their own ingest handlers, analytics, and prompts.
 - **RBAC** -- Role-based access control (admin, case_manager, analyst) with JWT authentication. Admins can manage users, delete evidence, cases, individual tasks, and detection rules from the Admin pages.

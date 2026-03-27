@@ -1,7 +1,12 @@
 """Generic analytics operations over evidence records.
 
-Each function takes (cur, case_id, record_type, ...) and returns a dict.
-Operates on the records table, extracting columns from the JSONB raw field.
+Each function takes ``(cur, case_id, record_type, ...)`` and returns a dict.
+Operates on the records table, extracting columns from the JSONB ``raw`` field.
+
+For Windows event logs, Analytics also exposes nested keys such as
+``EventData.TargetUserName`` and ``System.TimeCreated.SystemTime`` so analysts
+can query the same normalized fields they see on the record detail and Sigma
+builder pages.
 """
 
 from __future__ import annotations
@@ -29,6 +34,7 @@ OPS = {
 
 VALID_INTERVALS = {"minute", "hour", "day", "week"}
 VALID_AGG_FUNCS = {"count", "sum", "avg", "min", "max", "count_distinct"}
+WINDOWS_ANALYTICS_NESTED_KEYS = ("EventData", "System", "UserData", "RenderingInfo")
 
 
 # ---------------------------------------------------------------------------
@@ -47,35 +53,86 @@ def get_record_types(cur: psycopg.Cursor, case_id: str) -> List[Dict[str, Any]]:
 
 
 def get_columns_for_type(cur: psycopg.Cursor, case_id: str, record_type: str) -> List[str]:
-    """Discover available columns by sampling raw JSONB keys.
+    """Discover available columns by sampling record JSON.
 
-    Samples up to 50 records and unions all top-level keys.
-    Always includes system columns: id, record_type, ts, source_plugin.
+    All record types expose top-level keys from ``raw``.
+    Windows event records additionally expose nested dotted paths for common
+    objects such as ``EventData.*`` and ``System.*`` so analysts can query
+    normalized event fields directly from Analytics.
     """
     cur.execute(
-        """SELECT DISTINCT jsonb_object_keys(raw) AS key
-           FROM (
-               SELECT raw FROM records
-               WHERE case_id = %s AND record_type = %s
-               LIMIT 50
-           ) sub""",
+        """SELECT raw
+           FROM records
+           WHERE case_id = %s AND record_type = %s
+           LIMIT 50""",
         (case_id, record_type),
     )
-    json_keys = sorted(r["key"] for r in cur.fetchall())
+    sampled_rows = cur.fetchall()
+    json_keys: set[str] = set()
+    for row in sampled_rows:
+        raw = row["raw"] if isinstance(row["raw"], dict) else (json.loads(row["raw"]) if row["raw"] else {})
+        if not isinstance(raw, dict):
+            continue
+        json_keys.update(raw.keys())
+        if record_type.startswith("win_evt_"):
+            for key in WINDOWS_ANALYTICS_NESTED_KEYS:
+                value = raw.get(key)
+                if isinstance(value, dict):
+                    _collect_nested_columns(value, key, json_keys, depth=0, max_depth=3)
     # Prepend system columns
     system_cols = ["id", "record_type", "ts", "source_plugin"]
-    return system_cols + json_keys
+    return system_cols + sorted(json_keys)
+
+
+def _collect_nested_columns(
+    value: dict[str, Any],
+    prefix: str,
+    out: set[str],
+    depth: int,
+    max_depth: int,
+) -> None:
+    """Flatten nested dict keys into dotted analytics column paths."""
+    if depth >= max_depth:
+        return
+    for key, nested_value in value.items():
+        col_name = f"{prefix}.{key}"
+        out.add(col_name)
+        if isinstance(nested_value, dict):
+            _collect_nested_columns(nested_value, col_name, out, depth + 1, max_depth)
 
 
 def _col_expr(col: str) -> str:
     """Return SQL expression for a column name.
 
     System columns (id, record_type, ts, source_plugin) are real columns.
-    Everything else is extracted from raw JSONB with ->> operator.
+    Everything else is extracted from raw JSONB.
     """
     if col in ("id", "record_type", "ts", "source_plugin", "case_id"):
         return f'"{col}"'
-    return f"(raw->>'{col}')"
+    if "." not in col:
+        return f"(raw->>'{col}')"
+
+    parts = [part.replace("'", "''") for part in col.split(".") if part]
+    if not parts:
+        return "(raw::text)"
+
+    expr = "raw"
+    for part in parts[:-1]:
+        expr = f"({expr}->'{part}')"
+    return f"({expr}->>'{parts[-1]}')"
+
+
+def extract_column_value(raw: dict[str, Any], col: str) -> Any:
+    """Return a value from raw JSON using analytics column semantics."""
+    if "." not in col:
+        return raw.get(col)
+
+    current: Any = raw
+    for part in col.split("."):
+        if not isinstance(current, dict):
+            return None
+        current = current.get(part)
+    return current
 
 
 def _build_where(

@@ -12,6 +12,7 @@ from sphinx.core.db import get_cursor
 from sphinx.core.analytics_ops import (
     get_record_types,
     get_columns_for_type,
+    extract_column_value,
     value_counts as op_value_counts,
     relationships as op_relationships,
     time_series as op_time_series,
@@ -130,8 +131,10 @@ async def analytics_query(
             }
             raw = row["raw"] if isinstance(row["raw"], dict) else (json.loads(row["raw"]) if row["raw"] else {})
             for key in display_cols:
-                if key not in rec and key in raw:
-                    val = raw[key]
+                if key in rec:
+                    continue
+                val = extract_column_value(raw, key)
+                if val is not None:
                     if hasattr(val, "isoformat"):
                         val = val.isoformat()
                     rec[key] = val
