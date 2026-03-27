@@ -188,6 +188,22 @@ def classify_channel(channel: str) -> str | None:
         return "win_evt_sysmon"
     if "taskscheduler" in value:
         return "win_evt_taskscheduler"
+    if "wmi-activity" in value:
+        return "win_evt_wmi"
+    if "windows defender" in value:
+        return "win_evt_defender"
+    if "windows firewall with advanced security" in value:
+        return "win_evt_firewall"
+    if "applocker" in value:
+        return "win_evt_applocker"
+    if "winrm" in value:
+        return "win_evt_winrm"
+    if "terminalservices-" in value or "remoteconnectionmanager" in value or "localsessionmanager" in value or "rdpcorets" in value:
+        return "win_evt_rdp"
+    if "smbclient" in value or "smbserver" in value:
+        return "win_evt_smb"
+    if value.endswith("laps/operational") or "windows-laps" in value or value == "laps":
+        return "win_evt_laps"
     if value == "application":
         return "win_evt_application"
     if value == "system":

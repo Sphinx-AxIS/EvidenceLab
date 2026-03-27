@@ -131,6 +131,38 @@ def ingest_taskscheduler(case_id: str, records: list[dict]) -> int:
     return _ingest_channel(case_id, "win_evt_taskscheduler", records)
 
 
+def ingest_wmi(case_id: str, records: list[dict]) -> int:
+    return _ingest_channel(case_id, "win_evt_wmi", records)
+
+
+def ingest_defender(case_id: str, records: list[dict]) -> int:
+    return _ingest_channel(case_id, "win_evt_defender", records)
+
+
+def ingest_firewall(case_id: str, records: list[dict]) -> int:
+    return _ingest_channel(case_id, "win_evt_firewall", records)
+
+
+def ingest_applocker(case_id: str, records: list[dict]) -> int:
+    return _ingest_channel(case_id, "win_evt_applocker", records)
+
+
+def ingest_winrm(case_id: str, records: list[dict]) -> int:
+    return _ingest_channel(case_id, "win_evt_winrm", records)
+
+
+def ingest_rdp(case_id: str, records: list[dict]) -> int:
+    return _ingest_channel(case_id, "win_evt_rdp", records)
+
+
+def ingest_smb(case_id: str, records: list[dict]) -> int:
+    return _ingest_channel(case_id, "win_evt_smb", records)
+
+
+def ingest_laps(case_id: str, records: list[dict]) -> int:
+    return _ingest_channel(case_id, "win_evt_laps", records)
+
+
 def ingest_application(case_id: str, records: list[dict]) -> int:
     return _ingest_channel(case_id, "win_evt_application", records)
 

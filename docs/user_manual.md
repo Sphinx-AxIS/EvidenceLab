@@ -184,6 +184,14 @@ Common record types include:
 | `win_evt_powershell` | Windows Event Log | PowerShell script block logging |
 | `win_evt_sysmon` | Windows Event Log | Sysmon process/network/file events |
 | `win_evt_taskscheduler` | Windows Event Log | Task Scheduler Operational events |
+| `win_evt_wmi` | Windows Event Log | WMI Activity operational events |
+| `win_evt_defender` | Windows Event Log | Windows Defender operational events |
+| `win_evt_firewall` | Windows Event Log | Windows Firewall With Advanced Security events |
+| `win_evt_applocker` | Windows Event Log | AppLocker policy and execution events |
+| `win_evt_winrm` | Windows Event Log | WinRM operational events |
+| `win_evt_rdp` | Windows Event Log | RDP and Terminal Services operational events |
+| `win_evt_smb` | Windows Event Log | SMB client and server security/operational events |
+| `win_evt_laps` | Windows Event Log | LAPS operational events |
 | `win_evt_application` | Windows Event Log | Application log events |
 | `win_evt_system` | Windows Event Log | System log events |
 | `vol_pslist` | Memory (Volatility) | Running processes |
@@ -311,7 +319,7 @@ When you upload a native EVTX file:
 2. It auto-detects the event channel and routes supported events to the appropriate `win_evt_*` record type.
 3. It preserves the original event time and stores it in the record timestamp field used throughout the UI and analytics.
 
-This is the simplest way to ingest Windows event logs because it keeps the original event timing intact for Records, Analytics, and correlations. Supported EVTX channel routing currently includes **Security**, **PowerShell**, **Sysmon**, **Task Scheduler Operational**, **Application**, and **System**.
+This is the simplest way to ingest Windows event logs because it keeps the original event timing intact for Records, Analytics, and correlations. Supported EVTX channel routing currently includes **Security**, **PowerShell**, **Sysmon**, **Task Scheduler Operational**, **WMI Activity**, **Windows Defender**, **Windows Firewall**, **AppLocker**, **WinRM**, **RDP / Terminal Services**, **SMB**, **LAPS**, **Application**, and **System**.
 
 ### How to Ingest Evidence
 
@@ -880,6 +888,14 @@ Findings in the correlation case represent cross-case conclusions. These might r
 | **PowerShell** | `win_evt_powershell` | 4104 (script block logging — contains full PowerShell code) |
 | **Sysmon** | `win_evt_sysmon` | 1 (process creation), 3 (network connection), 7 (image load), 11 (file creation), 13 (registry) |
 | **Task Scheduler Operational** | `win_evt_taskscheduler` | Scheduled task registration, update, launch, and maintenance events |
+| **WMI Activity Operational** | `win_evt_wmi` | WMI queries, method execution, provider and consumer activity |
+| **Windows Defender Operational** | `win_evt_defender` | Malware detections, remediation, and Defender health events |
+| **Windows Firewall** | `win_evt_firewall` | Host firewall rule changes, blocked traffic, and policy events |
+| **AppLocker** | `win_evt_applocker` | Blocked or audited execution of EXE, DLL, MSI, and script content |
+| **WinRM Operational** | `win_evt_winrm` | Remote management and PowerShell remoting events |
+| **RDP / Terminal Services** | `win_evt_rdp` | Remote session creation, reconnect, disconnect, and transport events |
+| **SMB Client / Server** | `win_evt_smb` | File-share access, SMB authentication, and share-security events |
+| **LAPS Operational** | `win_evt_laps` | Local admin password rotation and retrieval activity |
 | **Application** | `win_evt_application` | General application events |
 | **System** | `win_evt_system` | General system events |
 

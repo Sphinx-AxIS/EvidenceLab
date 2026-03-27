@@ -153,6 +153,22 @@ def _sigma_service_from_channel(channel: str) -> str:
         return "sysmon"
     if "taskscheduler" in value:
         return "taskscheduler"
+    if "wmi-activity" in value:
+        return "wmi"
+    if "windows defender" in value:
+        return "defender"
+    if "windows firewall with advanced security" in value:
+        return "firewall"
+    if "applocker" in value:
+        return "applocker"
+    if "winrm" in value:
+        return "winrm"
+    if "terminalservices-" in value or "remoteconnectionmanager" in value or "localsessionmanager" in value or "rdpcorets" in value:
+        return "rdp"
+    if "smbclient" in value or "smbserver" in value:
+        return "smb"
+    if value.endswith("laps/operational") or "windows-laps" in value or value == "laps":
+        return "laps"
     if value in ("application", "system"):
         return value
     return ""
@@ -252,7 +268,22 @@ def _build_sigma_builder_data(
     raw = source_record.get("raw") if source_record and isinstance(source_record.get("raw"), dict) else {}
     mapped_service = _sigma_service_from_channel(selected_channel or str(raw.get("Channel") or ""))
     field_options = [f"EventData.{row['key_name']}" for row in observed_keys]
-    service_options = [value for value in ["security", "sysmon", "powershell", "taskscheduler", "application", "system"] if value]
+    service_options = [value for value in [
+        "security",
+        "sysmon",
+        "powershell",
+        "taskscheduler",
+        "wmi",
+        "defender",
+        "firewall",
+        "applocker",
+        "winrm",
+        "rdp",
+        "smb",
+        "laps",
+        "application",
+        "system",
+    ] if value]
 
     atoms: list[dict[str, Any]] = []
     if mapped_service:
@@ -475,6 +506,22 @@ def _record_interpretation(record_type: str, raw: dict[str, Any] | None) -> str:
         return "PowerShell events can be detection-worthy when they show script execution, encoded commands, or suspicious automation patterns."
     if record_type == "win_evt_taskscheduler":
         return "Task Scheduler Operational events are useful for detecting scheduled-task creation, modification, and execution persistence."
+    if record_type == "win_evt_wmi":
+        return "WMI Activity events are useful for detecting remote execution, event-consumer persistence, and suspicious instrumentation use."
+    if record_type == "win_evt_defender":
+        return "Windows Defender Operational events capture detections, remediation actions, and security-product state changes."
+    if record_type == "win_evt_firewall":
+        return "Windows Firewall events are useful for host-based network policy changes, blocked connections, and rule modifications."
+    if record_type == "win_evt_applocker":
+        return "AppLocker events are useful for application-control detections, blocked execution, and script policy violations."
+    if record_type == "win_evt_winrm":
+        return "WinRM Operational events are useful for remote-management and PowerShell remoting detections."
+    if record_type == "win_evt_rdp":
+        return "RDP and Terminal Services events are useful for remote-session establishment, reconnect, and interactive access detections."
+    if record_type == "win_evt_smb":
+        return "SMB client and server events are useful for file-share access, authentication, and lateral-movement detections."
+    if record_type == "win_evt_laps":
+        return "LAPS events are useful for local-admin password rotation, retrieval, and configuration-change detections."
     if record_type.startswith("win_evt_"):
         return "Windows event records should usually be evaluated by channel, EventID, and stable EventData fields before creating a Sigma rule."
     if record_type.startswith(("suricata_", "zeek_", "tshark_")):
