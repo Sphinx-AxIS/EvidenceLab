@@ -15,7 +15,7 @@
 <h4>What Happens During Ingest</h4>
 <ul>
   <li>PCAP ingest runs in the background — you can monitor progress on the Dashboard.</li>
-  <li>The Ingest page also shows the current case's recent background jobs and live progress for any running ingest, including processed counts and a progress bar when totals are available.</li>
+  <li>The Ingest page now shows a form-level upload progress bar for every ingest mode. JSON and EVTX uploads switch to a processing state after the file reaches the server, and PCAP uploads then continue in the background jobs table with processed counts when totals are available.</li>
   <li>PCAP processing runs inside the isolated REPL container and writes derived records back into the case through an internal ingest path.</li>
   <li>JSON ingest is immediate — records are inserted and you're redirected back with a count.</li>
   <li>Deployed detection rules (Suricata and Sigma) automatically run against newly ingested evidence.</li>
@@ -102,6 +102,13 @@
 
     <button type="submit" class="btn btn-primary" id="submitBtn" disabled>Upload &amp; Ingest</button>
   </form>
+
+  <div id="ingestStatusPanel" class="mt-2" style="display:none;">
+    <div id="ingestStatusLabel" class="text-muted" style="font-size:0.85rem;margin-bottom:0.35rem;">Preparing upload...</div>
+    <div style="background:var(--border);border-radius:4px;height:16px;overflow:hidden;">
+      <div id="ingestStatusBar" style="background:var(--blue);height:100%;width:0%;transition:width 0.25s;"></div>
+    </div>
+  </div>
 </div>
 
 {% if background_jobs %}
@@ -244,7 +251,42 @@
   var pcapFile = document.getElementById('pcap_file');
   var evtxFile = document.getElementById('evtx_file');
   var recordType = document.getElementById('record_type');
+  var ingestStatusPanel = document.getElementById('ingestStatusPanel');
+  var ingestStatusLabel = document.getElementById('ingestStatusLabel');
+  var ingestStatusBar = document.getElementById('ingestStatusBar');
   var caseId = '{{ case_id }}';
+  var processingPulse = null;
+
+  function activeFileInput() {
+    if (modeSelect.value === 'json') return jsonFile;
+    if (modeSelect.value === 'evtx') return evtxFile;
+    if (modeSelect.value === 'pcap') return pcapFile;
+    return null;
+  }
+
+  function resetIngestStatus() {
+    if (processingPulse) {
+      clearInterval(processingPulse);
+      processingPulse = null;
+    }
+    ingestStatusPanel.style.display = 'none';
+    ingestStatusLabel.textContent = 'Preparing upload...';
+    ingestStatusBar.style.width = '0%';
+    ingestStatusBar.style.background = 'var(--blue)';
+  }
+
+  function startProcessingPulse(labelText) {
+    if (processingPulse) clearInterval(processingPulse);
+    var widths = [100, 70, 85, 100];
+    var idx = 0;
+    ingestStatusLabel.textContent = labelText;
+    ingestStatusBar.style.background = 'var(--blue)';
+    ingestStatusBar.style.width = '100%';
+    processingPulse = setInterval(function() {
+      idx = (idx + 1) % widths.length;
+      ingestStatusBar.style.width = widths[idx] + '%';
+    }, 450);
+  }
 
   modeSelect.addEventListener('change', function() {
     var mode = this.value;
@@ -290,6 +332,7 @@
       evtxFile.required = false;
       recordType.required = false;
     }
+    resetIngestStatus();
   });
 
   form.addEventListener('submit', function(e) {
@@ -302,7 +345,65 @@
       form.action = '/ui/cases/' + caseId + '/ingest/pcap';
     } else {
       e.preventDefault();
+      return;
     }
+
+    e.preventDefault();
+
+    var fileInput = activeFileInput();
+    if (!fileInput || !fileInput.files || !fileInput.files.length) {
+      return;
+    }
+
+    var formData = new FormData(form);
+    var modeLabel = mode === 'pcap' ? 'PCAP' : (mode === 'evtx' ? 'EVTX' : 'JSON');
+    ingestStatusPanel.style.display = '';
+    ingestStatusBar.style.width = '0%';
+    ingestStatusBar.style.background = 'var(--blue)';
+    ingestStatusLabel.textContent = 'Uploading ' + modeLabel + ' evidence...';
+    submitBtn.disabled = true;
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', form.action, true);
+    xhr.upload.onprogress = function(evt) {
+      if (!evt.lengthComputable) return;
+      var pct = Math.min(100, Math.round((evt.loaded / evt.total) * 100));
+      ingestStatusBar.style.width = pct + '%';
+      ingestStatusLabel.textContent = 'Uploading ' + modeLabel + ' evidence... ' + pct + '%';
+    };
+    xhr.onloadstart = function() {
+      ingestStatusPanel.style.display = '';
+    };
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED) {
+        startProcessingPulse('Upload complete. Waiting for the server to finish ingest...');
+      }
+    };
+    xhr.onerror = function() {
+      if (processingPulse) clearInterval(processingPulse);
+      ingestStatusBar.style.background = 'var(--red, #ef4444)';
+      ingestStatusBar.style.width = '100%';
+      ingestStatusLabel.textContent = 'Upload failed. Please try again.';
+      submitBtn.disabled = false;
+    };
+    xhr.onload = function() {
+      if (processingPulse) {
+        clearInterval(processingPulse);
+        processingPulse = null;
+      }
+      if (xhr.status >= 200 && xhr.status < 400) {
+        ingestStatusBar.style.width = '100%';
+        ingestStatusBar.style.background = 'var(--green, #22c55e)';
+        ingestStatusLabel.textContent = 'Ingest request accepted. Loading results...';
+        window.location = xhr.responseURL || form.action;
+      } else {
+        ingestStatusBar.style.background = 'var(--red, #ef4444)';
+        ingestStatusBar.style.width = '100%';
+        ingestStatusLabel.textContent = 'Ingest failed. Please review the server response and try again.';
+        submitBtn.disabled = false;
+      }
+    };
+    xhr.send(formData);
   });
 
   {% for j in background_jobs %}

@@ -328,7 +328,7 @@ This is the simplest way to ingest Windows event logs because it keeps the origi
 3. Click **Choose File** and select your evidence file.
 4. Click **Upload & Ingest**.
 
-For PCAP files, processing happens in the background. The Ingest page and Dashboard both show the current case's recent background jobs and live progress for any running ingest. When EvidenceLab can determine the total expected derived records, the progress display also shows `processed / total` counts alongside the progress bar.
+Every ingest mode now uses the same form-level upload progress bar. JSON and EVTX uploads show file-transfer progress and then switch to a processing state while the server finishes ingest. For PCAP files, processing continues in the background after upload. The Ingest page and Dashboard both show the current case's recent background jobs and live progress for any running PCAP ingest. When EvidenceLab can determine the total expected derived records, the progress display also shows `processed / total` counts alongside the progress bar.
 
 PCAP conversion runs in the isolated REPL container, but the derived Suricata, Zeek, and tshark records are written back through an internal ingest connection. This keeps the normal interactive REPL role restricted while still allowing background ingest to populate case records.
 
