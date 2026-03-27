@@ -16,6 +16,7 @@ import re
 import shutil
 import subprocess
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 import tempfile
 from typing import Any
@@ -25,6 +26,104 @@ import psycopg.rows
 from psycopg.types.json import Jsonb
 
 log = logging.getLogger(__name__)
+
+
+def _parse_filter_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _coerce_record_datetime(value: Any) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+    if isinstance(value, (int, float)):
+        try:
+            return datetime.fromtimestamp(float(value), tz=timezone.utc)
+        except Exception:
+            return None
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(text)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+    except ValueError:
+        pass
+    try:
+        return datetime.fromtimestamp(float(text), tz=timezone.utc)
+    except Exception:
+        return None
+
+
+def _record_matches_time_window(record: dict[str, Any], start_dt: datetime | None, end_dt: datetime | None, source: str) -> bool:
+    if not start_dt and not end_dt:
+        return True
+    if source == "tshark":
+        first_dt = _coerce_record_datetime(record.get("first_ts"))
+        last_dt = _coerce_record_datetime(record.get("last_ts"))
+        if first_dt is None and last_dt is None:
+            return False
+        if first_dt is None:
+            first_dt = last_dt
+        if last_dt is None:
+            last_dt = first_dt
+        if start_dt and last_dt < start_dt:
+            return False
+        if end_dt and first_dt > end_dt:
+            return False
+        return True
+
+    if source == "zeek":
+        ts = _coerce_record_datetime(record.get("ts") or record.get("timestamp"))
+    else:
+        ts = _coerce_record_datetime(record.get("timestamp") or record.get("ts"))
+    if ts is None:
+        return False
+    if start_dt and ts < start_dt:
+        return False
+    if end_dt and ts > end_dt:
+        return False
+    return True
+
+
+def _filter_pcap_records_by_time_window(
+    records: list[dict[str, Any]],
+    start_dt: datetime | None,
+    end_dt: datetime | None,
+    source: str,
+) -> tuple[list[dict[str, Any]], int]:
+    if not start_dt and not end_dt:
+        return records, 0
+    kept: list[dict[str, Any]] = []
+    skipped = 0
+    for record in records:
+        if _record_matches_time_window(record, start_dt, end_dt, source):
+            kept.append(record)
+        else:
+            skipped += 1
+    return kept, skipped
 
 # ---------------------------------------------------------------------------
 # Tool discovery
@@ -736,6 +835,8 @@ def convert_pcap(
     work_dir: str | None = None,
     job_id: int | None = None,
     home_net: str | None = None,
+    time_start: str | None = None,
+    time_end: str | None = None,
 ) -> dict[str, Any]:
     """Run tshark, Suricata, and Zeek against a PCAP file, ingest all outputs.
 
@@ -745,6 +846,8 @@ def convert_pcap(
         work_dir: Directory for intermediate outputs. Auto-created if None.
         job_id: Optional background_jobs row ID for progress updates.
         home_net: Case-specific HOME_NET override for Suricata.
+        time_start: Optional UTC ISO timestamp lower bound.
+        time_end: Optional UTC ISO timestamp upper bound.
 
     Returns:
         Summary dict with tool statuses and record counts.
@@ -785,6 +888,8 @@ def convert_pcap(
     pcap_size_mb = round(pcap.stat().st_size / (1024 * 1024), 1)
 
     t0 = time.time()
+    start_dt = _parse_filter_datetime(time_start)
+    end_dt = _parse_filter_datetime(time_end)
     summary: dict[str, Any] = {
         "pcap_file": pcap.name,
         "pcap_size_mb": pcap_size_mb,
@@ -792,6 +897,12 @@ def convert_pcap(
         "tools_skipped": [],
         "record_counts": {},
         "total_expected": 0,
+        "time_filter": (
+            f"{start_dt.isoformat()} to {end_dt.isoformat()}"
+            if start_dt and end_dt
+            else (f"from {start_dt.isoformat()}" if start_dt else (f"through {end_dt.isoformat()}" if end_dt else ""))
+        ),
+        "filtered_outside_window": 0,
         "errors": [],
         "stage": "initializing",
         "pct": 0,
@@ -850,16 +961,16 @@ def convert_pcap(
 
             _progress("ingesting Suricata records", pct_base + tool_weight // 2)
             eve_records = parse_eve_json(suri_dir)
-            summary["total_expected"] += sum(
-                len(records)
-                for event_type, records in eve_records.items()
-                if SURICATA_TYPE_MAP.get(event_type)
-            )
             _progress("ingesting Suricata records", pct_base + tool_weight // 2)
             for event_type, records in eve_records.items():
                 record_type = SURICATA_TYPE_MAP.get(event_type)
                 if not record_type:
                     continue
+                records, skipped = _filter_pcap_records_by_time_window(records, start_dt, end_dt, "suricata")
+                summary["filtered_outside_window"] += skipped
+                if not records:
+                    continue
+                summary["total_expected"] += len(records)
                 try:
                     count = ingest_suricata_records(case_id, records, record_type, cur=db_cur, job_id=job_id)
                     summary["record_counts"][record_type] = count
@@ -886,16 +997,16 @@ def convert_pcap(
                 summary["errors"].append(f"Zeek exit code {result.returncode}")
 
             zeek_logs = parse_zeek_logs(zeek_dir)
-            summary["total_expected"] += sum(
-                len(records)
-                for log_type, records in zeek_logs.items()
-                if ZEEK_TYPE_MAP.get(log_type)
-            )
             _progress("ingesting Zeek records", pct_base + tool_weight // 2)
             for log_type, records in zeek_logs.items():
                 record_type = ZEEK_TYPE_MAP.get(log_type)
                 if not record_type:
                     continue
+                records, skipped = _filter_pcap_records_by_time_window(records, start_dt, end_dt, "zeek")
+                summary["filtered_outside_window"] += skipped
+                if not records:
+                    continue
+                summary["total_expected"] += len(records)
                 try:
                     count = ingest_zeek_records(case_id, records, record_type, cur=db_cur, job_id=job_id)
                     summary["record_counts"][record_type] = count
@@ -911,28 +1022,31 @@ def convert_pcap(
         pct_base += tool_weight
 
     # --- tshark ---
-    if tshark_bin:
-        try:
-            _progress("running tshark", pct_base)
-            tshark_dir = base_dir / "tshark"
-            stream_records = run_tshark_streams(tshark_bin, pcap, tshark_dir)
-            summary["tools_run"].append("tshark")
+        if tshark_bin:
+            try:
+                _progress("running tshark", pct_base)
+                tshark_dir = base_dir / "tshark"
+                stream_records = run_tshark_streams(tshark_bin, pcap, tshark_dir)
+                summary["tools_run"].append("tshark")
 
-            if stream_records:
-                summary["total_expected"] += len(stream_records)
-                _progress("ingesting tshark streams", pct_base + tool_weight // 2)
-                try:
-                    count = ingest_tshark(case_id, stream_records, cur=db_cur, job_id=job_id)
-                    summary["record_counts"]["tshark_stream"] = count
-                    total_inserted += count
+                if stream_records:
+                    stream_records, skipped = _filter_pcap_records_by_time_window(stream_records, start_dt, end_dt, "tshark")
+                    summary["filtered_outside_window"] += skipped
+                    summary["total_expected"] += len(stream_records)
                     _progress("ingesting tshark streams", pct_base + tool_weight // 2)
-                except Exception as e:
-                    db_conn.rollback()
-                    summary["errors"].append(f"tshark ingest: {e}")
-                    log.error("tshark ingest error: %s", e)
-        except Exception as e:
-            summary["errors"].append(f"tshark failed: {e}")
-            log.error("tshark failed: %s", e)
+                    if stream_records:
+                        try:
+                            count = ingest_tshark(case_id, stream_records, cur=db_cur, job_id=job_id)
+                            summary["record_counts"]["tshark_stream"] = count
+                            total_inserted += count
+                            _progress("ingesting tshark streams", pct_base + tool_weight // 2)
+                        except Exception as e:
+                            db_conn.rollback()
+                            summary["errors"].append(f"tshark ingest: {e}")
+                            log.error("tshark ingest error: %s", e)
+            except Exception as e:
+                summary["errors"].append(f"tshark failed: {e}")
+                log.error("tshark failed: %s", e)
         pct_base += tool_weight
 
     # Final summary — write terminal status directly to DB via the progress

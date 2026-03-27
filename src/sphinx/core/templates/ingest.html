@@ -14,6 +14,8 @@
 
 <h4>What Happens During Ingest</h4>
 <ul>
+  <li>You can optionally set a <strong>Start</strong> and <strong>End</strong> date/time before upload. EvidenceLab will only ingest records whose timestamps fall inside that window.</li>
+  <li>If a time window is selected, records without a recognizable timestamp are skipped instead of being ingested outside the analyst's incident scope.</li>
   <li>PCAP ingest runs in the background — you can monitor progress on the Dashboard.</li>
   <li>The Ingest page now shows a form-level upload progress bar for every ingest mode. JSON, EVTX, and PCAP uploads can all poll server-side job progress, and EVTX/PCAP jobs show processed counts when totals are available.</li>
   <li>PCAP processing runs inside the isolated REPL container and writes derived records back into the case through an internal ingest path.</li>
@@ -99,6 +101,24 @@
         </div>
       </div>
     </div>
+
+    <div class="form-group">
+      <label for="time_start">Start Date/Time</label>
+      <input type="datetime-local" id="time_start" name="time_start">
+      <div class="text-muted mt-1" style="font-size:0.75rem;">
+        Optional. Only ingest evidence at or after this time.
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="time_end">End Date/Time</label>
+      <input type="datetime-local" id="time_end" name="time_end">
+      <div class="text-muted mt-1" style="font-size:0.75rem;">
+        Optional. Only ingest evidence at or before this time.
+      </div>
+    </div>
+
+    <input type="hidden" id="time_tz_offset_minutes" name="time_tz_offset_minutes" value="0">
 
     <button type="submit" class="btn btn-primary" id="submitBtn" disabled>Upload &amp; Ingest</button>
   </form>
@@ -251,11 +271,16 @@
   var pcapFile = document.getElementById('pcap_file');
   var evtxFile = document.getElementById('evtx_file');
   var recordType = document.getElementById('record_type');
+  var tzOffsetField = document.getElementById('time_tz_offset_minutes');
   var ingestStatusPanel = document.getElementById('ingestStatusPanel');
   var ingestStatusLabel = document.getElementById('ingestStatusLabel');
   var ingestStatusBar = document.getElementById('ingestStatusBar');
   var caseId = '{{ case_id }}';
   var processingPulse = null;
+
+  if (tzOffsetField) {
+    tzOffsetField.value = String(new Date().getTimezoneOffset());
+  }
 
   function activeFileInput() {
     if (modeSelect.value === 'json') return jsonFile;
@@ -469,16 +494,25 @@
         clearInterval(processingPulse);
         processingPulse = null;
       }
-      if (xhr.status >= 200 && xhr.status < 400) {
-        var contentType = xhr.getResponseHeader('Content-Type') || '';
-        if (contentType.indexOf('application/json') !== -1) {
-          try {
-            var payload = JSON.parse(xhr.responseText || '{}');
-            if (payload.job_id && payload.status_url) {
-              ingestStatusLabel.textContent = 'Upload complete. Waiting for server progress...';
-              pollSubmittedJob(payload.job_id, payload.status_url);
-              return;
-            }
+        if (xhr.status >= 200 && xhr.status < 400) {
+          var contentType = xhr.getResponseHeader('Content-Type') || '';
+          if (contentType.indexOf('application/json') !== -1) {
+            try {
+              var payload = JSON.parse(xhr.responseText || '{}');
+              if (payload.accepted === false || payload.error) {
+                ingestStatusBar.style.background = 'var(--red, #ef4444)';
+                ingestStatusBar.style.backgroundSize = '';
+                ingestStatusBar.style.backgroundPosition = '';
+                ingestStatusBar.style.width = '100%';
+                ingestStatusLabel.textContent = payload.error || 'Ingest failed.';
+                submitBtn.disabled = false;
+                return;
+              }
+              if (payload.job_id && payload.status_url) {
+                ingestStatusLabel.textContent = 'Upload complete. Waiting for server progress...';
+                pollSubmittedJob(payload.job_id, payload.status_url);
+                return;
+              }
           } catch (err) {
             // fall back to redirect behavior below
           }

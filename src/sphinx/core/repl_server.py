@@ -340,6 +340,8 @@ class ReplHandler(socketserver.StreamRequestHandler):
                             work_dir=msg.get("work_dir"),
                             job_id=msg.get("job_id"),
                             home_net=msg.get("home_net"),
+                            time_start=msg.get("time_start"),
+                            time_end=msg.get("time_end"),
                         )
                     except Exception as e:
                         resp = {"status": "error", "error": str(e)}

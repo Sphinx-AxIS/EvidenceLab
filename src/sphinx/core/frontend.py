@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 import logging
 import re
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import quote
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, Form, Request, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
@@ -146,6 +147,141 @@ def _suggest_rule_type(record_type: str) -> str:
 
 def _is_xhr(request: Request) -> bool:
     return request.headers.get("x-requested-with", "").lower() == "xmlhttprequest"
+
+
+def _parse_ingest_datetime(value: str | None, tz_offset_minutes: int = 0) -> datetime | None:
+    if not value:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone(-timedelta(minutes=tz_offset_minutes)))
+    return dt.astimezone(timezone.utc)
+
+
+def _parse_ingest_time_window(
+    time_start: str | None,
+    time_end: str | None,
+    tz_offset_minutes: int | str | None = 0,
+) -> tuple[datetime | None, datetime | None, str | None]:
+    try:
+        tz_offset = int(tz_offset_minutes or 0)
+    except (TypeError, ValueError):
+        tz_offset = 0
+    start_dt = _parse_ingest_datetime(time_start, tz_offset)
+    end_dt = _parse_ingest_datetime(time_end, tz_offset)
+    if (time_start or "").strip() and start_dt is None:
+        return None, None, "Invalid start date/time."
+    if (time_end or "").strip() and end_dt is None:
+        return None, None, "Invalid end date/time."
+    if start_dt and end_dt and start_dt > end_dt:
+        return None, None, "Start date/time must be before end date/time."
+    return start_dt, end_dt, None
+
+
+def _coerce_event_datetime(value: Any) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+    if isinstance(value, (int, float)):
+        try:
+            return datetime.fromtimestamp(float(value), tz=timezone.utc)
+        except Exception:
+            return None
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(text)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+    except ValueError:
+        pass
+    try:
+        return datetime.fromtimestamp(float(text), tz=timezone.utc)
+    except Exception:
+        return None
+
+
+def _extract_ingest_record_timestamp(raw: dict[str, Any]) -> datetime | None:
+    candidates: list[Any] = [
+        raw.get("timestamp"),
+        raw.get("@timestamp"),
+        raw.get("ts"),
+        raw.get("time"),
+        raw.get("TimeCreated"),
+        raw.get("SystemTime"),
+        raw.get("first_ts"),
+        raw.get("last_ts"),
+    ]
+    system = raw.get("System", {})
+    if isinstance(system, dict):
+        candidates.extend([
+            system.get("SystemTime"),
+            system.get("timestamp"),
+            system.get("TimeCreated"),
+        ])
+        time_created = system.get("TimeCreated", {})
+        if isinstance(time_created, dict):
+            candidates.extend([
+                time_created.get("SystemTime"),
+                time_created.get("#text"),
+            ])
+    for candidate in candidates:
+        dt = _coerce_event_datetime(candidate)
+        if dt is not None:
+            return dt
+    return None
+
+
+def _filter_records_for_time_window(
+    records: list[dict[str, Any]],
+    start_dt: datetime | None,
+    end_dt: datetime | None,
+) -> tuple[list[dict[str, Any]], int, int]:
+    if not start_dt and not end_dt:
+        return records, 0, 0
+    kept: list[dict[str, Any]] = []
+    skipped_outside = 0
+    skipped_untimestamped = 0
+    for raw in records:
+        ts = _extract_ingest_record_timestamp(raw)
+        if ts is None:
+            skipped_untimestamped += 1
+            continue
+        if start_dt and ts < start_dt:
+            skipped_outside += 1
+            continue
+        if end_dt and ts > end_dt:
+            skipped_outside += 1
+            continue
+        kept.append(raw)
+    return kept, skipped_outside, skipped_untimestamped
+
+
+def _format_time_window_label(start_dt: datetime | None, end_dt: datetime | None) -> str:
+    if not start_dt and not end_dt:
+        return ""
+    if start_dt and end_dt:
+        return f"{start_dt.isoformat()} to {end_dt.isoformat()}"
+    if start_dt:
+        return f"from {start_dt.isoformat()}"
+    return f"through {end_dt.isoformat()}"
 
 
 def _create_background_job(case_id: str, job_type: str, input_name: str, summary: dict | None = None) -> int | None:
@@ -1843,6 +1979,9 @@ async def ingest_submit(
     request: Request, case_id: str,
     record_type: str = Form(...),
     file: UploadFile = File(...),
+    time_start: str = Form(""),
+    time_end: str = Form(""),
+    time_tz_offset_minutes: str = Form("0"),
 ):
     user = _get_user(request)
     if not user:
@@ -1856,6 +1995,17 @@ async def ingest_submit(
 
     import threading
 
+    start_dt, end_dt, time_window_error = _parse_ingest_time_window(
+        time_start,
+        time_end,
+        time_tz_offset_minutes,
+    )
+    if time_window_error:
+        if _is_xhr(request):
+            return JSONResponse({"accepted": False, "error": time_window_error}, status_code=400)
+        error_url = _redirect_with_status(case_id, error=time_window_error)
+        return RedirectResponse(url=error_url, status_code=303)
+
     fname = file.filename or "upload.json"
     content = await file.read()
     job_id = _create_background_job(case_id, "json_ingest", fname, {
@@ -1863,6 +2013,7 @@ async def ingest_submit(
         "stage": "queued",
         "pct": 0,
         "progress_unit": "records",
+        "time_filter": _format_time_window_label(start_dt, end_dt),
     })
     _job_id = job_id or int(_time.time() * 1000)
 
@@ -1892,12 +2043,24 @@ async def ingest_submit(
             if not records:
                 raise ValueError("No records found in file")
 
+            original_total = len(records)
+            records, skipped_outside, skipped_untimestamped = _filter_records_for_time_window(records, start_dt, end_dt)
             total_expected = len(records)
             with _LIVE_JOBS_LOCK:
                 state = _LIVE_JOBS[_job_id]
-                state["total_expected"] = total_expected
+                state["total_expected"] = total_expected or original_total
                 state["stage"] = "ingesting records"
                 state["pct"] = 10
+                state["skipped_outside_window"] = skipped_outside
+                state["skipped_missing_timestamp"] = skipped_untimestamped
+                state["filtered_total"] = total_expected
+
+            if not records:
+                raise ValueError(
+                    "No records matched the selected time window."
+                    if (start_dt or end_dt)
+                    else "No records found in file"
+                )
 
             inserted_total = 0
             chunk_size = 250
@@ -1915,6 +2078,11 @@ async def ingest_submit(
                     state["pct"] = min(100, 10 + int((processed / max(total_expected, 1)) * 85))
 
             message = f"Ingested {inserted_total} {record_type} records"
+            if start_dt or end_dt:
+                message += (
+                    f" within {_format_time_window_label(start_dt, end_dt)}"
+                    f" (skipped {skipped_outside + skipped_untimestamped} outside/untimestamped records)"
+                )
             with _LIVE_JOBS_LOCK:
                 state = _LIVE_JOBS[_job_id]
                 state.update(
@@ -1962,6 +2130,9 @@ async def ingest_submit(
 async def ingest_evtx_submit(
     request: Request, case_id: str,
     file: UploadFile = File(...),
+    time_start: str = Form(""),
+    time_end: str = Form(""),
+    time_tz_offset_minutes: str = Form("0"),
 ):
     user = _get_user(request)
     if not user:
@@ -1980,11 +2151,22 @@ async def ingest_evtx_submit(
     import threading
     from tempfile import NamedTemporaryFile
 
+    start_dt, end_dt, time_window_error = _parse_ingest_time_window(
+        time_start,
+        time_end,
+        time_tz_offset_minutes,
+    )
+    if time_window_error:
+        if _is_xhr(request):
+            return JSONResponse({"accepted": False, "error": time_window_error}, status_code=400)
+        return RedirectResponse(url=_redirect_with_status(case_id, error=time_window_error), status_code=303)
+
     content = await file.read()
     job_id = _create_background_job(case_id, "evtx_ingest", fname, {
         "stage": "queued",
         "pct": 0,
         "progress_unit": "events",
+        "time_filter": _format_time_window_label(start_dt, end_dt),
     })
     _job_id = job_id or int(_time.time() * 1000)
 
@@ -2027,6 +2209,16 @@ async def ingest_evtx_submit(
 
                 grouped, stats = parse_evtx(tmp.name, progress_callback=_progress)
 
+            filtered_grouped: dict[str, list[dict[str, Any]]] = {}
+            skipped_outside = 0
+            skipped_untimestamped = 0
+            for grouped_type, grouped_records in grouped.items():
+                kept, skipped_range, skipped_missing = _filter_records_for_time_window(grouped_records, start_dt, end_dt)
+                if kept:
+                    filtered_grouped[grouped_type] = kept
+                skipped_outside += skipped_range
+                skipped_untimestamped += skipped_missing
+            grouped = filtered_grouped
             supported_total = sum(len(records) for records in grouped.values())
             inserted_total = 0
             inserted_by_type: list[str] = []
@@ -2037,6 +2229,8 @@ async def ingest_evtx_submit(
                 state["total_expected"] = supported_total
                 state["processed_count"] = 0
                 state["pct"] = 65
+                state["skipped_outside_window"] = skipped_outside
+                state["skipped_missing_timestamp"] = skipped_untimestamped
 
             for record_type, records in grouped.items():
                 handler = registry.ingest_handlers.get(record_type)
@@ -2055,11 +2249,19 @@ async def ingest_evtx_submit(
                         state["pct"] = min(100, 65 + int((inserted_total / supported_total) * 35))
 
             if inserted_total == 0:
-                error = (
-                    f"No supported Windows events found in {fname}. "
-                    f"Parsed={stats['total_events']}, unsupported={stats['unsupported_events']}, "
-                    f"errors={stats['parse_errors']}"
-                )
+                if start_dt or end_dt:
+                    error = (
+                        f"No Windows events in {fname} matched the selected time window. "
+                        f"Parsed={stats['total_events']}, unsupported={stats['unsupported_events']}, "
+                        f"outside_window={skipped_outside}, missing_timestamp={skipped_untimestamped}, "
+                        f"errors={stats['parse_errors']}"
+                    )
+                else:
+                    error = (
+                        f"No supported Windows events found in {fname}. "
+                        f"Parsed={stats['total_events']}, unsupported={stats['unsupported_events']}, "
+                        f"errors={stats['parse_errors']}"
+                    )
                 with _LIVE_JOBS_LOCK:
                     state = _LIVE_JOBS[_job_id]
                     state.update(status="failed", stage="complete", pct=100, error=error, errors=[error])
@@ -2072,6 +2274,11 @@ async def ingest_evtx_submit(
                 f"Ingested {inserted_total} Windows event records from {fname} "
                 f"({detail}). Unsupported={stats['unsupported_events']}, parse_errors={stats['parse_errors']}"
             )
+            if start_dt or end_dt:
+                message += (
+                    f", outside_window={skipped_outside},"
+                    f" missing_timestamp={skipped_untimestamped}"
+                )
             with _LIVE_JOBS_LOCK:
                 state = _LIVE_JOBS[_job_id]
                 state.update(
@@ -2118,6 +2325,9 @@ async def ingest_evtx_submit(
 async def ingest_pcap_submit(
     request: Request, case_id: str,
     file: UploadFile = File(...),
+    time_start: str = Form(""),
+    time_end: str = Form(""),
+    time_tz_offset_minutes: str = Form("0"),
 ):
     """Handle PCAP file upload — saves file, launches background conversion."""
     user = _get_user(request)
@@ -2126,6 +2336,16 @@ async def ingest_pcap_submit(
 
     import uuid as uuid_mod
     import threading
+
+    start_dt, end_dt, time_window_error = _parse_ingest_time_window(
+        time_start,
+        time_end,
+        time_tz_offset_minutes,
+    )
+    if time_window_error:
+        if _is_xhr(request):
+            return JSONResponse({"accepted": False, "error": time_window_error}, status_code=400)
+        return RedirectResponse(url=_redirect_with_status(case_id, error=time_window_error), status_code=303)
 
     # Validate file extension
     fname = file.filename or "upload.pcap"
@@ -2153,11 +2373,18 @@ async def ingest_pcap_submit(
         with get_cursor() as cur:
             from psycopg.types.json import Jsonb
             cur.execute(
-                """INSERT INTO background_jobs (case_id, job_type, status, input_name, summary)
-                   VALUES (%s, 'pcap_ingest', 'running', %s, %s)
-                   RETURNING id""",
-                (case_id, fname, Jsonb({"source_pcap_path": str(pcap_path)})),
-            )
+                 """INSERT INTO background_jobs (case_id, job_type, status, input_name, summary)
+                     VALUES (%s, 'pcap_ingest', 'running', %s, %s)
+                     RETURNING id""",
+                 (
+                     case_id,
+                     fname,
+                     Jsonb({
+                         "source_pcap_path": str(pcap_path),
+                         "time_filter": _format_time_window_label(start_dt, end_dt),
+                     }),
+                 ),
+              )
             job_id = cur.fetchone()["id"]
             cur.connection.commit()
     except Exception as e:
@@ -2259,7 +2486,14 @@ async def ingest_pcap_submit(
                 _LIVE_JOBS[_job_id]["pct"] = 5
 
             try:
-                result = client.pcap_convert(case_id, str(pcap_path), job_id=_job_id, home_net=_case_home_net)
+                result = client.pcap_convert(
+                    case_id,
+                    str(pcap_path),
+                    job_id=_job_id,
+                    home_net=_case_home_net,
+                    time_start=start_dt.isoformat() if start_dt else None,
+                    time_end=end_dt.isoformat() if end_dt else None,
+                )
                 log.info("PCAP convert result: %s", result)
                 elapsed = round(time.time() - _LIVE_JOBS[_job_id]["_start"], 1)
 

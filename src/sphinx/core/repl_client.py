@@ -99,6 +99,8 @@ class ReplClient:
         self, case_id: str, pcap_path: str,
         work_dir: str | None = None, job_id: int | None = None,
         home_net: str | None = None,
+        time_start: str | None = None,
+        time_end: str | None = None,
     ) -> dict[str, Any]:
         """Run PCAP conversion pipeline (tshark + Suricata + Zeek)."""
         # PCAP conversion can take 10+ minutes — extend the socket timeout.
@@ -111,6 +113,10 @@ class ReplClient:
             msg["job_id"] = job_id
         if home_net:
             msg["home_net"] = home_net
+        if time_start:
+            msg["time_start"] = time_start
+        if time_end:
+            msg["time_end"] = time_end
         return self._send(msg)
 
     def test_suricata_rule(

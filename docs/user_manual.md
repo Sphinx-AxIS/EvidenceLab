@@ -328,10 +328,11 @@ This is the simplest way to ingest Windows event logs because it keeps the origi
 
 1. Select the **Ingest Mode** — "JSON", "Windows Event Log (EVTX)", or "PCAP".
 2. For JSON mode, select the appropriate **Record Type**.
-3. Click **Choose File** and select your evidence file.
-4. Click **Upload & Ingest**.
+3. Optionally set **Start Date/Time** and **End Date/Time** if you only want evidence from a specific incident window.
+4. Click **Choose File** and select your evidence file.
+5. Click **Upload & Ingest**.
 
-Every ingest mode now uses the same form-level upload progress bar. JSON, EVTX, and PCAP uploads first show file-transfer progress, then the page polls a server-side ingest job so the analyst can see actual processing progress instead of only a browser upload state. The Ingest page and Dashboard both show the current case's recent background jobs and live progress for any running ingest. When EvidenceLab can determine the total expected records or events, the progress display also shows `processed / total` counts alongside the progress bar.
+Every ingest mode now uses the same form-level upload progress bar. JSON, EVTX, and PCAP uploads first show file-transfer progress, then the page polls a server-side ingest job so the analyst can see actual processing progress instead of only a browser upload state. The Ingest page and Dashboard both show the current case's recent background jobs and live progress for any running ingest. When EvidenceLab can determine the total expected records or events, the progress display also shows `processed / total` counts alongside the progress bar. If you set a date/time window, EvidenceLab only ingests records inside that span and skips records that fall outside it. Records without a recognizable timestamp are also skipped when a time filter is active so the ingest stays aligned with the requested incident window.
 
 PCAP conversion runs in the isolated REPL container, but the derived Suricata, Zeek, and tshark records are written back through an internal ingest connection. This keeps the normal interactive REPL role restricted while still allowing background ingest to populate case records.
 
