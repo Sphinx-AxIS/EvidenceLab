@@ -445,15 +445,14 @@ function buildSuricataDraft() {
   const flowKeywords = [];
   const useRecommendedFlowKeywords = matchStyle === 'recommended' && hasReassemblyContent;
   flowBits.forEach(value => flowKeywords.push(value));
-  if (strategy !== 'ioc' && useRecommendedFlowKeywords) {
+  if (flowDirectionBits.length) {
+    flowDirectionBits.forEach(value => flowKeywords.push(value));
+  } else if (strategy !== 'ioc' && useRecommendedFlowKeywords) {
     if (effectiveDirectionHint === 'to_client' || effectiveServiceRole === 'src') {
       flowKeywords.push('to_client');
     } else if (effectiveDirectionHint === 'to_server' || effectiveServiceRole === 'dst') {
       flowKeywords.push('to_server');
     }
-  }
-  if (flowDirectionBits.length && !useRecommendedFlowKeywords) {
-    flowDirectionBits.forEach(value => flowKeywords.push(value));
   }
   if (useRecommendedFlowKeywords) {
     flowKeywords.push('only_stream');
@@ -527,6 +526,9 @@ function buildSuricataDraft() {
   }
   if (contentItems.length > 0 && contentDirectionHints.length && effectiveServiceRole && effectiveServiceRole !== (flow.service_port_role || '')) {
     warnings.push(`The preview used the selected content anchor's frame provenance to override the stream-wide direction guess and scope the rule to port ${effectiveServicePort}.`);
+  }
+  if (flowDirectionBits.length) {
+    warnings.push(`The preview used the analyst-selected flow direction ${flowDirectionBits[0]} instead of the inferred anchor direction.`);
   }
   if (matchStyle === 'recommended' && hasSinglePacketContent && !hasReassemblyContent && flowBits.includes('established')) {
     warnings.push('The preview omitted flow keywords because the selected anchor was seen wholly inside a single payload-bearing frame, and packet-scoped literals are often more reliable without extra flow constraints.');
