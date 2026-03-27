@@ -16,6 +16,7 @@
   <li><strong>Direction Flow Card</strong> exposes the current active anchor direction as an explicit <code>flow:to_server</code> or <code>flow:to_client</code> option instead of hiding it behind inference.</li>
   <li><strong>Endpoint Override Controls</strong> let the analyst swap <code>src</code>/<code>dst</code> and choose from observed IPs or ports when the parser's initial orientation needs to be corrected.</li>
   <li><strong>Flow Override Controls</strong> let the analyst pick from common Suricata <code>flow</code> keywords directly in the card when they need to relax or tighten the draft.</li>
+  <li><strong>Stream Scope Control</strong> keeps <code>only_stream</code> and <code>no_stream</code> as explicit analyst choices instead of silently auto-adding them.</li>
   <li><strong>Flow Guardrails</strong> keep <code>flow</code> keywords for stream-dependent anchors, but avoid adding them by default when a selected literal anchor was seen wholly inside a single payload-bearing frame.</li>
   <li><strong>Live Rule Preview</strong> renders the selected facts into Suricata syntax automatically.</li>
   <li><strong>Warnings</strong> call out brittle choices such as exact IPs in behavior mode or content strings that are too short.</li>
@@ -172,17 +173,18 @@
           </select>
         </div>
         {% endif %}
-        {% if atom.kind in ['flow', 'flow_direction'] %}
+        {% if atom.kind in ['flow', 'flow_direction', 'flow_stream'] %}
         <div class="builder-override-row">
           <select class="suricata-flow-override-value" data-base-kind="{{ atom.kind }}">
             {% if atom.kind == 'flow' %}
             <option value="established" {% if atom.value == 'established' %}selected{% endif %}>established</option>
             <option value="not_established">not_established</option>
             <option value="stateless">stateless</option>
-            <option value="only_stream">only_stream</option>
-            <option value="no_stream">no_stream</option>
             <option value="only_frag">only_frag</option>
             <option value="no_frag">no_frag</option>
+            {% elif atom.kind == 'flow_stream' %}
+            <option value="only_stream" {% if atom.value == 'only_stream' %}selected{% endif %}>only_stream</option>
+            <option value="no_stream">no_stream</option>
             {% else %}
             <option value="to_server" {% if atom.value == 'to_server' %}selected{% endif %}>to_server</option>
             <option value="to_client" {% if atom.value == 'to_client' %}selected{% endif %}>to_client</option>
@@ -285,6 +287,9 @@ function resetStrategyDefaults() {
     if (kind === 'flow_direction' && strategy !== 'ioc') {
       selected = false;
     }
+    if (kind === 'flow_stream' && strategy !== 'ioc') {
+      selected = false;
+    }
     if ((kind === 'src_port' || kind === 'dst_port') && strategy !== 'ioc') {
       selected = false;
     }
@@ -361,6 +366,7 @@ function buildSuricataDraft() {
   const dstIps = selectedByKind('dst_ip');
   const contentItems = selected.filter(item => item.kind === 'content');
   const flowBits = selectedByKind('flow');
+  const flowStreamBits = selectedByKind('flow_stream');
   const hasReassemblyContent = contentItems.some(item => !item.singlePacket);
   const hasSinglePacketContent = contentItems.some(item => item.singlePacket);
   const contentDirectionHints = contentItems
@@ -454,9 +460,7 @@ function buildSuricataDraft() {
       flowKeywords.push('to_server');
     }
   }
-  if (useRecommendedFlowKeywords) {
-    flowKeywords.push('only_stream');
-  }
+  flowStreamBits.forEach(value => flowKeywords.push(value));
   if (flowKeywords.length) {
     const uniqueFlowKeywords = [...new Set(flowKeywords)];
     lines.push(`    flow:${uniqueFlowKeywords.join(',')};`);
@@ -529,6 +533,12 @@ function buildSuricataDraft() {
   }
   if (flowDirectionBits.length) {
     warnings.push(`The preview used the analyst-selected flow direction ${flowDirectionBits[0]} instead of the inferred anchor direction.`);
+  }
+  if (hasReassemblyContent && flowStreamBits.length === 0 && matchStyle === 'recommended') {
+    warnings.push('The selected content depends on reassembly, but no stream-scope keyword is selected. Consider testing both with and without only_stream.');
+  }
+  if (flowStreamBits.length) {
+    warnings.push(`The preview used the analyst-selected stream scope ${flowStreamBits[0]}.`);
   }
   if (matchStyle === 'recommended' && hasSinglePacketContent && !hasReassemblyContent && flowBits.includes('established')) {
     warnings.push('The preview omitted flow keywords because the selected anchor was seen wholly inside a single payload-bearing frame, and packet-scoped literals are often more reliable without extra flow constraints.');

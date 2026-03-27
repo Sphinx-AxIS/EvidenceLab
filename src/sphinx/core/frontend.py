@@ -921,6 +921,16 @@ def _build_suricata_builder_data(source_record: dict[str, Any] | None) -> dict[s
             "selected": False,
         })
 
+    atoms.append({
+        "id": "flow_stream_scope",
+        "kind": "flow_stream",
+        "label": "flow stream scope",
+        "value": "only_stream",
+        "priority": "Medium",
+        "reason": "Use stream-scope keywords only when you intentionally want to constrain the rule to reassembled stream data or exclude it.",
+        "selected": False,
+    })
+
     if active_service_port_value and active_service_port_role:
         atoms.append({
             "id": f"{active_service_port_role}_port_{active_service_port_value}",
