@@ -3,11 +3,14 @@
 
 {% block help %}
 <h3>Guided Sigma Builder</h3>
-<p>Use this page to turn a selected Windows event into a Sigma draft with deterministic assistance rather than AI generation.</p>
+<p>Use this page to turn a selected Windows event into a Sigma draft with deterministic assistance instead of starting from raw YAML.</p>
 <ul>
-  <li><strong>Source Event Reference</strong> carries the event you selected from Records.</li>
-  <li><strong>Deterministic Field Recommendations</strong> rank candidate fields as recommended, optional, or avoid using explicit heuristics and case-local prevalence.</li>
-  <li>Use the recommendations to decide which fields belong in the final Sigma selector before opening the draft.</li>
+  <li><strong>Visible Evidence Context</strong> keeps the selected event, key fields, and raw JSON visible while the analyst builds the rule.</li>
+  <li><strong>Case Support Context</strong> shows channel counts, top EventIDs, and observed EventData keys so the analyst can judge rarity and stability.</li>
+  <li><strong>Selectable Detection Atoms</strong> turn EventID, logsource service, and EventData values into clickable Sigma selector candidates.</li>
+  <li><strong>Override Controls</strong> let the analyst change the Sigma field, operator, and value directly in each card before carrying it into the preview.</li>
+  <li><strong>Live Rule Preview</strong> renders the selected atoms into Sigma YAML automatically.</li>
+  <li><strong>Deterministic Validation</strong> continues in the manual editor, where the analyst can test the Sigma draft against the current case's Windows event records before saving it.</li>
 </ul>
 {% endblock %}
 
@@ -20,37 +23,87 @@
   </div>
 </div>
 
+{% if not source_record %}
 <div class="card mb-2">
-  <h3>Step 1: Pick The Log Source</h3>
+  <h3>Start From A Windows Event</h3>
+  <p class="text-muted">Open this builder from a Windows event record detail page so EvidenceLab can derive deterministic Sigma selector candidates from the selected evidence.</p>
+</div>
+{% else %}
+
+<style>
+.builder-chip-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:0.75rem; }
+.builder-chip-card { border:1px solid var(--border); border-radius:6px; padding:0.75rem; background:var(--bg-card); }
+.builder-chip-card.priority-high { border-color: rgba(34,197,94,0.5); }
+.builder-chip-card.priority-medium { border-color: rgba(234,179,8,0.5); }
+.builder-chip-card.priority-low { border-color: rgba(239,68,68,0.35); }
+.builder-chip-title { display:flex; justify-content:space-between; gap:0.5rem; align-items:flex-start; }
+.builder-chip-priority { font-size:0.75rem; padding:0.15rem 0.45rem; border-radius:999px; border:1px solid var(--border); }
+.builder-chip-priority.high { background: rgba(34,197,94,0.15); color:#86efac; }
+.builder-chip-priority.medium { background: rgba(234,179,8,0.15); color:#fde68a; }
+.builder-chip-priority.low { background: rgba(239,68,68,0.12); color:#fca5a5; }
+.builder-preview { white-space:pre-wrap; background:var(--bg); padding:0.75rem; border:1px solid var(--border); border-radius:4px; font-size:0.8rem; }
+.builder-warning-list { margin:0.5rem 0 0; padding-left:1.2rem; }
+.builder-warning-list li { margin-bottom:0.25rem; }
+.builder-kv td:first-child { width:220px; color:var(--text-muted); }
+.builder-override-row { display:flex; gap:0.5rem; margin-top:0.5rem; }
+.builder-override-row input, .builder-override-row select { flex:1; min-width:0; }
+</style>
+
+<div class="card mb-2">
+  <h3>Step 1: Review The Event</h3>
   <p style="color:var(--text-muted);font-size:0.9rem;">
-    Sigma works best when you know which Windows channel and EventID you are targeting. Start with the case-wide distribution below, then narrow your draft to the specific event family.
+    Keep the source event visible while you decide which parts describe a stable behavior and which parts are just case-specific context.
   </p>
   <div class="table-wrap" style="margin-top:0.75rem;">
-    <table>
-      <thead><tr><th>Channel</th><th>Count</th><th></th></tr></thead>
+    <table class="builder-kv">
       <tbody>
-        {% for c in channel_counts %}
+        <tr><td>Record</td><td><span class="text-mono">{{ source_record.id }}</span> <span class="record-type">{{ source_record.record_type }}</span></td></tr>
+        <tr><td>Timestamp</td><td class="text-mono">{{ source_record.ts if source_record.ts else '—' }}</td></tr>
+        <tr><td>Channel</td><td class="text-mono">{{ source_channel or '—' }}</td></tr>
+        <tr><td>EventID</td><td class="text-mono">{{ source_event_id or '—' }}</td></tr>
+        <tr><td>Suggested Service</td><td class="text-mono">{{ builder_data.mapped_service or '—' }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  {% if source_event_data_items %}
+  <div class="table-wrap" style="margin-top:0.75rem;">
+    <div class="table-title">Observed EventData</div>
+    <table>
+      <thead><tr><th>Field</th><th>Value</th></tr></thead>
+      <tbody>
+        {% for item in source_event_data_items %}
         <tr>
-          <td class="text-mono">{{ c.channel }}</td>
-          <td>{{ c.cnt }}</td>
-          <td><a class="btn btn-sm {% if selected_channel == c.channel %}btn-primary{% endif %}" href="/ui/cases/{{ case_id }}/detection-rules/builder/sigma?channel={{ c.channel }}{% if source_record %}&record_id={{ source_record.id }}{% endif %}">Focus</a></td>
+          <td class="text-mono">EventData.{{ item.key }}</td>
+          <td class="text-mono" style="font-size:0.8rem;">{{ item.value }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-  {% if selected_channel %}
-  <div class="alert alert-info" style="margin-top:0.75rem;">Focused channel: <strong>{{ selected_channel }}</strong></div>
   {% endif %}
 </div>
 
 <div class="card-grid" style="grid-template-columns:1fr 1fr;">
   <div class="card">
-    <h3>Step 2: Top EventIDs</h3>
-    <p style="color:var(--text-muted);font-size:0.85rem;">
-      These are the most common EventIDs{% if selected_channel %} in {{ selected_channel }}{% endif %}. Pick the one that best matches the suspicious behavior.
+    <h3>Step 2: Case Support Context</h3>
+    <p style="color:var(--text-muted);font-size:0.9rem;">
+      Use these case-wide counts to decide whether a field is common background noise or a focused selector.
     </p>
-    <div class="table-wrap">
+    <div class="table-wrap" style="margin-top:0.75rem;">
+      <table>
+        <thead><tr><th>Channel</th><th>Count</th></tr></thead>
+        <tbody>
+          {% for c in channel_counts %}
+          <tr>
+            <td class="text-mono">{{ c.channel }}</td>
+            <td>{{ c.cnt }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap" style="margin-top:0.75rem;">
+      <div class="table-title">Top EventIDs{% if selected_channel %} In {{ selected_channel }}{% endif %}</div>
       <table>
         <thead><tr><th>EventID</th><th>Count</th></tr></thead>
         <tbody>
@@ -66,11 +119,11 @@
   </div>
 
   <div class="card">
-    <h3>Step 3: Observed EventData Keys</h3>
-    <p style="color:var(--text-muted);font-size:0.85rem;">
-      These are the field names analysts can reference in Sigma using <code>EventData.FieldName</code>.
+    <h3>Step 2b: Observed EventData Keys</h3>
+    <p style="color:var(--text-muted);font-size:0.9rem;">
+      These are the EventData keys seen in the current case and channel. They are available in the override dropdowns for Sigma selector cards.
     </p>
-    <div class="table-wrap">
+    <div class="table-wrap" style="margin-top:0.75rem;">
       <table>
         <thead><tr><th>EventData Key</th><th>Seen In Records</th></tr></thead>
         <tbody>
@@ -86,92 +139,242 @@
   </div>
 </div>
 
-{% if source_record %}
 <div class="card mb-2">
-  <h3>Step 4: Source Event Reference</h3>
-  <div class="flex gap-1" style="align-items:center;flex-wrap:wrap;">
-    <span class="text-mono">Record {{ source_record.id }}</span>
-    <span class="record-type">{{ source_record.record_type }}</span>
-    {% if source_channel %}<span class="badge badge-info">{{ source_channel }}</span>{% endif %}
-    {% if source_event_id %}<span class="badge badge-warning">EventID {{ source_event_id }}</span>{% endif %}
+  <h3>Step 3: Select Stable Sigma Atoms</h3>
+  <p style="color:var(--text-muted);font-size:0.9rem;">
+    Select the selectors you want to carry into the Sigma draft. You can override the field name, operator, and value before they are rendered into YAML.
+  </p>
+  <div class="builder-chip-grid" style="margin-top:0.75rem;">
+    {% for atom in builder_data.atoms %}
+    <div class="builder-chip-card priority-{{ atom.priority|lower }}">
+      <label>
+        <div class="builder-chip-title">
+          <span class="builder-chip-priority {{ atom.priority|lower }}">{{ atom.priority }}</span>
+          <input
+            type="checkbox"
+            class="sigma-atom"
+            data-id="{{ atom.id }}"
+            data-kind="{{ atom.kind }}"
+            data-field-name="{{ atom.field_name or '' }}"
+            data-operator="{{ atom.operator or 'exact' }}"
+            data-value="{{ atom.value }}"
+            data-priority="{{ atom.priority }}"
+            {% if atom.selected %}checked{% endif %}
+          >
+        </div>
+        <div style="margin-top:0.5rem;"><code>{{ atom.label }}</code></div>
+        <div class="builder-override-row">
+          {% if atom.kind == 'logsource_service' %}
+          <select class="sigma-override-service">
+            {% for service in builder_data.service_options %}
+            <option value="{{ service }}" {% if service == atom.value %}selected{% endif %}>{{ service }}</option>
+            {% endfor %}
+          </select>
+          {% else %}
+          <select class="sigma-override-field">
+            <option value="{{ atom.field_name }}" selected>{{ atom.field_name }}</option>
+            {% for field_name in builder_data.field_options %}
+              {% if field_name != atom.field_name %}
+              <option value="{{ field_name }}">{{ field_name }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+          <select class="sigma-override-operator">
+            {% for operator in atom.operator_options %}
+            <option value="{{ operator }}" {% if operator == atom.operator %}selected{% endif %}>{{ operator }}</option>
+            {% endfor %}
+          </select>
+          <input type="text" class="sigma-override-value" value="{{ atom.value }}">
+          {% endif %}
+        </div>
+        <div class="text-muted" style="margin-top:0.35rem;font-size:0.84rem;">{{ atom.reason }}</div>
+        {% if atom.prevalence %}
+        <div class="text-muted" style="margin-top:0.35rem;font-size:0.8rem;">{{ atom.prevalence }}</div>
+        {% endif %}
+      </label>
+    </div>
+    {% endfor %}
   </div>
-  {% if source_event_data_items %}
-  <div class="table-wrap" style="margin-top:0.75rem;">
-    <table>
-      <thead><tr><th>Observed Field</th><th>Value</th></tr></thead>
-      <tbody>
-        {% for item in source_event_data_items %}
-        <tr>
-          <td class="text-mono">EventData.{{ item.key }}</td>
-          <td class="text-mono" style="font-size:0.8rem;">{{ item.value }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% endif %}
 </div>
 
-{% if source_recommendations and (source_recommendations.recommended or source_recommendations.optional or source_recommendations.avoid) %}
 <div class="card mb-2">
-  <h3>Step 5: Deterministic Field Recommendations</h3>
+  <h3>Step 4: Live Rule Preview</h3>
   <p style="color:var(--text-muted);font-size:0.9rem;">
-    These field rankings use explicit no-AI heuristics plus case-local prevalence to help decide which selectors are stable enough for a Sigma rule.
+    The preview updates as you choose selectors. Aim for a stable EventID plus one or more durable EventData fields before opening the manual editor.
   </p>
-  <div class="card-grid" style="grid-template-columns:repeat(3, 1fr);">
-    <div class="card">
-      <h3>Recommended</h3>
-      {% if source_recommendations.recommended %}
-      <ul>
-        {% for item in source_recommendations.recommended %}
-        <li><code>{{ item.field }}</code> — {{ item.reason }}</li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <div class="text-muted">No strong first-choice selectors were identified automatically.</div>
-      {% endif %}
-    </div>
-    <div class="card">
-      <h3>Optional</h3>
-      {% if source_recommendations.optional %}
-      <ul>
-        {% for item in source_recommendations.optional %}
-        <li><code>{{ item.field }}</code> — {{ item.reason }}</li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <div class="text-muted">No optional selectors were identified automatically.</div>
-      {% endif %}
-    </div>
-    <div class="card">
-      <h3>Avoid</h3>
-      {% if source_recommendations.avoid %}
-      <ul>
-        {% for item in source_recommendations.avoid %}
-        <li><code>{{ item.field }}</code> — {{ item.reason }}</li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <div class="text-muted">No obvious avoid-only selectors were identified automatically.</div>
-      {% endif %}
-    </div>
+  <pre id="sigma-preview" class="builder-preview"></pre>
+  <div class="flex gap-1" style="align-items:center;flex-wrap:wrap;margin-top:0.75rem;">
+    <strong>Draft Quality:</strong>
+    <span id="sigma-quality" class="builder-chip-priority medium">Usable</span>
+    <span id="sigma-quality-note" class="text-muted" style="font-size:0.85rem;"></span>
   </div>
-</div>
-{% endif %}
-{% endif %}
-
-<div class="card">
-  <h3>Step 6: Open A Starter Draft</h3>
-  <p style="color:var(--text-muted);font-size:0.9rem;">
-    This starter Sigma rule uses the current source event context. Edit it in the manual rule editor, then review and deploy when ready.
-  </p>
-  <pre style="font-size:0.8rem;white-space:pre-wrap;background:var(--bg);padding:0.75rem;border:1px solid var(--border);border-radius:4px;">{{ starter_rule }}</pre>
-  <form method="GET" action="/ui/cases/{{ case_id }}/detection-rules/new" style="margin-top:0.75rem;">
-    <input type="hidden" name="title" value="{% if source_channel %}{{ source_channel|lower|replace(' ','_') }}{% else %}windows_event_detection{% endif %}">
+  <div style="margin-top:0.75rem;">
+    <div class="table-title">Warnings</div>
+    <ul id="sigma-warnings" class="builder-warning-list text-muted"></ul>
+  </div>
+  <form method="GET" action="/ui/cases/{{ case_id }}/detection-rules/new" style="margin-top:0.75rem;" onsubmit="return syncSigmaDraftFields();">
+    <input id="sigma-draft-title" type="hidden" name="title" value="windows_event_detection">
     <input type="hidden" name="rule_type" value="sigma">
-    <input type="hidden" name="description" value="Analyst-authored Sigma rule built from Windows event evidence.">
-    <textarea name="rule_content" style="display:none;">{{ starter_rule }}</textarea>
+    <input id="sigma-draft-description" type="hidden" name="description" value="Analyst-authored Sigma rule built from Windows event evidence.">
+    <textarea id="sigma-draft-rule-content" name="rule_content" style="display:none;"></textarea>
     <button type="submit" class="btn btn-primary">Open Prefilled Sigma Draft</button>
   </form>
 </div>
+
+<div class="table-wrap" style="margin-top:1rem;">
+  <div class="table-title">Raw Data (JSON)</div>
+  <div class="json-viewer" style="padding:1rem;">
+    <pre><code>{{ source_raw_json|forceescape }}</code></pre>
+  </div>
+</div>
+
+<script>
+const SIGMA_BUILDER = {{ builder_data|tojson }};
+const SIGMA_SOURCE_CHANNEL = {{ source_channel|tojson }};
+const SIGMA_SOURCE_EVENT_ID = {{ source_event_id|tojson }};
+
+function getSelectedSigmaAtoms() {
+  return Array.from(document.querySelectorAll('.sigma-atom:checked')).map(cb => {
+    const card = cb.closest('label');
+    return {
+      kind: cb.dataset.kind,
+      priority: cb.dataset.priority,
+      fieldName: card.querySelector('.sigma-override-field')?.value || cb.dataset.fieldName || '',
+      operator: card.querySelector('.sigma-override-operator')?.value || cb.dataset.operator || 'exact',
+      value: card.querySelector('.sigma-override-value')?.value || cb.dataset.value || '',
+      service: card.querySelector('.sigma-override-service')?.value || cb.dataset.value || '',
+    };
+  });
+}
+
+function sigmaYamlScalar(value) {
+  const text = String(value ?? '');
+  if (/^\d+$/.test(text)) return text;
+  return JSON.stringify(text);
+}
+
+function buildSigmaDraft() {
+  const selected = getSelectedSigmaAtoms();
+  const serviceAtom = selected.find(item => item.kind === 'logsource_service');
+  const fieldAtoms = selected.filter(item => item.kind === 'field' && item.fieldName && item.value.trim());
+
+  const lines = [];
+  const serviceValue = serviceAtom ? serviceAtom.service : (SIGMA_BUILDER.mapped_service || '');
+  const eventIdAtom = fieldAtoms.find(item => item.fieldName === 'EventID');
+  const eventIdValue = eventIdAtom ? eventIdAtom.value.trim() : (SIGMA_SOURCE_EVENT_ID || '');
+  const titleParts = ['windows'];
+  if (serviceValue) titleParts.push(serviceValue);
+  if (eventIdValue) titleParts.push(`event_${eventIdValue}`);
+  titleParts.push('detection');
+  const title = titleParts.join('_');
+
+  lines.push(`title: ${title}`);
+  lines.push('id: REPLACE-WITH-UUID');
+  lines.push('status: experimental');
+  lines.push('description: Analyst-authored Sigma rule from EvidenceLab guided builder');
+  lines.push('logsource:');
+  lines.push('  product: windows');
+  if (serviceValue) {
+    lines.push(`  service: ${serviceValue}`);
+  }
+  lines.push('detection:');
+  lines.push('  selection:');
+
+  fieldAtoms.forEach(item => {
+    let key = item.fieldName;
+    if (item.operator && item.operator !== 'exact') {
+      key = `${key}|${item.operator}`;
+    }
+    lines.push(`    ${key}: ${sigmaYamlScalar(item.value.trim())}`);
+  });
+
+  if (!fieldAtoms.length) {
+    lines.push(`    EventID: ${sigmaYamlScalar(SIGMA_SOURCE_EVENT_ID || '4624')}`);
+  }
+
+  lines.push('  condition: selection');
+  lines.push('level: medium');
+
+  const warnings = [];
+  let score = 0;
+  if (!fieldAtoms.some(item => item.fieldName === 'EventID')) {
+    warnings.push('Most Windows-event Sigma rules should include EventID unless you have a strong reason not to.');
+    score -= 2;
+  } else {
+    score += 2;
+  }
+  if (fieldAtoms.length < 2) {
+    warnings.push('Consider adding at least one stable EventData selector in addition to EventID.');
+    score -= 1;
+  }
+  selected.forEach(item => {
+    if (item.priority === 'High') score += 2;
+    if (item.priority === 'Medium') score += 1;
+    if (item.priority === 'Low') score -= 2;
+    if (item.kind === 'field' && item.value.length > 120) {
+      warnings.push(`${item.fieldName} is long and may be too specific for a durable Sigma selector.`);
+    }
+    if (item.kind === 'field' && item.operator === 'contains' && item.value.length < 4) {
+      warnings.push(`${item.fieldName}|contains is very short and may be noisy.`);
+      score -= 1;
+    }
+  });
+
+  let quality = 'Usable';
+  let qualityClass = 'medium';
+  let qualityNote = 'Balanced starting point. Review the warnings and test the Sigma draft against the current case.';
+  if (score >= 5) {
+    quality = 'Strong';
+    qualityClass = 'high';
+    qualityNote = 'The current Sigma draft includes stable selectors and looks like a solid first-pass rule.';
+  } else if (score <= 0) {
+    quality = 'Fragile';
+    qualityClass = 'low';
+    qualityNote = 'This Sigma draft may be too broad or too brittle. Prefer stable EventData selectors over one-off context.';
+  }
+
+  return {
+    rule: lines.join('\n'),
+    title,
+    description: `Analyst-authored Sigma rule built from Windows event record {{ source_record.id }}.`,
+    warnings,
+    quality,
+    qualityClass,
+    qualityNote,
+  };
+}
+
+function renderSigmaPreview() {
+  const draft = buildSigmaDraft();
+  document.getElementById('sigma-preview').textContent = draft.rule;
+  document.getElementById('sigma-quality').textContent = draft.quality;
+  document.getElementById('sigma-quality').className = `builder-chip-priority ${draft.qualityClass}`;
+  document.getElementById('sigma-quality-note').textContent = draft.qualityNote;
+  const warningsEl = document.getElementById('sigma-warnings');
+  warningsEl.innerHTML = draft.warnings.length
+    ? draft.warnings.map(w => `<li>${w}</li>`).join('')
+    : '<li>No obvious guardrail warnings for the current selection.</li>';
+  document.getElementById('sigma-draft-title').value = draft.title;
+  document.getElementById('sigma-draft-description').value = draft.description;
+  document.getElementById('sigma-draft-rule-content').value = draft.rule;
+}
+
+function syncSigmaDraftFields() {
+  renderSigmaPreview();
+  return true;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.sigma-atom').forEach(cb => cb.addEventListener('change', renderSigmaPreview));
+  document.querySelectorAll('.sigma-override-field, .sigma-override-operator, .sigma-override-value, .sigma-override-service').forEach(control => {
+    control.addEventListener('change', renderSigmaPreview);
+    control.addEventListener('click', event => event.stopPropagation());
+    control.addEventListener('mousedown', event => event.stopPropagation());
+    control.addEventListener('input', renderSigmaPreview);
+  });
+  renderSigmaPreview();
+});
+</script>
+
+{% endif %}
 {% endblock %}

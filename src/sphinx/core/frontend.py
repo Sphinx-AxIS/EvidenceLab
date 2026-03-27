@@ -218,6 +218,108 @@ def _build_sigma_starter(source_record: dict | None, selected_channel: str, sele
     ])
 
 
+def _sigma_operator_options(field_name: str) -> list[str]:
+    if field_name == "EventID":
+        return ["exact"]
+    if field_name.startswith("EventData.") and any(
+        token in field_name for token in ("Image", "CommandLine", "ScriptBlockText", "TargetObject", "ObjectName", "PipeName")
+    ):
+        return ["contains", "endswith", "exact", "startswith"]
+    if field_name.startswith("EventData."):
+        return ["exact", "contains", "startswith", "endswith"]
+    return ["exact"]
+
+
+def _default_sigma_operator(field_name: str, value: str) -> str:
+    if field_name == "EventID":
+        return "exact"
+    if field_name.endswith(("Image", "ParentImage")) and "\\" in value:
+        return "endswith"
+    if field_name.endswith(("CommandLine", "ScriptBlockText", "TargetObject", "ObjectName", "PipeName")):
+        return "contains"
+    return "exact"
+
+
+def _build_sigma_builder_data(
+    selected_channel: str,
+    source_event_id: str,
+    source_recommendations: dict[str, Any] | None,
+    observed_keys: list[dict[str, Any]],
+    source_record: dict[str, Any] | None,
+) -> dict[str, Any]:
+    raw = source_record.get("raw") if source_record and isinstance(source_record.get("raw"), dict) else {}
+    mapped_service = _sigma_service_from_channel(selected_channel or str(raw.get("Channel") or ""))
+    field_options = [f"EventData.{row['key_name']}" for row in observed_keys]
+    service_options = [value for value in ["security", "sysmon", "powershell", "application", "system"] if value]
+
+    atoms: list[dict[str, Any]] = []
+    if mapped_service:
+        atoms.append({
+            "id": "logsource_service",
+            "kind": "logsource_service",
+            "label": f"logsource.service:{mapped_service}",
+            "value": mapped_service,
+            "priority": "High",
+            "reason": "Logsource service scopes the Sigma rule to the right Windows event family.",
+            "selected": True,
+            "field_name": "logsource.service",
+            "operator": "exact",
+            "operator_options": ["exact"],
+        })
+
+    if source_event_id:
+        atoms.append({
+            "id": "event_id",
+            "kind": "field",
+            "label": f"EventID:{source_event_id}",
+            "value": source_event_id,
+            "priority": "High",
+            "reason": "EventID is the primary selector for most Windows-event Sigma rules.",
+            "selected": True,
+            "field_name": "EventID",
+            "operator": "exact",
+            "operator_options": ["exact"],
+        })
+
+    buckets = []
+    if source_recommendations:
+        buckets.extend([("High", source_recommendations.get("recommended", []), True)])
+        buckets.extend([("Medium", source_recommendations.get("optional", []), False)])
+        buckets.extend([("Low", source_recommendations.get("avoid", []), False)])
+
+    seen_ids: set[str] = {atom["id"] for atom in atoms}
+    for priority, items, default_selected in buckets:
+        for item in items:
+            field_name = str(item.get("field") or "")
+            value = str(item.get("value") or "")
+            if not field_name or not value:
+                continue
+            atom_id = re.sub(r"[^a-z0-9]+", "_", f"{field_name}_{value}".lower()).strip("_")[:80]
+            if atom_id in seen_ids:
+                continue
+            seen_ids.add(atom_id)
+            atoms.append({
+                "id": atom_id,
+                "kind": "field",
+                "label": f"{field_name}: {value}",
+                "value": value,
+                "priority": priority,
+                "reason": item.get("reason") or "",
+                "prevalence": item.get("prevalence") or "",
+                "selected": default_selected and priority == "High",
+                "field_name": field_name,
+                "operator": _default_sigma_operator(field_name, value),
+                "operator_options": _sigma_operator_options(field_name),
+            })
+
+    return {
+        "service_options": service_options,
+        "field_options": field_options,
+        "atoms": atoms[:18],
+        "mapped_service": mapped_service,
+    }
+
+
 def _record_highlights(record_type: str, raw: dict[str, Any] | None) -> list[dict[str, str]]:
     raw = raw or {}
     highlights: list[dict[str, str]] = []
@@ -3301,6 +3403,7 @@ async def detection_rule_builder_sigma(
     source_channel = ""
     source_event_id = ""
     source_recommendations = None
+    source_raw_json = "{}"
 
     if record_id:
         with get_cursor() as cur:
@@ -3314,6 +3417,7 @@ async def detection_rule_builder_sigma(
         raw = source_record["raw"]
         source_channel = str(raw.get("Channel") or "")
         source_event_id = str(raw.get("EventID") or "")
+        source_raw_json = json.dumps(raw, indent=2, default=str)
         event_data = raw.get("EventData") or {}
         if isinstance(event_data, dict):
             for key in sorted(event_data.keys()):
@@ -3385,6 +3489,13 @@ async def detection_rule_builder_sigma(
         observed_keys = cur.fetchall()
 
     starter_rule = _build_sigma_starter(source_record, selected_channel, source_event_id)
+    builder_data = _build_sigma_builder_data(
+        selected_channel,
+        source_event_id,
+        source_recommendations,
+        observed_keys,
+        source_record,
+    )
 
     return templates.TemplateResponse(request, "detection_rule_builder_sigma.html", _ctx(
         request, user, "detection_rules", case_id=case_id,
@@ -3398,6 +3509,8 @@ async def detection_rule_builder_sigma(
         top_event_ids=top_event_ids,
         observed_keys=observed_keys,
         starter_rule=starter_rule,
+        builder_data=builder_data,
+        source_raw_json=source_raw_json,
     ))
 
 
@@ -3509,6 +3622,38 @@ async def detection_rule_new_submit(
             return _render_detection_rule_new_form(
                 request, user, case_id,
                 error=f"Suricata rule test failed: {str(test_result.get('error', 'unknown error'))[:200]}",
+                title=title,
+                rule_type=rule_type,
+                description=description,
+                rule_content=rule_content,
+            )
+
+        return _render_detection_rule_new_form(
+            request, user, case_id,
+            title=title,
+            rule_type=rule_type,
+            description=description,
+            rule_content=rule_content,
+            test_result=test_result,
+        )
+
+    if action == "test_sigma":
+        if rule_type != "sigma":
+            return _render_detection_rule_new_form(
+                request, user, case_id,
+                error="Sigma rule testing is only available for Sigma rules.",
+                title=title,
+                rule_type=rule_type,
+                description=description,
+                rule_content=rule_content,
+            )
+
+        from sphinx.core.sig_generator import test_sigma_rule_content
+        test_result = test_sigma_rule_content(case_id, rule_content)
+        if test_result.get("status") == "error":
+            return _render_detection_rule_new_form(
+                request, user, case_id,
+                error=f"Sigma rule test failed: {str(test_result.get('error', 'unknown error'))[:200]}",
                 title=title,
                 rule_type=rule_type,
                 description=description,

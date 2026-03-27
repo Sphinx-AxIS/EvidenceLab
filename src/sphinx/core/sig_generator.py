@@ -573,24 +573,10 @@ def compile_sigma_rule(rule_id: int) -> bool:
     rule_yaml = rule["rule_content"]
 
     try:
-        from sigma.rule import SigmaRule
-        from sigma.backends.sqlite import SQLiteBackend
-        from sigma.pipelines.base import Pipeline
-
-        sigma_rule = SigmaRule.from_yaml(rule_yaml)
-
-        # Use SQLite backend (closest to PostgreSQL for basic queries).
-        # We post-process the output to target our JSONB structure.
-        backend = SQLiteBackend()
-        sql_queries = backend.convert_rule(sigma_rule)
-
-        if not sql_queries:
+        compiled = _compile_sigma_rule_text(rule_yaml, rule)
+        if not compiled:
             log.warning("Sigma compilation produced no SQL for rule %d", rule_id)
             return False
-
-        # Convert to PostgreSQL JSONB query targeting the records table.
-        # The SQLite backend produces WHERE clauses we can adapt.
-        compiled = _adapt_sigma_sql(sql_queries[0], rule)
 
         with get_cursor() as cur:
             cur.execute(
@@ -606,7 +592,6 @@ def compile_sigma_rule(rule_id: int) -> bool:
 
     except ImportError:
         log.warning("pySigma not installed — compiling Sigma rule %d with basic JSONB translation", rule_id)
-        # Fallback: basic YAML-to-SQL translation without pySigma
         compiled = _basic_sigma_to_sql(rule_yaml, rule)
         if compiled:
             with get_cursor() as cur:
@@ -623,6 +608,18 @@ def compile_sigma_rule(rule_id: int) -> bool:
     except Exception as e:
         log.error("Sigma compilation failed for rule %d: %s", rule_id, e)
         return False
+
+
+def _compile_sigma_rule_text(rule_yaml: str, rule: dict) -> str:
+    from sigma.rule import SigmaRule
+    from sigma.backends.sqlite import SQLiteBackend
+
+    sigma_rule = SigmaRule.from_yaml(rule_yaml)
+    backend = SQLiteBackend()
+    sql_queries = backend.convert_rule(sigma_rule)
+    if not sql_queries:
+        return ""
+    return _adapt_sigma_sql(sql_queries[0], rule)
 
 
 def _adapt_sigma_sql(sqlite_sql: str, rule: dict) -> str:
@@ -755,3 +752,44 @@ def run_sigma_rules_on_case(case_id: str) -> list[dict]:
                 log.warning("Sigma rule %d failed on case %s: %s", rule["id"], case_id, e)
 
     return matches
+
+
+def test_sigma_rule_content(case_id: str, rule_yaml: str) -> dict[str, Any]:
+    """Compile and run a Sigma rule against one case without saving it."""
+    stub_rule = {"title": "Ad hoc Sigma test", "id": "adhoc-sigma-test"}
+    try:
+        try:
+            compiled = _compile_sigma_rule_text(rule_yaml, stub_rule)
+        except ImportError:
+            compiled = _basic_sigma_to_sql(rule_yaml, stub_rule)
+
+        if not compiled:
+            return {"status": "error", "error": "Sigma compilation produced no SQL."}
+
+        scoped_sql = compiled + f"\n  AND case_id = '{case_id}'"
+        with get_cursor() as cur:
+            cur.execute(scoped_sql)
+            hits = cur.fetchall()
+
+        sample_matches = []
+        for hit in hits[:10]:
+            raw = hit.get("raw") or {}
+            sample_matches.append({
+                "record_id": hit["id"],
+                "record_type": hit["record_type"],
+                "timestamp": str(hit.get("ts") or ""),
+                "channel": str(raw.get("Channel") or ""),
+                "event_id": str(raw.get("EventID") or ""),
+                "computer": str(raw.get("Computer") or ""),
+            })
+
+        return {
+            "status": "ok",
+            "rule_family": "sigma",
+            "match_count": len(hits),
+            "compiled_sql": compiled,
+            "sample_matches": sample_matches,
+        }
+    except Exception as e:
+        log.error("Sigma test failed for case %s: %s", case_id, e)
+        return {"status": "error", "error": str(e)[:400]}

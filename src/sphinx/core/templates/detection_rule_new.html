@@ -21,6 +21,7 @@
   <li>Write in YAML format following the Sigma specification.</li>
   <li>Include: title, logsource, detection, condition, level.</li>
   <li>When deployed, the rule is compiled to SQL and run against ingested Windows event logs.</li>
+  <li>You can test a draft Sigma rule against the current case before saving it.</li>
 </ul>
 {% endblock %}
 
@@ -33,7 +34,50 @@
 <div class="alert alert-danger">{{ error }}</div>
 {% endif %}
 
-{% if test_result %}
+{% if test_result and test_result.rule_family == 'sigma' %}
+<div class="card mb-2" style="max-width:900px;">
+  <h3>Sigma Test Result</h3>
+  <p class="text-muted" style="font-size:0.9rem;">
+    Deterministic test against Windows event records in the current case.
+  </p>
+  <div class="table-wrap" style="margin-top:0.75rem;">
+    <table>
+      <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Status</td><td>{{ test_result.status }}</td></tr>
+        <tr><td>Match Count</td><td class="text-mono">{{ test_result.match_count }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  {% if test_result.sample_matches %}
+  <div class="table-wrap" style="margin-top:0.75rem;">
+    <div class="table-title">Sample Matches</div>
+    <table>
+      <thead><tr><th>Record</th><th>Timestamp</th><th>Channel</th><th>EventID</th><th>Computer</th></tr></thead>
+      <tbody>
+        {% for match in test_result.sample_matches %}
+        <tr>
+          <td class="text-mono">{{ match.record_id }}</td>
+          <td class="text-mono" style="font-size:0.78rem;">{{ match.timestamp }}</td>
+          <td>{{ match.channel or match.record_type }}</td>
+          <td class="text-mono">{{ match.event_id }}</td>
+          <td class="text-mono">{{ match.computer }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% if test_result.compiled_sql %}
+  <div style="margin-top:0.75rem;">
+    <div class="table-title">Compiled SQL</div>
+    <pre><code>{{ test_result.compiled_sql|forceescape }}</code></pre>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if test_result and test_result.rule_family != 'sigma' %}
 <div class="card mb-2" style="max-width:800px;">
   <h3>Suricata Test Result</h3>
   <p class="text-muted" style="font-size:0.9rem;">
@@ -148,6 +192,7 @@
 
   <div class="flex gap-1">
     <button type="submit" class="btn btn-primary">Create Rule</button>
+    <button type="submit" name="action" value="test_sigma" class="btn">Test Against Current Case Events</button>
     <button type="submit" name="action" value="test_suricata" class="btn">Test Against Latest Case PCAP</button>
     <button type="submit" name="action" value="create_and_deploy" class="btn btn-primary" style="background:var(--green);border-color:var(--green);">Create &amp; Deploy</button>
     <a href="/ui/cases/{{ case_id }}/detection-rules" class="btn">Cancel</a>

@@ -205,6 +205,15 @@ Click **Detail** on any record to view its full contents:
 If the record is a Windows event, the detail page includes a **Build Sigma Rule From Event** button that pivots directly into the guided Sigma authoring flow.
 That button appears alongside summary context so the analyst can make the decision with more confidence.
 
+The Sigma builder now follows the same interactive pattern as the Suricata builder:
+
+- **Step 1: Review The Event** keeps the selected Windows event, EventData fields, and raw JSON visible.
+- **Step 2: Case Support Context** shows channel counts, top EventIDs, and observed EventData keys.
+- **Step 3: Select Stable Sigma Atoms** turns `EventID`, `logsource.service`, and `EventData.*` values into selectable cards.
+- **Override controls** inside each Sigma card let the analyst change the Sigma field name, match operator, and value without editing raw YAML first.
+- **Step 4: Live Rule Preview** renders the selected atoms into Sigma YAML automatically.
+- After opening the manual Sigma draft, the analyst can use **Test Against Current Case Events** to compile and run the draft against the current case before saving it.
+
 ---
 
 ## Tasks
