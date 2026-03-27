@@ -12,6 +12,7 @@
   <li><strong>Candidate Detection Atoms</strong> show High, Medium, and Low options that can be added to the draft with a click.</li>
   <li><strong>Frame Provenance</strong> shows whether a candidate string was seen inside one frame or only after stream reassembly.</li>
   <li><strong>Anchor-Aware Direction</strong> uses the selected content anchor's actual frame provenance to decide whether the draft should point <code>to_server</code> or <code>to_client</code> when possible.</li>
+  <li><strong>Direction Flow Card</strong> exposes the current active anchor direction as an explicit <code>flow:to_server</code> or <code>flow:to_client</code> option instead of hiding it behind inference.</li>
   <li><strong>Flow Guardrails</strong> keep <code>flow</code> keywords for stream-dependent anchors, but avoid adding them by default when a selected literal anchor was seen wholly inside a single payload-bearing frame.</li>
   <li><strong>Live Rule Preview</strong> renders the selected facts into Suricata syntax automatically.</li>
   <li><strong>Warnings</strong> call out brittle choices such as exact IPs in behavior mode or content strings that are too short.</li>
@@ -131,6 +132,9 @@
             data-direction-hint="{{ atom.direction_hint or '' }}"
             data-literal-fallback-value="{{ atom.literal_fallback_value or '' }}"
             data-literal-fallback-label="{{ atom.literal_fallback_label or '' }}"
+            data-literal-fallback-service-role="{{ atom.literal_fallback_service_port_role or '' }}"
+            data-literal-fallback-service-port="{{ atom.literal_fallback_service_port_value or '' }}"
+            data-literal-fallback-direction-hint="{{ atom.literal_fallback_direction_hint or '' }}"
             {% if atom.selected %}checked{% endif %}
           >
         </div>
@@ -219,9 +223,13 @@ function resetStrategyDefaults() {
     const priority = cb.dataset.priority;
     const singlePacket = cb.dataset.singlePacket === 'true';
     const literalFallbackValue = cb.dataset.literalFallbackValue || '';
+    const literalFallbackServiceRole = cb.dataset.literalFallbackServiceRole || '';
     let selected = false;
     if (kind === 'proto') selected = true;
     if (kind === 'flow' && strategy !== 'ioc') {
+      selected = false;
+    }
+    if (kind === 'flow_direction' && strategy !== 'ioc') {
       selected = false;
     }
     if ((kind === 'src_port' || kind === 'dst_port') && strategy !== 'ioc') {
@@ -278,6 +286,9 @@ function buildSuricataDraft() {
     directionHint: cb.dataset.directionHint || '',
     literalFallbackValue: cb.dataset.literalFallbackValue || '',
     literalFallbackLabel: cb.dataset.literalFallbackLabel || '',
+    literalFallbackServiceRole: cb.dataset.literalFallbackServiceRole || '',
+    literalFallbackServicePort: cb.dataset.literalFallbackServicePort || '',
+    literalFallbackDirectionHint: cb.dataset.literalFallbackDirectionHint || '',
   }));
 
   const selectedByKind = kind => selected.filter(item => item.kind === kind).map(item => item.value);
@@ -298,11 +309,18 @@ function buildSuricataDraft() {
   const hasSinglePacketContent = contentItems.some(item => item.singlePacket);
   const contentDirectionHints = contentItems
     .map(item => ({
-      serviceRole: item.serviceRole,
-      servicePort: item.servicePort,
-      directionHint: item.directionHint,
+      serviceRole: (matchStyle === 'recommended' && item.literalFallbackValue)
+        ? (item.literalFallbackServiceRole || item.serviceRole)
+        : item.serviceRole,
+      servicePort: (matchStyle === 'recommended' && item.literalFallbackValue)
+        ? (item.literalFallbackServicePort || item.servicePort)
+        : item.servicePort,
+      directionHint: (matchStyle === 'recommended' && item.literalFallbackValue)
+        ? (item.literalFallbackDirectionHint || item.directionHint)
+        : item.directionHint,
     }))
     .filter(item => item.serviceRole || item.servicePort || item.directionHint);
+  const flowDirectionBits = selectedByKind('flow_direction');
 
   const hasExplicitSrcPort = srcPorts.length > 0;
   const hasExplicitDstPort = dstPorts.length > 0;
@@ -330,6 +348,9 @@ function buildSuricataDraft() {
     effectiveServiceRole = preferred.serviceRole || effectiveServiceRole;
     effectiveServicePort = preferred.servicePort || effectiveServicePort;
     effectiveDirectionHint = preferred.directionHint || '';
+  }
+  if (flowDirectionBits.length) {
+    effectiveDirectionHint = flowDirectionBits[0];
   }
 
   if (strategy !== 'ioc' && contentItems.length > 0 && effectiveServicePort && !hasExplicitSrcPort && !hasExplicitDstPort) {
@@ -376,6 +397,9 @@ function buildSuricataDraft() {
     } else if (effectiveDirectionHint === 'to_server' || effectiveServiceRole === 'dst') {
       flowKeywords.push('to_server');
     }
+  }
+  if (flowDirectionBits.length && !useRecommendedFlowKeywords) {
+    flowKeywords.push(flowDirectionBits[0]);
   }
   if (useRecommendedFlowKeywords) {
     flowKeywords.push('only_stream');

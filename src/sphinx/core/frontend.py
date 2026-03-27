@@ -609,27 +609,57 @@ def _content_atom_provenance(value: str, payload_text: str, frame_payloads: list
     }
 
 
-def _single_packet_literal_fallback(value: str, frame_payloads: list[dict[str, Any]]) -> dict[str, str]:
+def _single_packet_literal_fallback(value: str, payload_text: str, frame_payloads: list[dict[str, Any]]) -> dict[str, str]:
     tokens = [
         token for token in re.split(r"[^A-Za-z0-9_./-]+", value)
         if len(token) >= 6
     ]
     if not tokens:
-        return {"value": "", "label": "", "reason_suffix": ""}
+        return {
+            "value": "",
+            "label": "",
+            "reason_suffix": "",
+            "single_packet": False,
+            "service_port_role": "",
+            "service_port_value": "",
+            "direction_hint": "",
+            "src_ip": "",
+            "dst_ip": "",
+            "src_port": "",
+            "dst_port": "",
+        }
 
     # Prefer the longest token that was seen wholly inside one payload-bearing frame.
     prioritized = sorted(tokens, key=len, reverse=True)
     for token in prioritized:
-        token_lower = token.lower()
-        for frame in frame_payloads:
-            frame_payload = _normalize_payload_line(str(frame.get("payload_printable") or "")).lower()
-            if token_lower and frame_payload and token_lower in frame_payload:
-                return {
-                    "value": token,
-                    "label": f'content:"{token}"',
-                    "reason_suffix": f' Recommended preview prefers the packet-scoped literal "{token}" because it was seen wholly inside one payload-bearing frame.',
-                }
-    return {"value": "", "label": "", "reason_suffix": ""}
+        provenance = _content_atom_provenance(token, payload_text, frame_payloads)
+        if provenance["single_packet"]:
+            return {
+                "value": token,
+                "label": f'content:"{token}"',
+                "reason_suffix": f' Recommended preview prefers the packet-scoped literal "{token}" because it was seen wholly inside one payload-bearing frame.',
+                "single_packet": provenance["single_packet"],
+                "service_port_role": provenance["service_port_role"],
+                "service_port_value": provenance["service_port_value"],
+                "direction_hint": provenance["direction_hint"],
+                "src_ip": provenance["src_ip"],
+                "dst_ip": provenance["dst_ip"],
+                "src_port": provenance["src_port"],
+                "dst_port": provenance["dst_port"],
+            }
+    return {
+        "value": "",
+        "label": "",
+        "reason_suffix": "",
+        "single_packet": False,
+        "service_port_role": "",
+        "service_port_value": "",
+        "direction_hint": "",
+        "src_ip": "",
+        "dst_ip": "",
+        "src_port": "",
+        "dst_port": "",
+    }
 
 
 def _extract_suricata_content_candidates(payload_text: str, frame_payloads: list[dict[str, Any]] | None = None) -> tuple[list[dict[str, str]], list[str]]:
@@ -673,10 +703,18 @@ def _extract_suricata_content_candidates(payload_text: str, frame_payloads: list
                 "selected": priority == "High",
             })
             if not provenance["single_packet"]:
-                fallback = _single_packet_literal_fallback(normalized_value, frame_payloads)
+                fallback = _single_packet_literal_fallback(normalized_value, payload_text, frame_payloads)
                 if fallback["value"]:
                     candidates[-1]["literal_fallback_value"] = fallback["value"]
                     candidates[-1]["literal_fallback_label"] = fallback["label"]
+                    candidates[-1]["literal_fallback_single_packet"] = fallback["single_packet"]
+                    candidates[-1]["literal_fallback_service_port_role"] = fallback["service_port_role"]
+                    candidates[-1]["literal_fallback_service_port_value"] = fallback["service_port_value"]
+                    candidates[-1]["literal_fallback_direction_hint"] = fallback["direction_hint"]
+                    candidates[-1]["literal_fallback_src_ip"] = fallback["src_ip"]
+                    candidates[-1]["literal_fallback_dst_ip"] = fallback["dst_ip"]
+                    candidates[-1]["literal_fallback_src_port"] = fallback["src_port"]
+                    candidates[-1]["literal_fallback_dst_port"] = fallback["dst_port"]
                     candidates[-1]["reason"] += fallback["reason_suffix"]
             if semantic_tag not in semantic_tags:
                 semantic_tags.append(semantic_tag)
@@ -716,10 +754,18 @@ def _extract_suricata_content_candidates(payload_text: str, frame_payloads: list
                 "selected": priority == "Medium",
             })
             if not provenance["single_packet"]:
-                fallback = _single_packet_literal_fallback(line, frame_payloads)
+                fallback = _single_packet_literal_fallback(line, payload_text, frame_payloads)
                 if fallback["value"]:
                     candidates[-1]["literal_fallback_value"] = fallback["value"]
                     candidates[-1]["literal_fallback_label"] = fallback["label"]
+                    candidates[-1]["literal_fallback_single_packet"] = fallback["single_packet"]
+                    candidates[-1]["literal_fallback_service_port_role"] = fallback["service_port_role"]
+                    candidates[-1]["literal_fallback_service_port_value"] = fallback["service_port_value"]
+                    candidates[-1]["literal_fallback_direction_hint"] = fallback["direction_hint"]
+                    candidates[-1]["literal_fallback_src_ip"] = fallback["src_ip"]
+                    candidates[-1]["literal_fallback_dst_ip"] = fallback["dst_ip"]
+                    candidates[-1]["literal_fallback_src_port"] = fallback["src_port"]
+                    candidates[-1]["literal_fallback_dst_port"] = fallback["dst_port"]
                     candidates[-1]["reason"] += fallback["reason_suffix"]
 
     return candidates[:8], semantic_tags
@@ -789,7 +835,11 @@ def _build_suricata_builder_data(source_record: dict[str, Any] | None) -> dict[s
             candidate for candidate in content_candidates
             if candidate.get("priority") == "High"
             and (
-                candidate.get("anchor_src_ip")
+                candidate.get("literal_fallback_src_ip")
+                or candidate.get("literal_fallback_dst_ip")
+                or candidate.get("literal_fallback_src_port")
+                or candidate.get("literal_fallback_dst_port")
+                or candidate.get("anchor_src_ip")
                 or candidate.get("anchor_dst_ip")
                 or candidate.get("anchor_src_port")
                 or candidate.get("anchor_dst_port")
@@ -800,7 +850,11 @@ def _build_suricata_builder_data(source_record: dict[str, Any] | None) -> dict[s
         (
             candidate for candidate in content_candidates
             if (
-                candidate.get("anchor_src_ip")
+                candidate.get("literal_fallback_src_ip")
+                or candidate.get("literal_fallback_dst_ip")
+                or candidate.get("literal_fallback_src_port")
+                or candidate.get("literal_fallback_dst_port")
+                or candidate.get("anchor_src_ip")
                 or candidate.get("anchor_dst_ip")
                 or candidate.get("anchor_src_port")
                 or candidate.get("anchor_dst_port")
@@ -809,12 +863,17 @@ def _build_suricata_builder_data(source_record: dict[str, Any] | None) -> dict[s
         None,
     )
 
-    display_src_ip = str((preferred_anchor or {}).get("anchor_src_ip") or src_ip)
-    display_dst_ip = str((preferred_anchor or {}).get("anchor_dst_ip") or dst_ip)
-    display_src_port = str((preferred_anchor or {}).get("anchor_src_port") or src_port)
-    display_dst_port = str((preferred_anchor or {}).get("anchor_dst_port") or dst_port)
-    active_service_port_role = str((preferred_anchor or {}).get("service_port_role") or service_port_role)
-    active_service_port_value = str((preferred_anchor or {}).get("service_port_value") or service_port_value)
+    anchor_src_ip = str((preferred_anchor or {}).get("literal_fallback_src_ip") or (preferred_anchor or {}).get("anchor_src_ip") or "")
+    anchor_dst_ip = str((preferred_anchor or {}).get("literal_fallback_dst_ip") or (preferred_anchor or {}).get("anchor_dst_ip") or "")
+    anchor_src_port = str((preferred_anchor or {}).get("literal_fallback_src_port") or (preferred_anchor or {}).get("anchor_src_port") or "")
+    anchor_dst_port = str((preferred_anchor or {}).get("literal_fallback_dst_port") or (preferred_anchor or {}).get("anchor_dst_port") or "")
+    active_direction_hint = str((preferred_anchor or {}).get("literal_fallback_direction_hint") or (preferred_anchor or {}).get("direction_hint") or "")
+    display_src_ip = anchor_src_ip or src_ip
+    display_dst_ip = anchor_dst_ip or dst_ip
+    display_src_port = anchor_src_port or src_port
+    display_dst_port = anchor_dst_port or dst_port
+    active_service_port_role = str((preferred_anchor or {}).get("literal_fallback_service_port_role") or (preferred_anchor or {}).get("service_port_role") or service_port_role)
+    active_service_port_value = str((preferred_anchor or {}).get("literal_fallback_service_port_value") or (preferred_anchor or {}).get("service_port_value") or service_port_value)
 
     active_service_name = service_name
     if active_service_port_value:
@@ -840,6 +899,17 @@ def _build_suricata_builder_data(source_record: dict[str, Any] | None) -> dict[s
             "selected": True,
         },
     ]
+
+    if active_direction_hint:
+        atoms.append({
+            "id": f"flow_{active_direction_hint}",
+            "kind": "flow_direction",
+            "label": f"flow:{active_direction_hint}",
+            "value": active_direction_hint,
+            "priority": "Medium",
+            "reason": "Direction came from the active anchor frame context. Select it if you want to scope the rule to traffic going to the service or back to the client.",
+            "selected": False,
+        })
 
     if active_service_port_value and active_service_port_role:
         atoms.append({
@@ -915,6 +985,7 @@ def _build_suricata_builder_data(source_record: dict[str, Any] | None) -> dict[s
         "anchor_destination": f"{display_dst_ip}:{display_dst_port}" if display_dst_ip or display_dst_port else "",
         "service_port_role": active_service_port_role,
         "service_port_value": active_service_port_value,
+        "direction_hint": active_direction_hint,
         "frame_count": len(frame_numbers) or len(frame_payloads),
         "frame_numbers_preview": _summarize_frame_numbers(frame_numbers[:12]) if frame_numbers else "",
     }
