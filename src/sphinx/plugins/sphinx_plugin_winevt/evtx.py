@@ -186,6 +186,8 @@ def classify_channel(channel: str) -> str | None:
         return "win_evt_powershell"
     if "sysmon" in value:
         return "win_evt_sysmon"
+    if "taskscheduler" in value:
+        return "win_evt_taskscheduler"
     if value == "application":
         return "win_evt_application"
     if value == "system":

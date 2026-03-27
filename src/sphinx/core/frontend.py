@@ -151,6 +151,8 @@ def _sigma_service_from_channel(channel: str) -> str:
         return "powershell"
     if "sysmon" in value:
         return "sysmon"
+    if "taskscheduler" in value:
+        return "taskscheduler"
     if value in ("application", "system"):
         return value
     return ""
@@ -250,7 +252,7 @@ def _build_sigma_builder_data(
     raw = source_record.get("raw") if source_record and isinstance(source_record.get("raw"), dict) else {}
     mapped_service = _sigma_service_from_channel(selected_channel or str(raw.get("Channel") or ""))
     field_options = [f"EventData.{row['key_name']}" for row in observed_keys]
-    service_options = [value for value in ["security", "sysmon", "powershell", "application", "system"] if value]
+    service_options = [value for value in ["security", "sysmon", "powershell", "taskscheduler", "application", "system"] if value]
 
     atoms: list[dict[str, Any]] = []
     if mapped_service:
@@ -471,6 +473,8 @@ def _record_interpretation(record_type: str, raw: dict[str, Any] | None) -> str:
         return "Sysmon events are often strong Sigma candidates because they capture process, network, and registry behavior with stable field names."
     if record_type == "win_evt_powershell":
         return "PowerShell events can be detection-worthy when they show script execution, encoded commands, or suspicious automation patterns."
+    if record_type == "win_evt_taskscheduler":
+        return "Task Scheduler Operational events are useful for detecting scheduled-task creation, modification, and execution persistence."
     if record_type.startswith("win_evt_"):
         return "Windows event records should usually be evaluated by channel, EventID, and stable EventData fields before creating a Sigma rule."
     if record_type.startswith(("suricata_", "zeek_", "tshark_")):

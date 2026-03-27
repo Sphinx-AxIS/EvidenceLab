@@ -183,6 +183,7 @@ Common record types include:
 | `win_evt_security` | Windows Event Log | Security events (logons, process creation) |
 | `win_evt_powershell` | Windows Event Log | PowerShell script block logging |
 | `win_evt_sysmon` | Windows Event Log | Sysmon process/network/file events |
+| `win_evt_taskscheduler` | Windows Event Log | Task Scheduler Operational events |
 | `win_evt_application` | Windows Event Log | Application log events |
 | `win_evt_system` | Windows Event Log | System log events |
 | `vol_pslist` | Memory (Volatility) | Running processes |
@@ -310,7 +311,7 @@ When you upload a native EVTX file:
 2. It auto-detects the event channel and routes supported events to the appropriate `win_evt_*` record type.
 3. It preserves the original event time and stores it in the record timestamp field used throughout the UI and analytics.
 
-This is the simplest way to ingest Windows event logs because it keeps the original event timing intact for Records, Analytics, and correlations.
+This is the simplest way to ingest Windows event logs because it keeps the original event timing intact for Records, Analytics, and correlations. Supported EVTX channel routing currently includes **Security**, **PowerShell**, **Sysmon**, **Task Scheduler Operational**, **Application**, and **System**.
 
 ### How to Ingest Evidence
 
@@ -878,6 +879,7 @@ Findings in the correlation case represent cross-case conclusions. These might r
 | **Security** | `win_evt_security` | 4624 (logon), 4625 (failed logon), 4648 (explicit credential use), 4672 (special privilege), 4688 (process creation) |
 | **PowerShell** | `win_evt_powershell` | 4104 (script block logging — contains full PowerShell code) |
 | **Sysmon** | `win_evt_sysmon` | 1 (process creation), 3 (network connection), 7 (image load), 11 (file creation), 13 (registry) |
+| **Task Scheduler Operational** | `win_evt_taskscheduler` | Scheduled task registration, update, launch, and maintenance events |
 | **Application** | `win_evt_application` | General application events |
 | **System** | `win_evt_system` | General system events |
 

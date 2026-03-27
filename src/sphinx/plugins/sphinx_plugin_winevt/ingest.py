@@ -127,6 +127,10 @@ def ingest_sysmon(case_id: str, records: list[dict]) -> int:
     return _ingest_channel(case_id, "win_evt_sysmon", records)
 
 
+def ingest_taskscheduler(case_id: str, records: list[dict]) -> int:
+    return _ingest_channel(case_id, "win_evt_taskscheduler", records)
+
+
 def ingest_application(case_id: str, records: list[dict]) -> int:
     return _ingest_channel(case_id, "win_evt_application", records)
 
