@@ -791,6 +791,7 @@ def convert_pcap(
         "tools_run": [],
         "tools_skipped": [],
         "record_counts": {},
+        "total_expected": 0,
         "errors": [],
         "stage": "initializing",
         "pct": 0,
@@ -849,6 +850,12 @@ def convert_pcap(
 
             _progress("ingesting Suricata records", pct_base + tool_weight // 2)
             eve_records = parse_eve_json(suri_dir)
+            summary["total_expected"] += sum(
+                len(records)
+                for event_type, records in eve_records.items()
+                if SURICATA_TYPE_MAP.get(event_type)
+            )
+            _progress("ingesting Suricata records", pct_base + tool_weight // 2)
             for event_type, records in eve_records.items():
                 record_type = SURICATA_TYPE_MAP.get(event_type)
                 if not record_type:
@@ -857,6 +864,7 @@ def convert_pcap(
                     count = ingest_suricata_records(case_id, records, record_type, cur=db_cur, job_id=job_id)
                     summary["record_counts"][record_type] = count
                     total_inserted += count
+                    _progress("ingesting Suricata records", pct_base + tool_weight // 2)
                 except Exception as e:
                     db_conn.rollback()  # clear aborted transaction state
                     summary["errors"].append(f"Suricata ingest ({record_type}): {e}")
@@ -877,8 +885,13 @@ def convert_pcap(
             if result.returncode != 0:
                 summary["errors"].append(f"Zeek exit code {result.returncode}")
 
-            _progress("ingesting Zeek records", pct_base + tool_weight // 2)
             zeek_logs = parse_zeek_logs(zeek_dir)
+            summary["total_expected"] += sum(
+                len(records)
+                for log_type, records in zeek_logs.items()
+                if ZEEK_TYPE_MAP.get(log_type)
+            )
+            _progress("ingesting Zeek records", pct_base + tool_weight // 2)
             for log_type, records in zeek_logs.items():
                 record_type = ZEEK_TYPE_MAP.get(log_type)
                 if not record_type:
@@ -887,6 +900,7 @@ def convert_pcap(
                     count = ingest_zeek_records(case_id, records, record_type, cur=db_cur, job_id=job_id)
                     summary["record_counts"][record_type] = count
                     total_inserted += count
+                    _progress("ingesting Zeek records", pct_base + tool_weight // 2)
                 except Exception as e:
                     db_conn.rollback()
                     summary["errors"].append(f"Zeek ingest ({record_type}): {e}")
@@ -905,11 +919,13 @@ def convert_pcap(
             summary["tools_run"].append("tshark")
 
             if stream_records:
+                summary["total_expected"] += len(stream_records)
                 _progress("ingesting tshark streams", pct_base + tool_weight // 2)
                 try:
                     count = ingest_tshark(case_id, stream_records, cur=db_cur, job_id=job_id)
                     summary["record_counts"]["tshark_stream"] = count
                     total_inserted += count
+                    _progress("ingesting tshark streams", pct_base + tool_weight // 2)
                 except Exception as e:
                     db_conn.rollback()
                     summary["errors"].append(f"tshark ingest: {e}")

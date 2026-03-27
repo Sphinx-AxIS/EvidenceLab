@@ -15,7 +15,7 @@
 <h4>What Happens During Ingest</h4>
 <ul>
   <li>PCAP ingest runs in the background — you can monitor progress on the Dashboard.</li>
-  <li>The Ingest page also shows the current case's recent background jobs and live progress for any running ingest.</li>
+  <li>The Ingest page also shows the current case's recent background jobs and live progress for any running ingest, including processed counts and a progress bar when totals are available.</li>
   <li>PCAP processing runs inside the isolated REPL container and writes derived records back into the case through an internal ingest path.</li>
   <li>JSON ingest is immediate — records are inserted and you're redirected back with a count.</li>
   <li>Deployed detection rules (Suricata and Sigma) automatically run against newly ingested evidence.</li>
@@ -132,14 +132,31 @@
           {% if j.status == 'running' %}
             <div style="margin-bottom:0.25rem;">
               <div style="background:var(--border);border-radius:4px;height:16px;overflow:hidden;min-width:200px;">
-                <div id="job-bar-{{ j.id }}" style="background:var(--blue);height:100%;width:{{ j.summary.pct|default(0) }}%;transition:width 0.5s;"></div>
+                {% set initial_total = j.summary.total_expected|default(0) %}
+                {% set initial_processed = j.summary.total_inserted|default(0) %}
+                {% set initial_pct = j.summary.pct|default(0) %}
+                {% if initial_total and initial_total > 0 %}
+                  {% set initial_pct = ((initial_processed / initial_total) * 100)|round(0, 'floor')|int %}
+                {% endif %}
+                <div id="job-bar-{{ j.id }}" style="background:var(--blue);height:100%;width:{{ initial_pct }}%;transition:width 0.5s;"></div>
               </div>
             </div>
-            <span id="job-stage-{{ j.id }}">{{ j.summary.stage|default('starting') }}{% if j.summary.pct is defined %} ({{ j.summary.pct }}%){% endif %}</span>
+            <span id="job-stage-{{ j.id }}">
+              {{ j.summary.stage|default('starting') }}
+              {% if initial_total and initial_total > 0 %}
+                — {{ initial_processed }} / {{ initial_total }} processed
+              {% elif j.summary.pct is defined %}
+                ({{ j.summary.pct }}%)
+              {% endif %}
+            </span>
           {% else %}
             {% if j.summary %}
               {% if j.summary.total_inserted is defined %}
-                {{ j.summary.total_inserted }} records
+                {% if j.summary.total_expected is defined and j.summary.total_expected %}
+                  {{ j.summary.total_inserted }} / {{ j.summary.total_expected }} records
+                {% else %}
+                  {{ j.summary.total_inserted }} records
+                {% endif %}
               {% endif %}
               {% if j.summary.tools_run is defined %}
                 ({{ j.summary.tools_run|join(', ') }})
@@ -196,6 +213,25 @@
 
 <script>
 (function() {
+  function formatJobProgress(detail) {
+    var total = Number(detail.total_expected || 0);
+    var processed = Number(detail.total_inserted || 0);
+    var pct = Number(detail.pct || 0);
+    var stage = detail.stage || 'running';
+    var elapsed = detail.elapsed_s || 0;
+    var barPct = pct;
+    var text = stage;
+
+    if (total > 0) {
+      barPct = Math.max(barPct, Math.min(100, Math.floor((processed / total) * 100)));
+      text = stage + ' — ' + processed + ' / ' + total + ' processed, ' + elapsed + 's';
+    } else {
+      text = stage + ' (' + pct + '%) — ' + processed + ' records, ' + elapsed + 's';
+    }
+
+    return { barPct: barPct, text: text };
+  }
+
   var modeSelect = document.getElementById('ingest_mode');
   var jsonOpts = document.getElementById('json_options');
   var pcapOpts = document.getElementById('pcap_options');
@@ -278,9 +314,10 @@
           var stage = document.getElementById('job-stage-' + jobId);
           var statusEl = document.getElementById('job-status-' + jobId);
           var detailsEl = document.getElementById('job-details-' + jobId);
+          var progress = formatJobProgress(d);
 
-          if (bar) bar.style.width = d.pct + '%';
-          if (stage) stage.textContent = d.stage + ' (' + d.pct + '%) — ' + d.total_inserted + ' records, ' + d.elapsed_s + 's';
+          if (bar) bar.style.width = progress.barPct + '%';
+          if (stage) stage.textContent = progress.text;
 
           if (d.status === 'ok' || d.status === 'done' || d.status === 'partial' || d.status === 'failed' || d.status === 'error') {
             clearInterval(timer);
@@ -296,6 +333,9 @@
               if (statusEl) statusEl.innerHTML = '<span class="badge badge-danger">' + d.status + '</span>';
             }
             var detail = d.total_inserted + ' records';
+            if (d.total_expected && d.total_expected > 0) {
+              detail = d.total_inserted + ' / ' + d.total_expected + ' records';
+            }
             if (d.record_counts) {
               var types = Object.keys(d.record_counts);
               if (types.length) detail += ' (' + types.join(', ') + ')';

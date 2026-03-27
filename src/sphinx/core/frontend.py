@@ -1996,6 +1996,7 @@ async def ingest_pcap_submit(
                 "stage": "starting conversion",
                 "pct": 0,
                 "total_inserted": 0,
+                "total_expected": 0,
                 "record_counts": {},
                 "errors": [],
                 "elapsed_s": 0,
@@ -2038,6 +2039,8 @@ async def ingest_pcap_submit(
                     state["elapsed_s"] = elapsed
                     if result.get("total_inserted"):
                         state["total_inserted"] = result["total_inserted"]
+                    if result.get("total_expected") is not None:
+                        state["total_expected"] = result.get("total_expected", 0)
                     if result.get("record_counts"):
                         state["record_counts"] = result["record_counts"]
                     if result.get("errors"):
@@ -2103,6 +2106,7 @@ async def job_status_json(request: Request, case_id: str, job_id: int):
                 "pct": live.get("pct", 0),
                 "stage": live.get("stage", ""),
                 "total_inserted": live.get("total_inserted", 0),
+                "total_expected": live.get("total_expected", 0),
                 "record_counts": live.get("record_counts", {}),
                 "errors": live.get("errors", []),
                 "elapsed_s": live.get("elapsed_s", 0),
@@ -2148,6 +2152,7 @@ async def job_status_json(request: Request, case_id: str, job_id: int):
         "pct": summary.get("pct", 0),
         "stage": summary.get("stage", ""),
         "total_inserted": summary.get("total_inserted", 0),
+        "total_expected": summary.get("total_expected", 0),
         "record_counts": summary.get("record_counts", {}),
         "errors": summary.get("errors", []),
         "elapsed_s": summary.get("elapsed_s", 0),
