@@ -6,6 +6,7 @@
 <p>Use this page to turn a selected packet-derived record into a Suricata draft without starting from raw syntax.</p>
 <ul>
   <li><strong>Flow Review</strong> keeps the key packet and stream facts visible.</li>
+  <li><strong>Canonical Roles</strong> use the parsed service port to identify likely client and server endpoints when tshark stream summary fields are ambiguous.</li>
   <li><strong>Anchor Frame Context</strong> can differ from the stream summary. When EvidenceLab can tie a selected content anchor to specific payload-bearing frames, the source/destination endpoint anchors follow that frame context.</li>
   <li><strong>Detection Strategy</strong> lets the analyst choose IOC, behavior, or service-focused logic before selecting anchors.</li>
   <li><strong>Content Match Style</strong> lets the analyst keep simple literal content matches or switch to resilient PCRE when stream reassembly matters.</li>
@@ -13,6 +14,7 @@
   <li><strong>Frame Provenance</strong> shows whether a candidate string was seen inside one frame or only after stream reassembly.</li>
   <li><strong>Anchor-Aware Direction</strong> uses the selected content anchor's actual frame provenance to decide whether the draft should point <code>to_server</code> or <code>to_client</code> when possible.</li>
   <li><strong>Direction Flow Card</strong> exposes the current active anchor direction as an explicit <code>flow:to_server</code> or <code>flow:to_client</code> option instead of hiding it behind inference.</li>
+  <li><strong>Endpoint Override Controls</strong> let the analyst swap <code>src</code>/<code>dst</code> and choose from observed IPs or ports when the parser's initial orientation needs to be corrected.</li>
   <li><strong>Flow Guardrails</strong> keep <code>flow</code> keywords for stream-dependent anchors, but avoid adding them by default when a selected literal anchor was seen wholly inside a single payload-bearing frame.</li>
   <li><strong>Live Rule Preview</strong> renders the selected facts into Suricata syntax automatically.</li>
   <li><strong>Warnings</strong> call out brittle choices such as exact IPs in behavior mode or content strings that are too short.</li>
@@ -52,6 +54,8 @@
 .builder-warning-list { margin:0.5rem 0 0; padding-left:1.2rem; }
 .builder-warning-list li { margin-bottom:0.25rem; }
 .builder-kv td:first-child { width:220px; color:var(--text-muted); }
+.builder-override-row { display:flex; gap:0.5rem; margin-top:0.5rem; }
+.builder-override-row select { flex:1; min-width:0; }
 </style>
 
 <div class="card mb-2">
@@ -67,6 +71,10 @@
         <tr><td>Protocol</td><td class="text-mono">{{ builder_data.flow.proto or '—' }}</td></tr>
         <tr><td>Source</td><td class="text-mono">{{ builder_data.flow.src_ip or '—' }}:{{ builder_data.flow.src_port or '—' }}</td></tr>
         <tr><td>Destination</td><td class="text-mono">{{ builder_data.flow.dst_ip or '—' }}:{{ builder_data.flow.dst_port or '—' }}</td></tr>
+        {% if builder_data.flow.client_ip or builder_data.flow.server_ip %}
+        <tr><td>Canonical Client</td><td class="text-mono">{{ builder_data.flow.client_ip or '—' }}:{{ builder_data.flow.client_port or '—' }}</td></tr>
+        <tr><td>Canonical Server</td><td class="text-mono">{{ builder_data.flow.server_ip or '—' }}:{{ builder_data.flow.server_port or '—' }}</td></tr>
+        {% endif %}
         {% if builder_data.flow.anchor_source or builder_data.flow.anchor_destination %}
         <tr><td>Anchor Frame Source</td><td class="text-mono">{{ builder_data.flow.anchor_source or '—' }}</td></tr>
         <tr><td>Anchor Frame Destination</td><td class="text-mono">{{ builder_data.flow.anchor_destination or '—' }}</td></tr>
@@ -139,6 +147,30 @@
           >
         </div>
         <div style="margin-top:0.5rem;"><code>{{ atom.label }}</code></div>
+        {% if atom.kind in ['src_ip', 'dst_ip', 'src_port', 'dst_port'] %}
+        <div class="builder-override-row">
+          <select class="suricata-override-kind" data-base-kind="{{ atom.kind }}">
+            {% if atom.kind.endswith('_ip') %}
+            <option value="src_ip" {% if atom.kind == 'src_ip' %}selected{% endif %}>src_ip</option>
+            <option value="dst_ip" {% if atom.kind == 'dst_ip' %}selected{% endif %}>dst_ip</option>
+            {% else %}
+            <option value="src_port" {% if atom.kind == 'src_port' %}selected{% endif %}>src_port</option>
+            <option value="dst_port" {% if atom.kind == 'dst_port' %}selected{% endif %}>dst_port</option>
+            {% endif %}
+          </select>
+          <select class="suricata-override-value" data-base-kind="{{ atom.kind }}">
+            {% if atom.kind.endswith('_ip') %}
+              {% for value in builder_data.flow.ip_options %}
+              <option value="{{ value }}" {% if value == atom.value %}selected{% endif %}>{{ value }}</option>
+              {% endfor %}
+            {% else %}
+              {% for value in builder_data.flow.port_options %}
+              <option value="{{ value }}" {% if value == atom.value %}selected{% endif %}>{{ value }}</option>
+              {% endfor %}
+            {% endif %}
+          </select>
+        </div>
+        {% endif %}
         <div class="text-muted" style="margin-top:0.35rem;font-size:0.84rem;">{{ atom.reason }}</div>
         {% if atom.provenance %}
         <div class="text-muted" style="margin-top:0.35rem;font-size:0.8rem;"><strong>Frame provenance:</strong> {{ atom.provenance }}</div>
@@ -276,8 +308,8 @@ function buildSuricataDraft() {
   const strategy = getSelectedStrategy();
   const matchStyle = getSelectedMatchStyle();
   const selected = Array.from(document.querySelectorAll('.suricata-atom:checked')).map(cb => ({
-    kind: cb.dataset.kind,
-    value: cb.dataset.value,
+    kind: (cb.closest('label')?.querySelector('.suricata-override-kind')?.value) || cb.dataset.kind,
+    value: (cb.closest('label')?.querySelector('.suricata-override-value')?.value) || cb.dataset.value,
     priority: cb.dataset.priority,
     singlePacket: cb.dataset.singlePacket === 'true',
     provenance: cb.dataset.provenance || '',
@@ -536,6 +568,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.querySelectorAll('.suricata-atom').forEach(cb => {
     cb.addEventListener('change', renderSuricataPreview);
+  });
+  document.querySelectorAll('.suricata-override-kind, .suricata-override-value').forEach(select => {
+    select.addEventListener('change', renderSuricataPreview);
+    select.addEventListener('click', event => event.stopPropagation());
+    select.addEventListener('mousedown', event => event.stopPropagation());
   });
   resetStrategyDefaults();
 });

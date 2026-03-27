@@ -787,6 +787,11 @@ def _build_suricata_builder_data(source_record: dict[str, Any] | None) -> dict[s
     dst_ip = str(raw.get("dst_ip") or "")
     src_port = str(raw.get("src_port") or "")
     dst_port = str(raw.get("dst_port") or "")
+    client_ip = str(raw.get("client_ip") or "")
+    client_port = str(raw.get("client_port") or "")
+    server_ip = str(raw.get("server_ip") or "")
+    server_port = str(raw.get("server_port") or "")
+    service_side = str(raw.get("service_side") or "")
     frame_payloads = raw.get("frame_payloads") if isinstance(raw.get("frame_payloads"), list) else []
     frame_numbers = raw.get("frame_numbers") if isinstance(raw.get("frame_numbers"), list) else []
     payload_text = ""
@@ -805,7 +810,12 @@ def _build_suricata_builder_data(source_record: dict[str, Any] | None) -> dict[s
     service_port_role = ""
     service_port_value = ""
     service_name = ""
-    if src_service_name and (dst_port_num is None or dst_port_num >= 1024):
+    if client_ip and server_ip and server_port:
+        direction_guess = f"Canonical roles inferred from service port {server_port}: likely client request from {client_ip}:{client_port or 'any'} to server {server_ip}:{server_port}."
+        service_port_role = "dst"
+        service_port_value = server_port
+        service_name = _SERVICE_PORT_NAMES.get(server_port, "")
+    elif src_service_name and (dst_port_num is None or dst_port_num >= 1024):
         direction_guess = f"Likely server response from {src_service_name} on source port {src_port} to a high client port."
         service_port_role = "src"
         service_port_value = src_port
@@ -972,6 +982,11 @@ def _build_suricata_builder_data(source_record: dict[str, Any] | None) -> dict[s
         "src_port": src_port,
         "dst_ip": dst_ip,
         "dst_port": dst_port,
+        "client_ip": client_ip,
+        "client_port": client_port,
+        "server_ip": server_ip,
+        "server_port": server_port,
+        "service_side": service_side,
         "packet_count": raw.get("packet_count", ""),
         "stream_index": raw.get("stream_index", ""),
         "payload_bytes": raw.get("payload_bytes", ""),
@@ -989,6 +1004,32 @@ def _build_suricata_builder_data(source_record: dict[str, Any] | None) -> dict[s
         "frame_count": len(frame_numbers) or len(frame_payloads),
         "frame_numbers_preview": _summarize_frame_numbers(frame_numbers[:12]) if frame_numbers else "",
     }
+    flow["ip_options"] = [
+        value for value in dict.fromkeys(
+            [
+                display_src_ip,
+                display_dst_ip,
+                client_ip,
+                server_ip,
+                src_ip,
+                dst_ip,
+            ]
+        )
+        if value
+    ]
+    flow["port_options"] = [
+        value for value in dict.fromkeys(
+            [
+                display_src_port,
+                display_dst_port,
+                client_port,
+                server_port,
+                src_port,
+                dst_port,
+            ]
+        )
+        if value
+    ]
 
     return {
         "flow": flow,

@@ -60,6 +60,65 @@ def find_tshark() -> str:
     return ""
 
 
+def _infer_stream_roles(
+    frame_payloads: list[dict[str, Any]],
+    fallback_src_ip: str,
+    fallback_src_port: str,
+    fallback_dst_ip: str,
+    fallback_dst_port: str,
+) -> dict[str, str]:
+    """Infer client/server roles for a tshark stream when a well-known service port is visible.
+
+    tshark stream extraction groups payload-bearing packets from both directions into one
+    stream record. The top-level src/dst fields therefore reflect whichever payload-bearing
+    packet appeared first, not a stable client/server direction. This helper derives canonical
+    roles from the observed service port whenever possible.
+    """
+    service_ports = {"20", "21", "22", "23", "25", "53", "80", "110", "123", "143", "389", "443", "445", "587", "993", "995"}
+
+    def _is_service_port(port: str) -> bool:
+        return port in service_ports
+
+    def _is_ephemeral(port: str) -> bool:
+        try:
+            return int(port) >= 1024
+        except Exception:
+            return False
+
+    for frame in frame_payloads:
+        src_ip = str(frame.get("src_ip") or "")
+        dst_ip = str(frame.get("dst_ip") or "")
+        src_port = str(frame.get("src_port") or "")
+        dst_port = str(frame.get("dst_port") or "")
+        if _is_service_port(dst_port) and (_is_ephemeral(src_port) or not _is_service_port(src_port)):
+            return {
+                "client_ip": src_ip,
+                "client_port": src_port,
+                "server_ip": dst_ip,
+                "server_port": dst_port,
+                "service_port": dst_port,
+                "service_side": "dst",
+            }
+        if _is_service_port(src_port) and (_is_ephemeral(dst_port) or not _is_service_port(dst_port)):
+            return {
+                "client_ip": dst_ip,
+                "client_port": dst_port,
+                "server_ip": src_ip,
+                "server_port": src_port,
+                "service_port": src_port,
+                "service_side": "src",
+            }
+
+    return {
+        "client_ip": fallback_src_ip,
+        "client_port": fallback_src_port,
+        "server_ip": fallback_dst_ip,
+        "server_port": fallback_dst_port,
+        "service_port": "",
+        "service_side": "",
+    }
+
+
 # ---------------------------------------------------------------------------
 # Zeek
 # ---------------------------------------------------------------------------
@@ -565,6 +624,13 @@ def run_tshark_streams(
 
         total_bytes = len(hex_str) // 2
         ratio = printable_count / total_bytes if total_bytes else 0
+        roles = _infer_stream_roles(
+            s["frame_payloads"],
+            s["src_ip"],
+            s["src_port"],
+            s["dst_ip"],
+            s["dst_port"],
+        )
 
         records.append({
             "stream_index": idx,
@@ -572,6 +638,12 @@ def run_tshark_streams(
             "dst_ip": s["dst_ip"],
             "src_port": s["src_port"],
             "dst_port": s["dst_port"],
+            "client_ip": roles["client_ip"],
+            "client_port": roles["client_port"],
+            "server_ip": roles["server_ip"],
+            "server_port": roles["server_port"],
+            "service_port": roles["service_port"],
+            "service_side": roles["service_side"],
             "proto": "tcp",
             "first_ts": s["first_ts"],
             "last_ts": s["last_ts"],
