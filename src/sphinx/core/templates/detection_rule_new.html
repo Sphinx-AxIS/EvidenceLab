@@ -21,6 +21,7 @@
   <li>Write in YAML format following the Sigma specification.</li>
   <li>Include: title, logsource, detection, condition, level.</li>
   <li>When deployed, the rule is compiled to SQL and run against ingested Windows event logs.</li>
+  <li>Inside a single selector such as <code>selection</code>, fields are matched together with <strong>AND</strong> semantics. For example, <code>EventID: 400</code> plus <code>Channel: ...</code> should require both values.</li>
   <li>You can test a draft Sigma rule against the current case before saving it.</li>
 </ul>
 {% endblock %}

@@ -639,6 +639,16 @@ def _basic_sigma_to_sql(rule_yaml: str, rule: dict) -> str:
     """Basic Sigma YAML → SQL fallback when pySigma is not available.
 
     Parses the detection section and generates JSONB WHERE clauses.
+
+    Sigma semantics matter here:
+    - fields inside a single selector (for example ``selection``) are combined
+      with ``AND``
+    - lists on a single field remain ``OR``/``IN`` within that field
+    - the ``condition`` controls how named selectors are combined
+
+    This fallback only implements the subset currently used by the guided Sigma
+    builder and manual validation flow, where ``condition`` is typically just
+    ``selection``.
     """
     import yaml
 
@@ -680,11 +690,13 @@ def _basic_sigma_to_sql(rule_yaml: str, rule: dict) -> str:
     if not clauses:
         return ""
 
-    # Handle basic conditions
-    if "and" in condition.lower() or "all of" in condition.lower():
-        where = " AND ".join(clauses)
-    else:
-        where = " OR ".join(clauses)
+    # A single Sigma selector combines its fields with AND semantics.
+    # Example:
+    #   selection:
+    #     EventID: 400
+    #     Channel: Microsoft-Windows-TaskScheduler/Operational
+    # means EventID == 400 AND Channel == ...
+    where = " AND ".join(clauses)
 
     # Determine logsource → record_type filter
     logsource = sigma.get("logsource", {})

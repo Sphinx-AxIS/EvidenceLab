@@ -223,6 +223,7 @@ The Sigma builder now follows the same interactive pattern as the Suricata build
 - **Step 3: Select Stable Sigma Atoms** turns `EventID`, `logsource.service`, and `EventData.*` values into selectable cards.
 - **Override controls** inside each Sigma card let the analyst change the Sigma field name, match operator, and value without editing raw YAML first.
 - **Step 4: Live Rule Preview** renders the selected atoms into Sigma YAML automatically.
+- In Sigma testing and deployment, fields inside one selector block such as `selection` are treated with AND semantics. If the selector contains both `EventID: 400` and `Channel: Microsoft-Windows-TaskScheduler/Operational`, the record must satisfy both values.
 - After opening the manual Sigma draft, the analyst can use **Test Against Current Case Events** to compile and run the draft against the current case before saving it.
 
 ---
