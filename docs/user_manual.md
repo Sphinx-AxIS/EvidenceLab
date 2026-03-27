@@ -138,6 +138,7 @@ The **Analytics** page is the main hunting workspace for detection engineering. 
 - The **Analytics** page includes clickable record-type cards for quick hunting pivots, plus **Windows ATT&CK Starter Filters** with cumulative dropdowns for **Tactic**, **Technique**, and **EventID starter**.
 - Those dropdowns are populated from the local Windows ATT&CK mapping dataset bundled with the platform.
 - For Windows event records, Analytics also exposes nested fields such as `EventData.TargetUserName`, `EventData.CommandLine`, `EventData.Image`, and `System.TimeCreated.SystemTime` in the column selectors used by Browse, Value Counts, Relationships, Time Series, and Top-N.
+- If you change Analytics tabs or launch a new query while an earlier request is still running, EvidenceLab ignores the stale response so the page stays aligned with the active tab.
 - Once you identify a promising event family, open the matching record in **Records**.
 - The record detail page explains the event, shows important fields, and gives case-level context so you can decide whether a detection is justified.
 - If the event still looks rule-worthy after inspection, use **Build Sigma Rule From Event** or **Build Suricata Rule From Record** from the detail page.

@@ -18,6 +18,7 @@
   <li>Start with an ATT&amp;CK preset or click a record type card to open that evidence in Analytics.</li>
   <li>For Windows event logs, Analytics exposes top-level fields like <strong>Channel</strong> and <strong>EventID</strong> plus nested fields such as <strong>EventData.TargetUserName</strong> and <strong>System.TimeCreated.SystemTime</strong>.</li>
   <li>Use Browse, Value Counts, Relationships, or Time Series to understand what is rare, repeated, or suspicious.</li>
+  <li>If you switch tabs or launch a new query before the previous one finishes, EvidenceLab now ignores stale results so an older Correlate search cannot overwrite a newer Browse query.</li>
   <li>Open a specific record from the results table to inspect it in context.</li>
   <li>Only after the event is understandable should you pivot into Sigma or Suricata authoring.</li>
 </ul>
@@ -281,6 +282,8 @@ let currentType = null;
 let currentOffset = 0;
 let currentMode = 'browse';
 let typeColumns = [];
+let analyticsRequestSeq = 0;
+let activeAnalyticsRequest = null;
 
 const OP_LABELS = {
   eq: '=', neq: '!=', contains: 'contains',
@@ -292,6 +295,26 @@ const NUM_OPS = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'is_null', 'not_null'];
 
 function apiFetch(url) {
   return fetch(url, { credentials: 'same-origin' }).then(r => r.json());
+}
+
+function beginAnalyticsRequest(mode, requestKey='') {
+  analyticsRequestSeq += 1;
+  activeAnalyticsRequest = {
+    id: analyticsRequestSeq,
+    mode,
+    requestKey,
+    recordType: currentType,
+  };
+  return activeAnalyticsRequest;
+}
+
+function isStaleAnalyticsResponse(requestState) {
+  if (!requestState || !activeAnalyticsRequest) return true;
+  return (
+    requestState.id !== activeAnalyticsRequest.id ||
+    requestState.mode !== currentMode ||
+    requestState.recordType !== currentType
+  );
 }
 
 function loadSummary() {
@@ -575,6 +598,8 @@ function collectFilters() {
 }
 
 function selectMode(btn, mode) {
+  analyticsRequestSeq += 1;
+  activeAnalyticsRequest = null;
   currentMode = mode; currentOffset = 0;
   document.querySelectorAll('#mode-tabs button').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
@@ -604,6 +629,7 @@ function runValueCounts() {
   if (!currentType) return;
   let col = document.getElementById('vc-column').value;
   if (!col) return;
+  let requestState = beginAnalyticsRequest('value_counts', col);
   let p = new URLSearchParams();
   p.set('case_id', CASE_ID); p.set('record_type', currentType);
   p.set('column', col); p.set('limit', document.getElementById('f-limit').value || '50');
@@ -611,6 +637,7 @@ function runValueCounts() {
   if (f.length > 0) p.set('filters', JSON.stringify(f));
   document.getElementById('results-table').innerHTML = '<p class="text-muted">Querying...</p>';
   apiFetch('/api/analytics/value-counts?' + p.toString()).then(d => {
+    if (isStaleAnalyticsResponse(requestState)) return;
     if (d.error) { document.getElementById('results-table').innerHTML = `<p>${d.error}</p>`; return; }
     renderValueCounts(d);
   });
@@ -637,6 +664,7 @@ function runRelationships() {
   if (!currentType) return;
   let a = document.getElementById('rel-col-a').value, b = document.getElementById('rel-col-b').value;
   if (!a || !b) return;
+  let requestState = beginAnalyticsRequest('relationships', `${a}:${b}`);
   let p = new URLSearchParams();
   p.set('case_id', CASE_ID); p.set('record_type', currentType);
   p.set('col_a', a); p.set('col_b', b);
@@ -645,6 +673,7 @@ function runRelationships() {
   if (f.length > 0) p.set('filters', JSON.stringify(f));
   document.getElementById('results-table').innerHTML = '<p class="text-muted">Querying...</p>';
   apiFetch('/api/analytics/relationships?' + p.toString()).then(d => {
+    if (isStaleAnalyticsResponse(requestState)) return;
     if (d.error) { document.getElementById('results-table').innerHTML = `<p>${d.error}</p>`; return; }
     renderRelationships(d);
   });
@@ -672,6 +701,7 @@ function runTimeSeries() {
   if (!currentType) return;
   let interval = document.getElementById('ts-interval').value;
   let groupCol = document.getElementById('ts-group-col').value;
+  let requestState = beginAnalyticsRequest('time_series', `${interval}:${groupCol}`);
   let p = new URLSearchParams();
   p.set('case_id', CASE_ID); p.set('record_type', currentType);
   p.set('interval', interval);
@@ -681,6 +711,7 @@ function runTimeSeries() {
   if (f.length > 0) p.set('filters', JSON.stringify(f));
   document.getElementById('results-table').innerHTML = '<p class="text-muted">Querying...</p>';
   apiFetch('/api/analytics/time-series?' + p.toString()).then(d => {
+    if (isStaleAnalyticsResponse(requestState)) return;
     if (d.error) { document.getElementById('results-table').innerHTML = `<p>${d.error}</p>`; return; }
     renderTimeSeries(d);
   });
@@ -717,6 +748,7 @@ function runTopN() {
   if (!groupCol) return;
   let metricCol = document.getElementById('topn-metric-col').value;
   let aggFunc = document.getElementById('topn-agg-func').value;
+  let requestState = beginAnalyticsRequest('top_n', `${groupCol}:${metricCol}:${aggFunc}`);
   let p = new URLSearchParams();
   p.set('case_id', CASE_ID); p.set('record_type', currentType);
   p.set('group_col', groupCol);
@@ -726,6 +758,7 @@ function runTopN() {
   if (f.length > 0) p.set('filters', JSON.stringify(f));
   document.getElementById('results-table').innerHTML = '<p class="text-muted">Querying...</p>';
   apiFetch('/api/analytics/top-n?' + p.toString()).then(d => {
+    if (isStaleAnalyticsResponse(requestState)) return;
     if (d.error) { document.getElementById('results-table').innerHTML = `<p>${d.error}</p>`; return; }
     renderTopN(d);
   });
@@ -758,6 +791,7 @@ function renderTopN(d) {
 
 function runQuery() {
   if (!currentType) return;
+  let requestState = beginAnalyticsRequest('browse', String(currentOffset));
   let p = new URLSearchParams();
   p.set('case_id', CASE_ID); p.set('record_type', currentType);
   p.set('limit', document.getElementById('f-limit').value || '200');
@@ -770,6 +804,7 @@ function runQuery() {
   if (sortDir) p.set('sort_dir', sortDir);
   document.getElementById('results-table').innerHTML = '<p class="text-muted">Querying...</p>';
   apiFetch('/api/analytics/query?' + p.toString()).then(d => {
+    if (isStaleAnalyticsResponse(requestState)) return;
     if (d.error) { document.getElementById('results-table').innerHTML = `<p>${d.error}</p>`; return; }
     renderBrowse(d);
   });
@@ -832,6 +867,7 @@ function runCorrelate() {
   let typeA = document.getElementById('corr-type-a').value;
   let typeB = document.getElementById('corr-type-b').value;
   if (!typeA || !typeB) return;
+  let requestState = beginAnalyticsRequest('correlate', `${typeA}:${typeB}`);
   let window = document.getElementById('corr-window').value;
   let entityType = document.getElementById('corr-entity-type').value;
   let limit = document.getElementById('f-limit').value || '100';
@@ -842,6 +878,7 @@ function runCorrelate() {
   document.getElementById('results-table').innerHTML = '<p class="text-muted">Correlating...</p>';
   document.getElementById('analytics-results').style.display = '';
   apiFetch('/api/analytics/correlate?' + p.toString()).then(d => {
+    if (isStaleAnalyticsResponse(requestState)) return;
     if (d.error) { document.getElementById('results-table').innerHTML = `<p>${d.error}</p>`; return; }
     renderCorrelate(d);
   });
