@@ -273,18 +273,23 @@
     ingestStatusLabel.textContent = 'Preparing upload...';
     ingestStatusBar.style.width = '0%';
     ingestStatusBar.style.background = 'var(--blue)';
+    ingestStatusBar.style.backgroundSize = '';
+    ingestStatusBar.style.backgroundPosition = '';
   }
 
   function startProcessingPulse(labelText) {
     if (processingPulse) clearInterval(processingPulse);
-    var widths = [100, 70, 85, 100];
     var idx = 0;
+    var dots = ['', '.', '..', '...'];
     ingestStatusLabel.textContent = labelText;
-    ingestStatusBar.style.background = 'var(--blue)';
+    ingestStatusBar.style.background = 'linear-gradient(90deg, var(--blue), #7cb5ff, var(--blue))';
+    ingestStatusBar.style.backgroundSize = '200% 100%';
+    ingestStatusBar.style.backgroundPosition = '0% 0%';
     ingestStatusBar.style.width = '100%';
     processingPulse = setInterval(function() {
-      idx = (idx + 1) % widths.length;
-      ingestStatusBar.style.width = widths[idx] + '%';
+      idx = (idx + 1) % 24;
+      ingestStatusLabel.textContent = labelText + dots[idx % dots.length];
+      ingestStatusBar.style.backgroundPosition = (idx * 8) + '% 0%';
     }, 450);
   }
 
@@ -360,6 +365,8 @@
     ingestStatusPanel.style.display = '';
     ingestStatusBar.style.width = '0%';
     ingestStatusBar.style.background = 'var(--blue)';
+    ingestStatusBar.style.backgroundSize = '';
+    ingestStatusBar.style.backgroundPosition = '';
     ingestStatusLabel.textContent = 'Uploading ' + modeLabel + ' evidence...';
     submitBtn.disabled = true;
 
@@ -374,14 +381,15 @@
     xhr.onloadstart = function() {
       ingestStatusPanel.style.display = '';
     };
-    xhr.onreadystatechange = function() {
-      if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED) {
-        startProcessingPulse('Upload complete. Waiting for the server to finish ingest...');
-      }
+    xhr.upload.onload = function() {
+      ingestStatusBar.style.width = '100%';
+      startProcessingPulse('Upload complete. Server is ingesting the evidence');
     };
     xhr.onerror = function() {
       if (processingPulse) clearInterval(processingPulse);
       ingestStatusBar.style.background = 'var(--red, #ef4444)';
+      ingestStatusBar.style.backgroundSize = '';
+      ingestStatusBar.style.backgroundPosition = '';
       ingestStatusBar.style.width = '100%';
       ingestStatusLabel.textContent = 'Upload failed. Please try again.';
       submitBtn.disabled = false;
@@ -394,10 +402,14 @@
       if (xhr.status >= 200 && xhr.status < 400) {
         ingestStatusBar.style.width = '100%';
         ingestStatusBar.style.background = 'var(--green, #22c55e)';
+        ingestStatusBar.style.backgroundSize = '';
+        ingestStatusBar.style.backgroundPosition = '';
         ingestStatusLabel.textContent = 'Ingest request accepted. Loading results...';
         window.location = xhr.responseURL || form.action;
       } else {
         ingestStatusBar.style.background = 'var(--red, #ef4444)';
+        ingestStatusBar.style.backgroundSize = '';
+        ingestStatusBar.style.backgroundPosition = '';
         ingestStatusBar.style.width = '100%';
         ingestStatusLabel.textContent = 'Ingest failed. Please review the server response and try again.';
         submitBtn.disabled = false;
