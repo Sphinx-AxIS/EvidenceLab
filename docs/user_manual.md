@@ -325,7 +325,11 @@ PCAP conversion runs in the isolated REPL container, but the derived Suricata, Z
 
 ### Available Handlers
 
-The bottom of the Ingest page lists all registered ingest handlers and their accepted record types, so you know what formats the platform can process.
+The Ingest page now keeps **Available Handlers** collapsed by default as an advanced troubleshooting section.
+
+- Expand it if you want to see the registered ingest handler names and normalized record types.
+- This is mostly useful for troubleshooting or plugin/operator visibility.
+- Most analysts can ignore it and focus on ingest mode, background jobs, and current case record counts.
 
 ---
 

@@ -20,6 +20,12 @@
   <li>JSON ingest is immediate — records are inserted and you're redirected back with a count.</li>
   <li>Deployed detection rules (Suricata and Sigma) automatically run against newly ingested evidence.</li>
 </ul>
+
+<h4>Advanced Troubleshooting</h4>
+<ul>
+  <li>The page includes a collapsed <strong>Available Handlers</strong> section for analysts or operators who want to see the registered ingest handler names.</li>
+  <li>This list is mostly useful for troubleshooting or understanding internal record types. Most analysts can ignore it.</li>
+</ul>
 {% endblock %}
 
 {% block content %}
@@ -173,8 +179,11 @@
 {% endif %}
 
 {% if handlers|length > 0 %}
-<div class="table-wrap mt-2" style="max-width:600px;">
-  <div class="table-title">Available Handlers</div>
+<details class="table-wrap mt-2" style="max-width:600px;">
+  <summary class="table-title" style="cursor:pointer;list-style:none;">Available Handlers</summary>
+  <div class="text-muted" style="padding:0.75rem 1rem 0;font-size:0.85rem;">
+    Advanced troubleshooting view of the registered ingest handler names and normalized record types.
+  </div>
   <table>
     <tbody>
       {% for h in handlers %}
@@ -182,7 +191,7 @@
       {% endfor %}
     </tbody>
   </table>
-</div>
+</details>
 {% endif %}
 
 <script>
