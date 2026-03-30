@@ -13,6 +13,8 @@ from sphinx.core.analytics_ops import (
     get_record_types,
     get_columns_for_type,
     extract_column_value,
+    _build_where,
+    _col_expr,
     value_counts as op_value_counts,
     relationships as op_relationships,
     time_series as op_time_series,
@@ -78,34 +80,9 @@ async def analytics_query(
     """Browse records with filters, sorting, and pagination."""
     with get_cursor() as cur:
         valid_cols = set(get_columns_for_type(cur, case_id, record_type))
-
-        # Build WHERE
-        conditions = ["case_id = %s", "record_type = %s"]
-        params: list = [case_id, record_type]
-
-        if filters:
-            from sphinx.core.analytics_ops import OPS, _col_expr
-            filter_list = _parse_filters(filters) or []
-            for f in filter_list:
-                col = f.get("col", "")
-                op = f.get("op", "eq")
-                val = f.get("val", "")
-                if col not in valid_cols or op not in OPS:
-                    continue
-                expr = _col_expr(col)
-                if op in ("is_null", "not_null"):
-                    conditions.append(f"{expr} {OPS[op]}")
-                elif op == "contains":
-                    conditions.append(f"{expr} ILIKE %s")
-                    params.append(f"%{val}%")
-                else:
-                    conditions.append(f"{expr} {OPS[op]}")
-                    params.append(str(val))
-
-        where = " AND ".join(conditions)
+        where, params = _build_where(case_id, record_type, _parse_filters(filters), valid_cols)
 
         # Sort
-        from sphinx.core.analytics_ops import _col_expr
         order_expr = "ts"
         if sort_col and sort_col in valid_cols:
             order_expr = _col_expr(sort_col)

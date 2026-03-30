@@ -122,6 +122,19 @@ def _col_expr(col: str) -> str:
     return f"({expr}->>'{parts[-1]}')"
 
 
+def _filter_expr(col: str, op: str) -> str:
+    """Return SQL expression for filtering a column with a specific operator.
+
+    Some columns, such as the native ``ts`` timestamp column, need a text cast
+    for substring-style searches while still preserving native comparison
+    behavior for range and sort operations.
+    """
+    expr = _col_expr(col)
+    if op == "contains" and col == "ts":
+        return f"({expr})::text"
+    return expr
+
+
 def extract_column_value(raw: dict[str, Any], col: str) -> Any:
     """Return a value from raw JSON using analytics column semantics."""
     if "." not in col:
@@ -152,7 +165,7 @@ def _build_where(
             val = f.get("val", "")
             if col not in valid_cols or op not in OPS:
                 continue
-            expr = _col_expr(col)
+            expr = _filter_expr(col, op)
             if op in ("is_null", "not_null"):
                 conditions.append(f"{expr} {OPS[op]}")
             elif op == "contains":
