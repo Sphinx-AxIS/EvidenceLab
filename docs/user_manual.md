@@ -139,6 +139,7 @@ The **Analytics** page is the main hunting workspace for detection engineering. 
 - Those dropdowns are populated from the local Windows ATT&CK mapping dataset bundled with the platform.
 - For Windows event records, Analytics also exposes nested fields such as `EventData.TargetUserName`, `EventData.CommandLine`, `EventData.Image`, and `System.TimeCreated.SystemTime` in the column selectors used by Browse, Value Counts, Relationships, Time Series, and Top-N.
 - The native `ts` timestamp column can also be filtered directly in Analytics. If you want to narrow by a partial timestamp string, use the `contains` operator on `ts`.
+- Large values such as nested `EventData` JSON are rendered as literal escaped text in the results grid, even when you click them to add a filter.
 - If you change Analytics tabs or launch a new query while an earlier request is still running, EvidenceLab ignores the stale response so the page stays aligned with the active tab.
 - Once you identify a promising event family, open the matching record in **Records**.
 - The record detail page explains the event, shows important fields, and gives case-level context so you can decide whether a detection is justified.

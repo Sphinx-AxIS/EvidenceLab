@@ -18,6 +18,7 @@
   <li>Start with an ATT&amp;CK preset or click a record type card to open that evidence in Analytics.</li>
   <li>For Windows event logs, Analytics exposes top-level fields like <strong>Channel</strong> and <strong>EventID</strong> plus nested fields such as <strong>EventData.TargetUserName</strong> and <strong>System.TimeCreated.SystemTime</strong>.</li>
   <li>You can filter the native <strong>ts</strong> timestamp column directly, including partial timestamp text such as <strong>2025-09-02 11:2</strong> with the <strong>contains</strong> operator.</li>
+  <li>Large field values such as Windows <strong>EventData</strong> JSON are rendered as literal escaped text in the results grid so clickable filter cells cannot leak HTML into the displayed evidence.</li>
   <li>Use Browse, Value Counts, Relationships, or Time Series to understand what is rare, repeated, or suspicious.</li>
   <li>If you switch tabs or launch a new query before the previous one finishes, EvidenceLab now ignores stale results so an older Correlate search cannot overwrite a newer Browse query.</li>
   <li>Open a specific record from the results table to inspect it in context.</li>
@@ -310,6 +311,67 @@ function apiFetch(url) {
     }
     return data;
   });
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeJsString(value) {
+  return String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n');
+}
+
+function filterClickAttrs(col, rawValue, title='Click to filter') {
+  if (rawValue === null || rawValue === undefined || rawValue === '') return '';
+  return ` onclick="addFilterRow('${escapeJsString(col)}','eq','${escapeJsString(String(rawValue))}')" style="cursor:pointer;" title="${escapeHtml(title)}"`;
+}
+
+function formatAnalyticsCell(rawValue, opts={}) {
+  const {
+    isId = false,
+    isTimestamp = false,
+    truncate = 80,
+  } = opts;
+
+  if (rawValue === null || rawValue === undefined) {
+    return { html: '', rawText: '' };
+  }
+
+  if (isId) {
+    const safeId = escapeHtml(rawValue);
+    return {
+      html: `<a href="/ui/cases/${CASE_ID}/records/${safeId}">${safeId}</a>`,
+      rawText: String(rawValue),
+    };
+  }
+
+  let textValue = typeof rawValue === 'object' ? JSON.stringify(rawValue) : String(rawValue);
+  let escapedText = escapeHtml(textValue);
+
+  if (isTimestamp) {
+    return {
+      html: `<span class="text-mono" style="font-size:0.75rem;">${escapedText}</span>`,
+      rawText: textValue,
+    };
+  }
+
+  if (truncate && textValue.length > truncate) {
+    return {
+      html: `<span title="${escapeHtml(textValue)}">${escapeHtml(textValue.substring(0, truncate))}...</span>`,
+      rawText: textValue,
+    };
+  }
+
+  return { html: escapedText, rawText: textValue };
 }
 
 function beginAnalyticsRequest(mode, requestKey='') {
@@ -666,8 +728,8 @@ function renderValueCounts(d) {
   for (let row of d.rows) {
     let pct = d.total > 0 ? (row.count / d.total * 100).toFixed(1) : '0';
     let barW = (row.count / maxCount * 100).toFixed(1);
-    let v = row.value === null ? '<em>NULL</em>' : row.value;
-    let click = row.value !== null ? ` onclick="addFilterRow('${d.column}','eq','${String(row.value).replace(/'/g,"\\'")}')" style="cursor:pointer;" title="Click to filter"` : '';
+    let v = row.value === null ? '<em>NULL</em>' : escapeHtml(row.value);
+    let click = filterClickAttrs(d.column, row.value);
     html += `<tr><td${click}>${v}</td><td class="text-mono">${row.count.toLocaleString()}</td><td class="text-mono">${pct}%</td><td><div class="bar-cell" style="width:${barW}%;"></div></td></tr>`;
   }
   html += '</tbody></table>';
@@ -701,10 +763,10 @@ function renderRelationships(d) {
   let html = `<table><thead><tr><th>${d.col_a}</th><th>${d.col_b}</th><th>Count</th><th style="width:30%;">Volume</th></tr></thead><tbody>`;
   for (let row of d.rows) {
     let barW = (row.count / maxCount * 100).toFixed(1);
-    let aV = row.a === null ? '<em>NULL</em>' : row.a;
-    let bV = row.b === null ? '<em>NULL</em>' : row.b;
-    let clickA = row.a !== null ? ` onclick="addFilterRow('${d.col_a}','eq','${String(row.a).replace(/'/g,"\\'")}')" style="cursor:pointer;"` : '';
-    let clickB = row.b !== null ? ` onclick="addFilterRow('${d.col_b}','eq','${String(row.b).replace(/'/g,"\\'")}')" style="cursor:pointer;"` : '';
+    let aV = row.a === null ? '<em>NULL</em>' : escapeHtml(row.a);
+    let bV = row.b === null ? '<em>NULL</em>' : escapeHtml(row.b);
+    let clickA = filterClickAttrs(d.col_a, row.a);
+    let clickB = filterClickAttrs(d.col_b, row.b);
     html += `<tr><td${clickA}>${aV}</td><td${clickB}>${bV}</td><td class="text-mono">${row.count.toLocaleString()}</td><td><div class="bar-cell" style="width:${barW}%;"></div></td></tr>`;
   }
   html += '</tbody></table>';
@@ -744,12 +806,12 @@ function renderTimeSeries(d) {
   for (let row of d.rows) {
     let barW = maxCount > 0 ? (row.count / maxCount * 100).toFixed(1) : '0';
     let bucket = row.bucket ? row.bucket.replace('T', ' ').substring(0, 19) : '';
-    html += `<tr><td class="text-mono">${bucket}</td>`;
-    if (hasGroup) {
-      let gV = row.group === null ? '<em>NULL</em>' : row.group;
-      let clickG = row.group !== null ? ` onclick="addFilterRow('${d.group_col}','eq','${String(row.group).replace(/'/g,"\\'")}')" style="cursor:pointer;"` : '';
-      html += `<td${clickG}>${gV}</td>`;
-    }
+      html += `<tr><td class="text-mono">${bucket}</td>`;
+      if (hasGroup) {
+        let gV = row.group === null ? '<em>NULL</em>' : escapeHtml(row.group);
+        let clickG = filterClickAttrs(d.group_col, row.group);
+        html += `<td${clickG}>${gV}</td>`;
+      }
     html += `<td class="text-mono">${row.count.toLocaleString()}</td><td><div class="bar-cell" style="width:${barW}%;"></div></td></tr>`;
   }
   html += '</tbody></table>';
@@ -790,8 +852,8 @@ function renderTopN(d) {
   html += '<th style="width:35%;">Distribution</th></tr></thead><tbody>';
   for (let row of d.rows) {
     let barW = maxCount > 0 ? (row.count / maxCount * 100).toFixed(1) : '0';
-    let gV = row.group === null ? '<em>NULL</em>' : row.group;
-    let clickG = row.group !== null ? ` onclick="addFilterRow('${d.group_col}','eq','${String(row.group).replace(/'/g,"\\'")}')" style="cursor:pointer;"` : '';
+    let gV = row.group === null ? '<em>NULL</em>' : escapeHtml(row.group);
+    let clickG = filterClickAttrs(d.group_col, row.group);
     html += `<tr><td${clickG}>${gV}</td><td class="text-mono">${row.count.toLocaleString()}</td>`;
     if (hasMetric) {
       let mv = row.metric !== null ? Number(row.metric).toLocaleString(undefined, {maximumFractionDigits: 2}) : '';
@@ -835,31 +897,17 @@ function renderBrowse(d) {
   for (let col of cols) {
     html += `<th style="cursor:pointer;white-space:nowrap;" onclick="sortBy('${col}')">${col}</th>`;
   }
-  html += '</tr></thead><tbody>';
-  for (let rec of d.records) {
-    html += '<tr>';
-    for (let col of cols) {
-      let val = rec[col];
-      if (val === null || val === undefined) val = '';
-      if (col === 'id') {
-        val = `<a href="/ui/cases/${CASE_ID}/records/${val}">${val}</a>`;
-      } else if (col === 'ts' && val) {
-        val = `<span class="text-mono" style="font-size:0.75rem;">${val}</span>`;
-      } else if (typeof val === 'object') {
-        val = JSON.stringify(val);
+    html += '</tr></thead><tbody>';
+    for (let rec of d.records) {
+      html += '<tr>';
+      for (let col of cols) {
+        let raw = rec[col];
+        const formatted = formatAnalyticsCell(raw, { isId: col === 'id', isTimestamp: col === 'ts' });
+        const cellClick = col !== 'id' ? filterClickAttrs(col, formatted.rawText) : '';
+        html += `<td${cellClick}><span style="font-size:0.78rem;">${formatted.html}</span></td>`;
       }
-      let s = String(val === undefined || val === null ? '' : val);
-      if (s.length > 80 && col !== 'id') val = `<span title="${s.replace(/"/g,'&quot;')}">${s.substring(0,80)}...</span>`;
-      let raw = rec[col];
-      let cellClick = '';
-      if (raw !== null && raw !== undefined && raw !== '' && col !== 'id') {
-        let escaped = String(raw).replace(/'/g, "\\'").replace(/"/g, '&quot;');
-        cellClick = ` onclick="addFilterRow('${col}','eq','${escaped}')" style="cursor:pointer;" title="Click to filter"`;
-      }
-      html += `<td${cellClick}><span style="font-size:0.78rem;">${val}</span></td>`;
+      html += '</tr>';
     }
-    html += '</tr>';
-  }
   html += '</tbody></table>';
   document.getElementById('results-table').innerHTML = html;
   let pagingHtml = '';
