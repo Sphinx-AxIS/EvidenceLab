@@ -331,101 +331,109 @@ async def analytics_rule_matches(
     selected_rule_id, remaining_filters = _extract_rule_match_filter(filters_data, "rule_id")
 
     if selected_rule_id:
-        with get_cursor() as cur:
-            cur.execute(
-                """
-                SELECT id, title, rule_type, rule_content, compiled_sql, sid, status
-                FROM detection_rules
-                WHERE id = %s AND (case_id = %s OR case_id = '' OR case_id IS NULL)
-                """,
-                (selected_rule_id, case_id),
-            )
-            rule = cur.fetchone()
+        try:
+            with get_cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, title, rule_type, rule_content, compiled_sql, sid, status
+                    FROM detection_rules
+                    WHERE id = %s AND (case_id = %s OR case_id = '' OR case_id IS NULL)
+                    """,
+                    (selected_rule_id, case_id),
+                )
+                rule = cur.fetchone()
 
-        if not rule:
-            return {"error": "Selected rule was not found for this case."}
+            if not rule:
+                return {"error": "Selected rule was not found for this case."}
 
-        if rule["rule_type"] == "sigma":
-            compiled_sql = rule.get("compiled_sql") or ""
-            if not compiled_sql:
+            if rule["rule_type"] == "sigma":
+                # Reuse the same on-demand compile path as the guided/manual Sigma tester
+                # so Analytics does not depend on stale compiled_sql persisted earlier.
                 compiled_sql = _compile_sigma_rule_for_test(rule["rule_content"], rule)
-            if not compiled_sql:
-                return {"error": "Selected Sigma rule could not be compiled to SQL."}
-            subquery = f"""
-                SELECT
-                    {int(rule['id'])} AS rule_id,
-                    '{str(rule['title']).replace("'", "''")}' AS rule_title,
-                    'sigma' AS rule_type,
-                    id AS record_id,
-                    record_type,
-                    ts,
-                    COALESCE(raw->>'Channel', '') AS channel,
-                    COALESCE(raw->>'EventID', '') AS event_id
-                FROM ({compiled_sql}) AS matched_records
-                WHERE case_id = %s
-            """
-            base_params = [case_id]
-        else:
-            sid = rule.get("sid")
-            if not sid:
-                return {"error": "Selected Suricata rule does not have a SID, so it cannot be mapped to case alert records."}
-            subquery = f"""
-                SELECT
-                    {int(rule['id'])} AS rule_id,
-                    '{str(rule['title']).replace("'", "''")}' AS rule_title,
-                    'suricata' AS rule_type,
-                    id AS record_id,
-                    record_type,
-                    ts,
-                    '' AS channel,
-                    COALESCE(raw->'alert'->>'signature_id', '') AS event_id
-                FROM records
-                WHERE case_id = %s
-                  AND record_type = 'suricata_alert'
-                  AND raw->'alert'->>'signature_id' = %s
-            """
-            base_params = [case_id, str(sid)]
+                if not compiled_sql:
+                    return {"error": "Selected Sigma rule could not be compiled to SQL."}
+                # Psycopg treats %... tokens in parameterized statements as placeholders.
+                # The compiled Sigma SQL can legitimately contain LIKE '%foo%' patterns,
+                # so escape percent signs before embedding it in a larger parameterized query.
+                compiled_sql = compiled_sql.replace("%", "%%")
+                subquery = f"""
+                    SELECT
+                        %s AS rule_id,
+                        %s AS rule_title,
+                        'sigma' AS rule_type,
+                        id AS record_id,
+                        record_type,
+                        ts,
+                        COALESCE(raw->>'Channel', '') AS channel,
+                        COALESCE(raw->>'EventID', '') AS event_id
+                    FROM ({compiled_sql}) AS matched_records
+                    WHERE case_id = %s
+                """
+                base_params = [rule["id"], rule["title"], case_id]
+            else:
+                sid = rule.get("sid")
+                if not sid:
+                    return {"error": "Selected Suricata rule does not have a SID, so it cannot be mapped to case alert records."}
+                subquery = """
+                    SELECT
+                        %s AS rule_id,
+                        %s AS rule_title,
+                        'suricata' AS rule_type,
+                        id AS record_id,
+                        record_type,
+                        ts,
+                        '' AS channel,
+                        COALESCE(raw->'alert'->>'signature_id', '') AS event_id
+                    FROM records
+                    WHERE case_id = %s
+                      AND record_type = 'suricata_alert'
+                      AND raw->'alert'->>'signature_id' = %s
+                """
+                base_params = [rule["id"], rule["title"], case_id, str(sid)]
 
-        where, extra_params = _build_rule_match_where(case_id, remaining_filters)
-        if where == "case_id = %s":
-            where = "TRUE"
-            trailing_params: list = []
-        else:
-            where = where.replace("case_id = %s AND ", "", 1)
-            trailing_params = extra_params[1:]
+            where, extra_params = _build_rule_match_where(case_id, remaining_filters)
+            if where == "case_id = %s":
+                where = "TRUE"
+                trailing_params: list = []
+            else:
+                where = where.replace("case_id = %s AND ", "", 1)
+                trailing_params = extra_params[1:]
 
-        with get_cursor() as cur:
-            cur.execute(
-                f"SELECT count(*) AS cnt FROM ({subquery}) AS rule_hits WHERE {where}",
-                base_params + trailing_params,
-            )
-            total = cur.fetchone()["cnt"]
+            with get_cursor() as cur:
+                cur.execute(
+                    f"SELECT count(*) AS cnt FROM ({subquery}) AS rule_hits WHERE {where}",
+                    base_params + trailing_params,
+                )
+                total = cur.fetchone()["cnt"]
 
-            cur.execute(
-                f"SELECT max(ts) AS latest_match FROM ({subquery}) AS rule_hits WHERE {where}",
-                base_params + trailing_params,
-            )
-            latest_match_row = cur.fetchone()
+                cur.execute(
+                    f"SELECT max(ts) AS latest_match FROM ({subquery}) AS rule_hits WHERE {where}",
+                    base_params + trailing_params,
+                )
+                latest_match_row = cur.fetchone()
 
-            cur.execute(
-                f"""
-                SELECT
-                    rule_id,
-                    rule_title,
-                    rule_type,
-                    record_id,
-                    record_type,
-                    ts,
-                    channel,
-                    event_id
-                FROM ({subquery}) AS rule_hits
-                WHERE {where}
-                ORDER BY {order_expr} {order_dir} NULLS LAST, rule_title ASC
-                LIMIT %s OFFSET %s
-                """,
-                base_params + trailing_params + [limit, offset],
-            )
-            rows = cur.fetchall()
+                cur.execute(
+                    f"""
+                    SELECT
+                        rule_id,
+                        rule_title,
+                        rule_type,
+                        record_id,
+                        record_type,
+                        ts,
+                        channel,
+                        event_id
+                    FROM ({subquery}) AS rule_hits
+                    WHERE {where}
+                    ORDER BY {order_expr} {order_dir} NULLS LAST, rule_title ASC
+                    LIMIT %s OFFSET %s
+                    """,
+                    base_params + trailing_params + [limit, offset],
+                )
+                rows = cur.fetchall()
+        except Exception as e:
+            log.exception("Analytics rule-matches failed for selected rule %s in case %s", selected_rule_id, case_id)
+            return {"error": f"Rule Matches query failed: {str(e)[:300]}"}
 
         matches = []
         for row in rows:
