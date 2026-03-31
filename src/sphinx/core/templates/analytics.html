@@ -19,6 +19,7 @@
   <li>For Windows event logs, Analytics exposes top-level fields like <strong>Channel</strong> and <strong>EventID</strong> plus nested fields such as <strong>EventData.TargetUserName</strong> and <strong>System.TimeCreated.SystemTime</strong>.</li>
   <li>You can filter the native <strong>ts</strong> timestamp column directly, including partial timestamp text such as <strong>2025-09-02 11:2</strong> with the <strong>contains</strong> operator.</li>
   <li>Large field values such as Windows <strong>EventData</strong> JSON are rendered as literal escaped text in the results grid so clickable filter cells cannot leak HTML into the displayed evidence.</li>
+  <li>If an Analytics results table is wider than the page, a fixed bottom scrollbar stays available so you can move across columns without jumping to the bottom of the results area.</li>
   <li>Use Browse, Value Counts, Relationships, or Time Series to understand what is rare, repeated, or suspicious.</li>
   <li>If you switch tabs or launch a new query before the previous one finishes, EvidenceLab now ignores stale results so an older Correlate search cannot overwrite a newer Browse query.</li>
   <li>Open a specific record from the results table to inspect it in context.</li>
@@ -250,6 +251,10 @@
   <div id="results-paging" class="flex gap-1" style="margin-top:0.5rem;"></div>
 </div>
 
+<div id="analytics-results-scrollbar" class="analytics-results-scrollbar" aria-hidden="true">
+  <div id="analytics-results-scrollbar-inner"></div>
+</div>
+
 <style>
 .search-tabs { display: flex; gap: 0.25rem; flex-wrap: wrap; }
 .search-tabs button {
@@ -274,6 +279,29 @@
 .filter-row .filter-val { flex: 2; }
 .filter-row .filter-rm { flex: 0; min-width: 2rem; padding: 0.25rem 0.5rem; }
 .bar-cell { background: var(--accent); height: 1rem; border-radius: 3px; min-width: 2px; opacity: 0.6; }
+.analytics-results-scrollbar {
+  position: fixed;
+  left: 236px;
+  right: 16px;
+  bottom: 12px;
+  height: 18px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: rgba(13, 17, 23, 0.92);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  z-index: 30;
+  display: none;
+}
+.analytics-results-scrollbar > div { height: 1px; }
+
+@media (max-width: 900px) {
+  .analytics-results-scrollbar {
+    left: 12px;
+    right: 12px;
+    bottom: 10px;
+  }
+}
 </style>
 
 <script>
@@ -372,6 +400,46 @@ function formatAnalyticsCell(rawValue, opts={}) {
   }
 
   return { html: escapedText, rawText: textValue };
+}
+
+function syncAnalyticsScrollbar() {
+  const tableWrap = document.getElementById('results-table');
+  const scrollbar = document.getElementById('analytics-results-scrollbar');
+  const scrollbarInner = document.getElementById('analytics-results-scrollbar-inner');
+  if (!tableWrap || !scrollbar || !scrollbarInner) return;
+
+  const needsHorizontalScroll = tableWrap.scrollWidth > tableWrap.clientWidth + 1;
+  if (!needsHorizontalScroll || tableWrap.innerHTML.trim() === '') {
+    scrollbar.style.display = 'none';
+    scrollbarInner.style.width = '0px';
+    return;
+  }
+
+  scrollbar.style.display = 'block';
+  scrollbarInner.style.width = `${tableWrap.scrollWidth + 64}px`;
+
+  if (!scrollbar.dataset.bound) {
+    let syncingFromTable = false;
+    let syncingFromBar = false;
+
+    tableWrap.addEventListener('scroll', () => {
+      if (syncingFromBar) return;
+      syncingFromTable = true;
+      scrollbar.scrollLeft = tableWrap.scrollLeft;
+      syncingFromTable = false;
+    });
+
+    scrollbar.addEventListener('scroll', () => {
+      if (syncingFromTable) return;
+      syncingFromBar = true;
+      tableWrap.scrollLeft = scrollbar.scrollLeft;
+      syncingFromBar = false;
+    });
+
+    scrollbar.dataset.bound = '1';
+  }
+
+  scrollbar.scrollLeft = tableWrap.scrollLeft;
 }
 
 function beginAnalyticsRequest(mode, requestKey='') {
@@ -735,6 +803,7 @@ function renderValueCounts(d) {
   html += '</tbody></table>';
   document.getElementById('results-table').innerHTML = html;
   document.getElementById('results-paging').innerHTML = '';
+  syncAnalyticsScrollbar();
 }
 
 function runRelationships() {
@@ -772,6 +841,7 @@ function renderRelationships(d) {
   html += '</tbody></table>';
   document.getElementById('results-table').innerHTML = html;
   document.getElementById('results-paging').innerHTML = '';
+  syncAnalyticsScrollbar();
 }
 
 function runTimeSeries() {
@@ -817,6 +887,7 @@ function renderTimeSeries(d) {
   html += '</tbody></table>';
   document.getElementById('results-table').innerHTML = html;
   document.getElementById('results-paging').innerHTML = '';
+  syncAnalyticsScrollbar();
 }
 
 function runTopN() {
@@ -864,6 +935,7 @@ function renderTopN(d) {
   html += '</tbody></table>';
   document.getElementById('results-table').innerHTML = html;
   document.getElementById('results-paging').innerHTML = '';
+  syncAnalyticsScrollbar();
 }
 
 function runQuery() {
@@ -914,6 +986,7 @@ function renderBrowse(d) {
   if (offset > 0) pagingHtml += `<button class="btn" onclick="pageTo(${Math.max(0, offset - limit)})">Previous</button>`;
   if (offset + limit < total) pagingHtml += `<button class="btn" onclick="pageTo(${offset + limit})">Next</button>`;
   document.getElementById('results-paging').innerHTML = pagingHtml;
+  syncAnalyticsScrollbar();
 }
 
 function sortBy(col) {
@@ -982,6 +1055,7 @@ function renderCorrelate(d) {
   html += '</tbody></table>';
   document.getElementById('results-table').innerHTML = html;
   document.getElementById('results-paging').innerHTML = '';
+  syncAnalyticsScrollbar();
 }
 
 function clearFilters(run=true) {
@@ -997,6 +1071,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('attack-technique').addEventListener('change', onAttackTechniqueChange);
   document.getElementById('attack-eventid').addEventListener('change', onAttackEventChange);
   loadSummary();
+  window.addEventListener('resize', syncAnalyticsScrollbar);
 });
 </script>
 {% endif %}

@@ -29,6 +29,7 @@ LLM inference runs on the host via [LM Studio](https://lmstudio.ai/) (OpenAI-com
 - **Windows Event Analytics Fields** -- Analytics now exposes nested Windows event paths such as `EventData.TargetUserName`, `EventData.Image`, and `System.TimeCreated.SystemTime` so analysts can query EVTX-derived data directly without writing SQL.
 - **Timestamp-Aware Analytics Filters** -- The Analytics page can filter the native `ts` timestamp field directly, including partial timestamp text searches such as `2025-09-02 11:2` with the `contains` operator.
 - **Safe Analytics Rendering** -- Large field values such as nested Windows `EventData` JSON are rendered as escaped literal text in Analytics results, even when the cells are clickable to add filters.
+- **Sticky Analytics Scrollbar** -- When Analytics results are wider than the viewport, a fixed bottom horizontal scrollbar stays available so analysts can move across result columns without scrolling to the bottom of the table first.
 - **Analytics Request Guarding** -- If you switch tabs or launch a new Analytics query before the previous one finishes, stale results are ignored so an older Correlate response cannot overwrite a newer Browse search.
 - **Windows ATT&CK Mapping Filters** -- The Analytics page can load tactic, technique, and EventID starter filters from the bundled Windows ATT&CK mapping dataset.
 - **Plugin System** -- Evidence types are handled by plugins (`pcap`, `winevt`, `memory`, `threat-hunter`), each with their own ingest handlers, analytics, and prompts.
