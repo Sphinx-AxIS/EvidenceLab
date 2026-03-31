@@ -21,6 +21,7 @@
   <li>Large field values such as Windows <strong>EventData</strong> JSON are rendered as literal escaped text in the results grid so clickable filter cells cannot leak HTML into the displayed evidence.</li>
   <li>If an Analytics results table is wider than the page, a fixed bottom scrollbar stays available so you can move across columns without jumping to the bottom of the results area.</li>
   <li>Use Browse, Value Counts, Relationships, or Time Series to understand what is rare, repeated, or suspicious.</li>
+  <li><strong>Rule Matches</strong> shows which deployed Sigma rules and managed Suricata signatures actually matched evidence in the current case, with pivots to both the underlying record and the rule review page.</li>
   <li>If you switch tabs or launch a new query before the previous one finishes, EvidenceLab now ignores stale results so an older Correlate search cannot overwrite a newer Browse query.</li>
   <li>Open a specific record from the results table to inspect it in context.</li>
   <li>Only after the event is understandable should you pivot into Sigma or Suricata authoring.</li>
@@ -109,6 +110,7 @@
   <button onclick="selectMode(this,'time_series')">Time Series</button>
   <button onclick="selectMode(this,'top_n')">Top-N</button>
   <button onclick="selectMode(this,'correlate')">Correlate</button>
+  <button onclick="selectMode(this,'rule_matches')">Rule Matches</button>
 </div>
 
 <!-- Value Counts controls -->
@@ -307,6 +309,14 @@
 <script>
 const CASE_ID = '{{ case_id }}';
 const ATTACK_PRESETS = {{ attack_windows_presets|tojson }};
+const RULE_MATCH_COLUMNS = [
+  { name: 'rule_title', label: 'Rule Title' },
+  { name: 'rule_type', label: 'Rule Type' },
+  { name: 'matched_record_id', label: 'Matched Record ID' },
+  { name: 'timestamp', label: 'Timestamp' },
+  { name: 'channel', label: 'Channel' },
+  { name: 'event_id', label: 'EventID / SID' },
+];
 
 let currentType = null;
 let currentOffset = 0;
@@ -322,6 +332,45 @@ const OP_LABELS = {
 };
 const TEXT_OPS = ['eq', 'neq', 'contains', 'is_null', 'not_null'];
 const NUM_OPS = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'is_null', 'not_null'];
+
+function getActiveFilterColumns() {
+  return currentMode === 'rule_matches'
+    ? RULE_MATCH_COLUMNS
+    : typeColumns;
+}
+
+function refreshFilterInputs() {
+  const activeColumns = getActiveFilterColumns();
+  const sortSel = document.getElementById('f-sort-col');
+  if (sortSel) {
+    const currentSort = sortSel.value;
+    sortSel.innerHTML = activeColumns.map(c => {
+      const value = c.name;
+      const label = c.label || c.name;
+      const selected = currentSort
+        ? currentSort === value
+        : value === (currentMode === 'rule_matches' ? 'timestamp' : 'ts');
+      return `<option value="${value}" ${selected ? 'selected' : ''}>${label}</option>`;
+    }).join('');
+  }
+
+  document.querySelectorAll('.filter-row').forEach(row => {
+    const colSel = row.querySelector('.filter-col');
+    if (!colSel) return;
+    const selectedValue = colSel.value;
+    colSel.innerHTML = '';
+    for (let c of activeColumns) {
+      const opt = document.createElement('option');
+      opt.value = c.name;
+      opt.textContent = c.label || c.name;
+      if (selectedValue === c.name) opt.selected = true;
+      colSel.appendChild(opt);
+    }
+    if (!Array.from(colSel.options).some(opt => opt.selected) && colSel.options.length > 0) {
+      colSel.selectedIndex = 0;
+    }
+  });
+}
 
 function apiFetch(url) {
   return fetch(url, { credentials: 'same-origin' }).then(async r => {
@@ -686,9 +735,9 @@ function addFilterRow(col, op, val) {
 
   let colSel = document.createElement('select');
   colSel.className = 'filter-col form-control';
-  for (let c of typeColumns) {
+  for (let c of getActiveFilterColumns()) {
     let opt = document.createElement('option');
-    opt.value = c.name; opt.textContent = c.name;
+    opt.value = c.name; opt.textContent = c.label || c.name;
     if (col && c.name === col) opt.selected = true;
     colSel.appendChild(opt);
   }
@@ -757,6 +806,8 @@ function selectMode(btn, mode) {
   // Correlate has its own controls; hide filters panel
   document.getElementById('analytics-filters').style.display = mode === 'correlate' ? 'none' : '';
   if (mode === 'correlate') document.getElementById('analytics-results').style.display = '';
+  if (mode === 'rule_matches') document.getElementById('analytics-results').style.display = '';
+  refreshFilterInputs();
 }
 
 function runAnalytics() {
@@ -767,7 +818,29 @@ function runAnalytics() {
     case 'time_series': return runTimeSeries();
     case 'top_n': return runTopN();
     case 'correlate': return runCorrelate();
+    case 'rule_matches': return runRuleMatches();
   }
+}
+
+function runRuleMatches() {
+  let requestState = beginAnalyticsRequest('rule_matches', String(currentOffset));
+  let p = new URLSearchParams();
+  p.set('case_id', CASE_ID);
+  p.set('limit', document.getElementById('f-limit').value || '200');
+  p.set('offset', currentOffset);
+  let f = collectFilters();
+  if (f.length > 0) p.set('filters', JSON.stringify(f));
+  let sortCol = document.getElementById('f-sort-col').value;
+  let sortDir = document.getElementById('f-sort-dir').value;
+  if (sortCol) p.set('sort_col', sortCol);
+  if (sortDir) p.set('sort_dir', sortDir);
+  document.getElementById('results-table').innerHTML = '<p class="text-muted">Querying...</p>';
+  document.getElementById('analytics-results').style.display = '';
+  apiFetch('/api/analytics/rule-matches?' + p.toString()).then(d => {
+    if (isStaleAnalyticsResponse(requestState)) return;
+    if (d.error) { document.getElementById('results-table').innerHTML = `<p>${d.error}</p>`; return; }
+    renderRuleMatches(d);
+  });
 }
 
 function runValueCounts() {
@@ -994,10 +1067,10 @@ function sortBy(col) {
   let dirSel = document.getElementById('f-sort-dir');
   if (sortSel.value === col) { dirSel.value = dirSel.value === 'desc' ? 'asc' : 'desc'; }
   else { sortSel.value = col; dirSel.value = 'asc'; }
-  currentOffset = 0; runQuery();
+  currentOffset = 0; runAnalytics();
 }
 
-function pageTo(newOffset) { currentOffset = newOffset; runQuery(); }
+function pageTo(newOffset) { currentOffset = newOffset; runAnalytics(); }
 
 function runCorrelate() {
   let typeA = document.getElementById('corr-type-a').value;
@@ -1062,7 +1135,50 @@ function clearFilters(run=true) {
   document.getElementById('filter-rows').innerHTML = '';
   document.getElementById('f-limit').value = '200';
   currentOffset = 0;
-  if (run && currentType) runQuery();
+  refreshFilterInputs();
+  if (run && (currentType || currentMode === 'rule_matches')) runAnalytics();
+}
+
+function renderRuleMatches(d) {
+  let summary = d.summary || {};
+  let latest = summary.latest_match ? summary.latest_match.replace('T', ' ').substring(0, 19) : '—';
+  document.getElementById('results-meta').innerHTML =
+    `Rule matches in this case | <strong>${(summary.total_matches || 0).toLocaleString()}</strong> total matches | ` +
+    `<strong>${(summary.unique_rules || 0).toLocaleString()}</strong> unique rules | Latest: <strong>${latest}</strong>`;
+  if (!d.matches || d.matches.length === 0) {
+    document.getElementById('results-table').innerHTML = '<p class="text-muted">No deployed rule matches were found for this case.</p>';
+    document.getElementById('results-paging').innerHTML = '';
+    syncAnalyticsScrollbar();
+    return;
+  }
+
+  let html = '<table><thead><tr><th>Timestamp</th><th>Rule Title</th><th>Rule Type</th><th>Matched Record ID</th><th>Channel</th><th>EventID / SID</th><th>Record Detail</th><th>Rule Review</th></tr></thead><tbody>';
+  for (let row of d.matches) {
+    const ts = row.timestamp ? row.timestamp.replace('T', ' ').substring(0, 19) : '';
+    const channel = escapeHtml(row.channel || '');
+    const eventId = escapeHtml(row.event_id || '');
+    html += '<tr>';
+    html += `<td class="text-mono" style="font-size:0.75rem;">${escapeHtml(ts)}</td>`;
+    html += `<td><a href="/ui/cases/${CASE_ID}/detection-rules/${row.rule_id}">${escapeHtml(row.rule_title)}</a></td>`;
+    html += `<td>${escapeHtml(row.rule_type)}</td>`;
+    html += `<td class="text-mono"><a href="/ui/cases/${CASE_ID}/records/${row.matched_record_id}">${escapeHtml(row.matched_record_id)}</a></td>`;
+    html += `<td>${channel || '<span class="text-muted">—</span>'}</td>`;
+    html += `<td class="text-mono">${eventId || '<span class="text-muted">—</span>'}</td>`;
+    html += `<td><a href="/ui/cases/${CASE_ID}/records/${row.matched_record_id}" class="btn btn-sm">Record Detail</a></td>`;
+    html += `<td><a href="/ui/cases/${CASE_ID}/detection-rules/${row.rule_id}" class="btn btn-sm">Rule Review</a></td>`;
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  document.getElementById('results-table').innerHTML = html;
+
+  let pagingHtml = '';
+  let limit = d.limit || 200;
+  let offset = d.offset || 0;
+  let total = d.total || 0;
+  if (offset > 0) pagingHtml += `<button class="btn" onclick="pageTo(${Math.max(0, offset - limit)})">Previous</button>`;
+  if (offset + limit < total) pagingHtml += `<button class="btn" onclick="pageTo(${offset + limit})">Next</button>`;
+  document.getElementById('results-paging').innerHTML = pagingHtml;
+  syncAnalyticsScrollbar();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1071,6 +1187,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('attack-technique').addEventListener('change', onAttackTechniqueChange);
   document.getElementById('attack-eventid').addEventListener('change', onAttackEventChange);
   loadSummary();
+  refreshFilterInputs();
   window.addEventListener('resize', syncAnalyticsScrollbar);
 });
 </script>

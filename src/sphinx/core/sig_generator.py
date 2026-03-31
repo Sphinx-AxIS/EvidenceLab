@@ -787,7 +787,13 @@ def run_sigma_rules_on_case(case_id: str) -> list[dict]:
                 cur.execute(scoped_sql)
                 hits = cur.fetchall()
 
+                cur.execute(
+                    "DELETE FROM detection_matches WHERE case_id = %s AND rule_id = %s AND rule_type = 'sigma'",
+                    (case_id, rule["id"]),
+                )
+
                 for hit in hits:
+                    raw = hit.get("raw") or {}
                     matches.append({
                         "rule_id": rule["id"],
                         "rule_title": rule["title"],
@@ -795,6 +801,30 @@ def run_sigma_rules_on_case(case_id: str) -> list[dict]:
                         "record_type": hit["record_type"],
                         "ts": str(hit["ts"]) if hit.get("ts") else None,
                     })
+                    cur.execute(
+                        """INSERT INTO detection_matches
+                           (case_id, rule_id, rule_title, rule_type, record_id, record_type, ts, channel, event_id)
+                           VALUES (%s, %s, %s, 'sigma', %s, %s, %s, %s, %s)
+                           ON CONFLICT (case_id, rule_id, record_id)
+                           DO UPDATE SET
+                               rule_title = EXCLUDED.rule_title,
+                               record_type = EXCLUDED.record_type,
+                               ts = EXCLUDED.ts,
+                               channel = EXCLUDED.channel,
+                               event_id = EXCLUDED.event_id,
+                               updated_at = now()
+                        """,
+                        (
+                            case_id,
+                            rule["id"],
+                            rule["title"],
+                            hit["id"],
+                            hit["record_type"],
+                            hit.get("ts"),
+                            str(raw.get("Channel") or ""),
+                            str(raw.get("EventID") or ""),
+                        ),
+                    )
 
                 if hits:
                     log.info("Sigma rule %d (%s) matched %d records in case %s",

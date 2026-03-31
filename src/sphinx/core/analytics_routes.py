@@ -38,6 +38,63 @@ def _parse_filters(filters_json: str | None) -> list | None:
         return None
 
 
+_RULE_MATCH_FILTER_COLUMNS = {
+    "rule_title": "rule_title",
+    "rule_type": "rule_type",
+    "matched_record_id": "record_id::text",
+    "timestamp": "ts::text",
+    "channel": "channel",
+    "event_id": "event_id",
+}
+
+
+def _build_rule_match_where(case_id: str, filters: list | None) -> tuple[str, list]:
+    where_parts = ["case_id = %s"]
+    params: list = [case_id]
+
+    for filt in filters or []:
+        if not isinstance(filt, dict):
+            continue
+        col = filt.get("col")
+        op = str(filt.get("op") or "eq")
+        val = filt.get("val")
+        expr = _RULE_MATCH_FILTER_COLUMNS.get(col or "")
+        if not expr:
+            continue
+
+        if op == "is_null":
+            where_parts.append(f"({expr} IS NULL OR {expr} = '')")
+            continue
+        if op == "not_null":
+            where_parts.append(f"({expr} IS NOT NULL AND {expr} != '')")
+            continue
+
+        val_text = str(val or "")
+        if op == "eq":
+            where_parts.append(f"{expr} = %s")
+            params.append(val_text)
+        elif op == "neq":
+            where_parts.append(f"{expr} != %s")
+            params.append(val_text)
+        elif op == "contains":
+            where_parts.append(f"LOWER(COALESCE({expr}, '')) LIKE %s")
+            params.append(f"%{val_text.lower()}%")
+        elif op == "gt":
+            where_parts.append(f"{expr} > %s")
+            params.append(val_text)
+        elif op == "gte":
+            where_parts.append(f"{expr} >= %s")
+            params.append(val_text)
+        elif op == "lt":
+            where_parts.append(f"{expr} < %s")
+            params.append(val_text)
+        elif op == "lte":
+            where_parts.append(f"{expr} <= %s")
+            params.append(val_text)
+
+    return " AND ".join(where_parts), params
+
+
 @router.get("/summary")
 async def analytics_summary(
     case_id: str = Query(...),
@@ -231,3 +288,137 @@ async def analytics_correlate(
             )
     except ValueError as e:
         return {"error": str(e)}
+
+
+@router.get("/rule-matches")
+async def analytics_rule_matches(
+    case_id: str = Query(...),
+    user=Depends(_require_analyst),
+    limit: int = Query(default=200, ge=1, le=5000),
+    offset: int = Query(default=0, ge=0),
+    filters: str | None = Query(default=None),
+    sort_col: str | None = Query(default="timestamp"),
+    sort_dir: str | None = Query(default="desc"),
+):
+    sort_expr_map = {
+        "rule_title": "rule_title",
+        "rule_type": "rule_type",
+        "matched_record_id": "record_id",
+        "timestamp": "ts",
+        "channel": "channel",
+        "event_id": "event_id",
+    }
+    order_expr = sort_expr_map.get(sort_col or "timestamp", "ts")
+    order_dir = "ASC" if sort_dir and sort_dir.lower() == "asc" else "DESC"
+
+    subquery = """
+        SELECT
+            dm.case_id,
+            dm.rule_id,
+            dm.rule_title,
+            dm.rule_type,
+            dm.record_id,
+            dm.record_type,
+            dm.ts,
+            dm.channel,
+            dm.event_id
+        FROM detection_matches dm
+        UNION ALL
+        SELECT
+            r.case_id,
+            dr.id AS rule_id,
+            dr.title AS rule_title,
+            'suricata' AS rule_type,
+            r.id AS record_id,
+            r.record_type,
+            r.ts,
+            '' AS channel,
+            COALESCE(r.raw->'alert'->>'signature_id', '') AS event_id
+        FROM records r
+        JOIN detection_rules dr
+          ON dr.rule_type = 'suricata'
+         AND dr.sid IS NOT NULL
+         AND dr.sid = COALESCE((r.raw->'alert'->>'signature_id')::int, -1)
+        WHERE r.record_type = 'suricata_alert'
+    """
+
+    filters_data = _parse_filters(filters)
+    where, params = _build_rule_match_where(case_id, filters_data)
+
+    with get_cursor() as cur:
+        cur.execute(
+            f"SELECT count(*) AS cnt FROM ({subquery}) AS rule_hits WHERE {where}",
+            params,
+        )
+        total = cur.fetchone()["cnt"]
+
+        cur.execute(
+            f"SELECT count(DISTINCT rule_id) AS cnt FROM ({subquery}) AS rule_hits WHERE {where}",
+            params,
+        )
+        unique_rules_total = cur.fetchone()["cnt"]
+
+        cur.execute(
+            f"SELECT max(ts) AS latest_match FROM ({subquery}) AS rule_hits WHERE {where}",
+            params,
+        )
+        latest_match_row = cur.fetchone()
+
+        cur.execute(
+            f"""
+            SELECT
+                rule_id,
+                rule_title,
+                rule_type,
+                record_id,
+                record_type,
+                ts,
+                channel,
+                event_id
+            FROM ({subquery}) AS rule_hits
+            WHERE {where}
+            ORDER BY {order_expr} {order_dir} NULLS LAST, rule_title ASC
+            LIMIT %s OFFSET %s
+            """,
+            params + [limit, offset],
+        )
+        rows = cur.fetchall()
+
+    matches = []
+    for row in rows:
+        ts = row.get("ts")
+        ts_text = ts.isoformat() if ts else None
+        matches.append({
+            "rule_id": row["rule_id"],
+            "rule_title": row["rule_title"],
+            "rule_type": row["rule_type"],
+            "matched_record_id": row["record_id"],
+            "record_type": row["record_type"],
+            "timestamp": ts_text,
+            "channel": row.get("channel") or "",
+            "event_id": row.get("event_id") or "",
+        })
+
+    latest_match = latest_match_row.get("latest_match") if latest_match_row else None
+    latest_match_text = latest_match.isoformat() if latest_match else None
+
+    return {
+        "operation": "rule_matches",
+        "matches": matches,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "summary": {
+            "total_matches": total,
+            "unique_rules": unique_rules_total,
+            "latest_match": latest_match_text,
+        },
+        "columns": [
+            "timestamp",
+            "rule_title",
+            "rule_type",
+            "matched_record_id",
+            "channel",
+            "event_id",
+        ],
+    }
