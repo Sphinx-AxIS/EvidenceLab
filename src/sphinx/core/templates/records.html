@@ -29,6 +29,7 @@
 <ul>
   <li>Use the <strong>type filter</strong> dropdown to narrow by record type.</li>
   <li>Use <strong>Visible Columns</strong> to expose additional evidence fields directly in the table, such as task names, usernames, image paths, or EventRecordID values.</li>
+  <li>A fixed bottom scrollbar appears when the table is wider than the viewport so you can scroll across visible columns without jumping to the bottom of the page.</li>
   <li>Click a record to see its full JSON content and extracted entities.</li>
   <li>Records are referenced by ID in findings and detection rules for traceability.</li>
 </ul>
@@ -123,7 +124,7 @@
   <p>No records found with the current filters. Try broadening the search or clearing a Windows channel/EventID filter.</p>
 </div>
 {% else %}
-<div class="table-wrap">
+<div class="table-wrap" id="records-table-wrap">
   <table>
     <thead>
       <tr>
@@ -152,6 +153,10 @@
   </table>
 </div>
 
+<div id="records-table-scrollbar" class="records-table-scrollbar" aria-hidden="true">
+  <div id="records-table-scrollbar-inner"></div>
+</div>
+
 <div class="flex-between text-muted" style="font-size:0.8rem;">
   <div>Showing {{ records|length }} of {{ total }} records</div>
   <div class="flex gap-1">
@@ -164,4 +169,77 @@
   </div>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<style>
+.records-table-scrollbar {
+  position: fixed;
+  left: 236px;
+  right: 16px;
+  bottom: 12px;
+  height: 18px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: rgba(13, 17, 23, 0.92);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  z-index: 30;
+  display: none;
+}
+
+.records-table-scrollbar > div {
+  height: 1px;
+}
+
+@media (max-width: 900px) {
+  .records-table-scrollbar {
+    left: 12px;
+    right: 12px;
+    bottom: 10px;
+  }
+}
+</style>
+
+<script>
+(function () {
+  const tableWrap = document.getElementById('records-table-wrap');
+  const scrollbar = document.getElementById('records-table-scrollbar');
+  const scrollbarInner = document.getElementById('records-table-scrollbar-inner');
+  if (!tableWrap || !scrollbar || !scrollbarInner) return;
+
+  let syncingFromTable = false;
+  let syncingFromBar = false;
+
+  function updateScrollbar() {
+    const needsHorizontalScroll = tableWrap.scrollWidth > tableWrap.clientWidth + 1;
+    if (!needsHorizontalScroll) {
+      scrollbar.style.display = 'none';
+      scrollbarInner.style.width = '0px';
+      return;
+    }
+    scrollbar.style.display = 'block';
+    scrollbarInner.style.width = `${tableWrap.scrollWidth}px`;
+    scrollbar.scrollLeft = tableWrap.scrollLeft;
+  }
+
+  tableWrap.addEventListener('scroll', () => {
+    if (syncingFromBar) return;
+    syncingFromTable = true;
+    scrollbar.scrollLeft = tableWrap.scrollLeft;
+    syncingFromTable = false;
+  });
+
+  scrollbar.addEventListener('scroll', () => {
+    if (syncingFromTable) return;
+    syncingFromBar = true;
+    tableWrap.scrollLeft = scrollbar.scrollLeft;
+    syncingFromBar = false;
+  });
+
+  window.addEventListener('resize', updateScrollbar);
+  window.addEventListener('load', updateScrollbar);
+  updateScrollbar();
+})();
+</script>
 {% endblock %}

@@ -177,6 +177,8 @@ Use the **Visible Columns** control to expose additional evidence fields directl
 - `EventData.Image`
 - `EventData.CommandLine`
 
+If the table becomes wider than the page, EvidenceLab also shows a fixed horizontal scrollbar near the bottom of the viewport so you can move across the visible columns without scrolling all the way to the bottom first.
+
 This page is the detailed evidence browser you use after hunting in Analytics. It is where you inspect a specific event closely enough to decide whether it should become a detection candidate.
 
 Common record types include:
