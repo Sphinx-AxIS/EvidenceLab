@@ -125,7 +125,7 @@
 </div>
 {% else %}
 <div class="table-wrap" id="records-table-wrap">
-  <table>
+  <table id="records-table">
     <thead>
       <tr>
         <th>ID</th>
@@ -190,6 +190,10 @@
 
 .records-table-scrollbar > div {
   height: 1px;
+}
+
+#records-table {
+  margin-right: 64px;
 }
 
 @media (max-width: 900px) {
