@@ -23,6 +23,7 @@
   <li>When deployed, the rule is compiled to SQL and run against ingested Windows event logs.</li>
   <li>Inside a single selector such as <code>selection</code>, fields are matched together with <strong>AND</strong> semantics. For example, <code>EventID: 400</code> plus <code>Channel: ...</code> should require both values.</li>
   <li>You can test a draft Sigma rule against the current case before saving it.</li>
+  <li>If a Sigma draft returns zero matches, EvidenceLab now runs a small set of deterministic probe variants to show whether the miss is caused by selectors such as <code>Channel</code>, <code>EventID</code>, or multi-token <code>|contains</code> fields being too restrictive.</li>
 </ul>
 {% endblock %}
 
@@ -73,6 +74,68 @@
   <div style="margin-top:0.75rem;">
     <div class="table-title">Compiled SQL</div>
     <pre><code>{{ test_result.compiled_sql|forceescape }}</code></pre>
+  </div>
+  {% endif %}
+  {% if test_result.probe_results %}
+  <div class="table-wrap" style="margin-top:0.75rem;">
+    <div class="table-title">Automatic Probe Diagnostics</div>
+    <table>
+      <thead><tr><th>Probe</th><th>Matches</th><th>Status</th><th>Reason</th></tr></thead>
+      <tbody>
+        {% for probe in test_result.probe_results %}
+        <tr>
+          <td>{{ probe.label }}</td>
+          <td class="text-mono">{{ probe.match_count }}</td>
+          <td>{{ probe.status }}</td>
+          <td>{{ probe.reason }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div style="margin-top:0.75rem;">
+    <div class="table-title">Probe Details</div>
+    {% for probe in test_result.probe_results %}
+    <div class="card" style="margin-top:0.5rem;padding:0.75rem;">
+      <strong>{{ probe.label }}</strong>
+      <div class="text-muted" style="margin-top:0.35rem;font-size:0.85rem;">{{ probe.reason }}</div>
+      <div class="text-muted" style="margin-top:0.35rem;font-size:0.85rem;">Matches: <span class="text-mono">{{ probe.match_count }}</span> | Status: <span class="text-mono">{{ probe.status }}</span></div>
+      {% if probe.error %}
+      <div class="text-muted" style="margin-top:0.35rem;font-size:0.85rem;">Error: {{ probe.error }}</div>
+      {% endif %}
+      <details style="margin-top:0.5rem;" open>
+        <summary>Probe Sigma YAML</summary>
+        <pre><code>{{ probe.rule_yaml|forceescape }}</code></pre>
+      </details>
+      {% if probe.compiled_sql %}
+      <details style="margin-top:0.5rem;">
+        <summary>Probe Compiled SQL</summary>
+        <pre><code>{{ probe.compiled_sql|forceescape }}</code></pre>
+      </details>
+      {% endif %}
+      {% if probe.sample_matches %}
+      <details style="margin-top:0.5rem;">
+        <summary>Sample Probe Matches</summary>
+        <div class="table-wrap" style="margin-top:0.5rem;">
+          <table>
+            <thead><tr><th>Record</th><th>Timestamp</th><th>Channel</th><th>EventID</th><th>Computer</th></tr></thead>
+            <tbody>
+              {% for match in probe.sample_matches %}
+              <tr>
+                <td class="text-mono">{{ match.record_id }}</td>
+                <td class="text-mono" style="font-size:0.78rem;">{{ match.timestamp }}</td>
+                <td>{{ match.channel or match.record_type }}</td>
+                <td class="text-mono">{{ match.event_id }}</td>
+                <td class="text-mono">{{ match.computer }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </details>
+      {% endif %}
+    </div>
+    {% endfor %}
   </div>
   {% endif %}
 </div>

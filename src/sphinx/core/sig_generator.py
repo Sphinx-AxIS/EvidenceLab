@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import re
@@ -766,34 +767,186 @@ def run_sigma_rules_on_case(case_id: str) -> list[dict]:
     return matches
 
 
+def _compile_sigma_rule_for_test(rule_yaml: str, stub_rule: dict[str, Any]) -> str:
+    try:
+        return _compile_sigma_rule_text(rule_yaml, stub_rule)
+    except ImportError:
+        return _basic_sigma_to_sql(rule_yaml, stub_rule)
+
+
+def _execute_sigma_sql(case_id: str, compiled_sql: str) -> list[dict[str, Any]]:
+    scoped_sql = compiled_sql + f"\n  AND case_id = '{case_id}'"
+    with get_cursor() as cur:
+        cur.execute(scoped_sql)
+        return cur.fetchall()
+
+
+def _sample_sigma_matches(hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    sample_matches = []
+    for hit in hits[:10]:
+        raw = hit.get("raw") or {}
+        sample_matches.append({
+            "record_id": hit["id"],
+            "record_type": hit["record_type"],
+            "timestamp": str(hit.get("ts") or ""),
+            "channel": str(raw.get("Channel") or ""),
+            "event_id": str(raw.get("EventID") or ""),
+            "computer": str(raw.get("Computer") or ""),
+        })
+    return sample_matches
+
+
+def _build_sigma_probe_variants(rule_yaml: str) -> list[dict[str, str]]:
+    import yaml
+
+    try:
+        sigma = yaml.safe_load(rule_yaml)
+    except Exception:
+        return []
+    if not isinstance(sigma, dict):
+        return []
+
+    detection = sigma.get("detection", {})
+    selection = detection.get("selection", {})
+    if not isinstance(selection, dict):
+        return []
+
+    probes: list[dict[str, str]] = []
+
+    def append_probe(label: str, reason: str, transform) -> None:
+        probe_doc = copy.deepcopy(sigma)
+        probe_detection = probe_doc.setdefault("detection", {})
+        probe_selection = probe_detection.get("selection", {})
+        if not isinstance(probe_selection, dict):
+            return
+        changed = transform(probe_doc, probe_selection)
+        if not changed:
+            return
+        try:
+            probe_yaml = yaml.safe_dump(probe_doc, sort_keys=False)
+        except Exception:
+            return
+        probes.append({
+            "label": label,
+            "reason": reason,
+            "rule_yaml": probe_yaml,
+        })
+
+    append_probe(
+        'Without Channel',
+        'Checks whether the draft is failing because the Channel selector is too restrictive or not normalized as expected in the data.',
+        lambda _doc, sel: bool(sel.pop("Channel", None)),
+    )
+
+    append_probe(
+        'Without EventID',
+        'Checks whether the draft is failing because the EventID selector is too restrictive or the event family differs from the selected sample.',
+        lambda _doc, sel: bool(sel.pop("EventID", None)),
+    )
+
+    append_probe(
+        'Without logsource.service',
+        'Checks whether the draft is over-scoped to one Windows event service when the records are stored under a different win_evt_* type.',
+        lambda doc, _sel: bool(doc.get("logsource", {}).pop("service", None)),
+    )
+
+    for field_name, field_value in list(selection.items()):
+        if "|contains" not in field_name or not isinstance(field_value, list) or len(field_value) < 2:
+            continue
+        for token in field_value[:4]:
+            token_text = str(token).strip()
+            if not token_text:
+                continue
+
+            def _single_token_transform(_doc, sel, key=field_name, value=token_text):
+                if key not in sel:
+                    return False
+                sel[key] = [value]
+                return True
+
+            append_probe(
+                f'Only contains token "{token_text}"',
+                'Checks whether one specific contains token matches even if the full multi-token selection is too strict.',
+                _single_token_transform,
+            )
+        break
+
+    append_probe(
+        'Selection only',
+        'Checks whether extra selectors outside the main selection block are making the draft too strict.',
+        lambda doc, _sel: _reduce_sigma_detection_to_selection(doc),
+    )
+
+    return probes[:8]
+
+
+def _reduce_sigma_detection_to_selection(doc: dict[str, Any]) -> bool:
+    detection = doc.get("detection", {})
+    selection = detection.get("selection")
+    if not isinstance(selection, dict):
+        return False
+    changed = False
+    for key in list(detection.keys()):
+        if key not in ("selection", "condition"):
+            detection.pop(key, None)
+            changed = True
+    if detection.get("condition") != "selection":
+        detection["condition"] = "selection"
+        changed = True
+    return changed
+
+
 def test_sigma_rule_content(case_id: str, rule_yaml: str) -> dict[str, Any]:
     """Compile and run a Sigma rule against one case without saving it."""
     stub_rule = {"title": "Ad hoc Sigma test", "id": "adhoc-sigma-test"}
     try:
-        try:
-            compiled = _compile_sigma_rule_text(rule_yaml, stub_rule)
-        except ImportError:
-            compiled = _basic_sigma_to_sql(rule_yaml, stub_rule)
+        compiled = _compile_sigma_rule_for_test(rule_yaml, stub_rule)
 
         if not compiled:
             return {"status": "error", "error": "Sigma compilation produced no SQL."}
 
-        scoped_sql = compiled + f"\n  AND case_id = '{case_id}'"
-        with get_cursor() as cur:
-            cur.execute(scoped_sql)
-            hits = cur.fetchall()
+        hits = _execute_sigma_sql(case_id, compiled)
+        sample_matches = _sample_sigma_matches(hits)
 
-        sample_matches = []
-        for hit in hits[:10]:
-            raw = hit.get("raw") or {}
-            sample_matches.append({
-                "record_id": hit["id"],
-                "record_type": hit["record_type"],
-                "timestamp": str(hit.get("ts") or ""),
-                "channel": str(raw.get("Channel") or ""),
-                "event_id": str(raw.get("EventID") or ""),
-                "computer": str(raw.get("Computer") or ""),
-            })
+        probe_results: list[dict[str, Any]] = []
+        if not hits:
+            for probe in _build_sigma_probe_variants(rule_yaml):
+                try:
+                    probe_compiled = _compile_sigma_rule_for_test(probe["rule_yaml"], {
+                        "title": probe["label"],
+                        "id": "adhoc-sigma-probe",
+                    })
+                    if not probe_compiled:
+                        probe_results.append({
+                            "label": probe["label"],
+                            "reason": probe["reason"],
+                            "status": "error",
+                            "match_count": 0,
+                            "compiled_sql": "",
+                            "rule_yaml": probe["rule_yaml"],
+                            "error": "Probe compilation produced no SQL.",
+                        })
+                        continue
+                    probe_hits = _execute_sigma_sql(case_id, probe_compiled)
+                    probe_results.append({
+                        "label": probe["label"],
+                        "reason": probe["reason"],
+                        "status": "ok",
+                        "match_count": len(probe_hits),
+                        "compiled_sql": probe_compiled,
+                        "rule_yaml": probe["rule_yaml"],
+                        "sample_matches": _sample_sigma_matches(probe_hits),
+                    })
+                except Exception as probe_error:
+                    probe_results.append({
+                        "label": probe["label"],
+                        "reason": probe["reason"],
+                        "status": "error",
+                        "match_count": 0,
+                        "compiled_sql": "",
+                        "rule_yaml": probe["rule_yaml"],
+                        "error": str(probe_error)[:300],
+                    })
 
         return {
             "status": "ok",
@@ -801,6 +954,7 @@ def test_sigma_rule_content(case_id: str, rule_yaml: str) -> dict[str, Any]:
             "match_count": len(hits),
             "compiled_sql": compiled,
             "sample_matches": sample_matches,
+            "probe_results": probe_results,
         }
     except Exception as e:
         log.error("Sigma test failed for case %s: %s", case_id, e)

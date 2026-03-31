@@ -240,6 +240,7 @@ The Sigma builder now follows the same interactive pattern as the Suricata build
 - **Step 4: Live Rule Preview** renders the selected atoms into Sigma YAML automatically.
 - In Sigma testing and deployment, fields inside one selector block such as `selection` are treated with AND semantics. If the selector contains both `EventID: 400` and `Channel: Microsoft-Windows-TaskScheduler/Operational`, the record must satisfy both values.
 - After opening the manual Sigma draft, the analyst can use **Test Against Current Case Events** to compile and run the draft against the current case before saving it.
+- If the Sigma draft returns zero matches, the tester also runs a small set of deterministic probe variants so the analyst can see whether fields like `Channel`, `EventID`, `logsource.service`, or multi-token `|contains` clauses are making the draft too strict.
 
 ---
 
