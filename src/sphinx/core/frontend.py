@@ -15,6 +15,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from sphinx.core.auth import create_token, verify_password
+from sphinx.core.analytics_ops import extract_column_value
 from sphinx.core.attack_windows_presets import ATTACK_WINDOWS_PRESETS
 from sphinx.core.db import get_cursor
 from sphinx.core.plugin_loader import get_registry
@@ -568,6 +569,74 @@ def _record_highlights(record_type: str, raw: dict[str, Any] | None) -> list[dic
             add(label, raw.get(key))
 
     return highlights[:10]
+
+
+def _records_column_options(record_type: str) -> list[dict[str, str]]:
+    """Return optional Records-table columns for the selected evidence family."""
+    if record_type.startswith("win_evt_"):
+        return [
+            {"key": "channel_event", "label": "Channel / Event"},
+            {"key": "summary_hint", "label": "Summary Hint"},
+            {"key": "Provider", "label": "Provider"},
+            {"key": "Computer", "label": "Computer"},
+            {"key": "EventRecordID", "label": "EventRecordID"},
+            {"key": "SystemTime", "label": "System Time"},
+            {"key": "EventData.TaskName", "label": "Task Name"},
+            {"key": "EventData.UserContext", "label": "User Context"},
+            {"key": "EventData.TargetUserName", "label": "Target User"},
+            {"key": "EventData.SubjectUserName", "label": "Subject User"},
+            {"key": "EventData.Image", "label": "Image"},
+            {"key": "EventData.CommandLine", "label": "Command Line"},
+            {"key": "EventData.ScriptBlockText", "label": "Script Block"},
+            {"key": "EventData.IpAddress", "label": "IP Address"},
+        ]
+    if record_type.startswith(("suricata_", "zeek_", "tshark_")):
+        return [
+            {"key": "summary_hint", "label": "Summary Hint"},
+            {"key": "alert_signature", "label": "Alert Signature"},
+            {"key": "service", "label": "Service"},
+            {"key": "proto", "label": "Protocol"},
+            {"key": "src_ip", "label": "Source IP"},
+            {"key": "src_port", "label": "Source Port"},
+            {"key": "dest_ip", "label": "Destination IP"},
+            {"key": "dest_port", "label": "Destination Port"},
+            {"key": "query", "label": "Query"},
+            {"key": "host", "label": "Host"},
+            {"key": "uri", "label": "URI"},
+        ]
+    if record_type.startswith("vol_"):
+        return [
+            {"key": "summary_hint", "label": "Summary Hint"},
+            {"key": "Process", "label": "Process"},
+            {"key": "PID", "label": "PID"},
+            {"key": "PPID", "label": "PPID"},
+            {"key": "Name", "label": "Name"},
+            {"key": "Path", "label": "Path"},
+        ]
+    return [{"key": "summary_hint", "label": "Summary Hint"}]
+
+
+def _default_records_columns(record_type: str) -> list[str]:
+    if record_type.startswith("win_evt_"):
+        return ["channel_event", "summary_hint"]
+    return ["summary_hint"]
+
+
+def _records_cell_value(column_key: str, raw: dict[str, Any], summary_hint: str) -> str:
+    if column_key == "summary_hint":
+        return summary_hint
+    if column_key == "channel_event":
+        channel = str(raw.get("Channel") or "").strip()
+        event_id = str(raw.get("EventID") or "").strip()
+        if channel and event_id:
+            return f"{channel} | EventID {event_id}"
+        return channel or (f"EventID {event_id}" if event_id else "")
+    value = extract_column_value(raw, column_key)
+    if value is None:
+        return ""
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, ensure_ascii=True)
+    return str(value)
 
 
 def _record_context_counts(case_id: str, record_type: str, raw: dict[str, Any] | None) -> list[dict[str, str]]:
@@ -1697,11 +1766,12 @@ async def records_list(
                     id,
                     record_type,
                     ts::text AS ts,
-                    COALESCE(raw->>'Channel', '') AS channel,
-                    COALESCE(raw->>'EventID', '') AS event_id,
+                    raw,
                     COALESCE(
                         raw->'EventData'->>'TargetUserName',
                         raw->'EventData'->>'SubjectUserName',
+                        raw->'EventData'->>'TaskName',
+                        raw->'EventData'->>'UserContext',
                         raw->'EventData'->>'Image',
                         raw->'EventData'->>'CommandLine',
                         raw->'EventData'->>'ScriptBlockText',
@@ -1717,7 +1787,40 @@ async def records_list(
                LIMIT %s OFFSET %s""",
             params + [limit, offset],
         )
-        records = cur.fetchall()
+        raw_rows = cur.fetchall()
+
+    raw_column_values = list(request.query_params.getlist("columns"))
+    parsed_columns: list[str] = []
+    for raw_value in raw_column_values:
+        parsed_columns.extend([c.strip() for c in str(raw_value).split(",") if c.strip()])
+
+    active_record_type = type or (raw_rows[0]["record_type"] if raw_rows else "")
+    available_columns = _records_column_options(active_record_type) if active_record_type else [{"key": "summary_hint", "label": "Summary Hint"}]
+    allowed_column_keys = {opt["key"] for opt in available_columns}
+    selected_columns = [c for c in parsed_columns if c in allowed_column_keys]
+    if not selected_columns:
+        selected_columns = _default_records_columns(active_record_type) if active_record_type else ["summary_hint"]
+
+    selected_column_defs = [opt for opt in available_columns if opt["key"] in selected_columns]
+
+    records = []
+    for row in raw_rows:
+        raw = row["raw"] if isinstance(row["raw"], dict) else (json.loads(row["raw"]) if row["raw"] else {})
+        summary_hint = row["summary_hint"] or ""
+        rendered = {
+            "id": row["id"],
+            "record_type": row["record_type"],
+            "ts": row["ts"],
+            "cells": [],
+        }
+        for col_def in selected_column_defs:
+            value = _records_cell_value(col_def["key"], raw, summary_hint).strip()
+            rendered["cells"].append({
+                "key": col_def["key"],
+                "label": col_def["label"],
+                "value": value,
+            })
+        records.append(rendered)
 
     return templates.TemplateResponse(request, "records.html", _ctx(
         request, user, "records", case_id=case_id,
@@ -1725,6 +1828,9 @@ async def records_list(
         type_filter=type, total=total, offset=offset, limit=limit,
         search_q=q, channel_filter=channel, event_id_filter=event_id,
         win_channels=win_channels,
+        available_columns=available_columns,
+        selected_columns=selected_columns,
+        selected_columns_csv=",".join(selected_columns),
     ))
 
 

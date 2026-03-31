@@ -28,6 +28,7 @@
 <h4>Usage</h4>
 <ul>
   <li>Use the <strong>type filter</strong> dropdown to narrow by record type.</li>
+  <li>Use <strong>Visible Columns</strong> to expose additional evidence fields directly in the table, such as task names, usernames, image paths, or EventRecordID values.</li>
   <li>Click a record to see its full JSON content and extracted entities.</li>
   <li>Records are referenced by ID in findings and detection rules for traceability.</li>
 </ul>
@@ -81,11 +82,39 @@
       <button type="submit" class="btn btn-primary">Search</button>
       <a href="/ui/cases/{{ case_id }}/records" class="btn">Reset</a>
     </div>
+
+    <input type="hidden" name="columns" value="{{ selected_columns_csv }}">
   </form>
 
   <div class="text-muted" style="font-size:0.8rem;margin-top:0.75rem;">
     Use this page to inspect and narrow specific evidence after hunting in Analytics. For Sigma, focus on <code>win_evt_*</code> records and open Detail to review the event in context.
   </div>
+
+  {% if available_columns %}
+  <details style="margin-top:0.9rem;">
+    <summary style="cursor:pointer;font-weight:600;">Visible Columns</summary>
+    <form method="get" action="/ui/cases/{{ case_id }}/records" class="card" style="margin-top:0.6rem;padding:0.85rem;">
+      <input type="hidden" name="type" value="{{ type_filter|default('') }}">
+      <input type="hidden" name="channel" value="{{ channel_filter|default('') }}">
+      <input type="hidden" name="event_id" value="{{ event_id_filter|default('') }}">
+      <input type="hidden" name="q" value="{{ search_q|default('') }}">
+      <div class="text-muted" style="font-size:0.8rem;margin-bottom:0.6rem;">
+        Core identity columns stay visible. Choose which evidence fields should also appear in the records table for the current record type.
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.45rem 1rem;">
+        {% for col in available_columns %}
+        <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.86rem;">
+          <input type="checkbox" name="columns" value="{{ col.key }}" {% if col.key in selected_columns %}checked{% endif %}>
+          <span>{{ col.label }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <div class="flex gap-1" style="margin-top:0.8rem;">
+        <button type="submit" class="btn btn-primary btn-sm">Apply Columns</button>
+      </div>
+    </form>
+  </details>
+  {% endif %}
 </div>
 
 {% if records|length == 0 %}
@@ -97,7 +126,15 @@
 <div class="table-wrap">
   <table>
     <thead>
-      <tr><th>ID</th><th>Type</th><th>Timestamp</th><th>Channel / Event</th><th>Summary Hint</th><th></th></tr>
+      <tr>
+        <th>ID</th>
+        <th>Type</th>
+        <th>Timestamp</th>
+        {% for col in available_columns if col.key in selected_columns %}
+        <th>{{ col.label }}</th>
+        {% endfor %}
+        <th></th>
+      </tr>
     </thead>
     <tbody>
       {% for r in records %}
@@ -105,15 +142,9 @@
         <td class="text-mono" style="font-size:0.75rem;">{{ r.id }}</td>
         <td><span class="record-type">{{ r.record_type }}</span></td>
         <td class="text-muted text-mono" style="font-size:0.78rem;">{{ r.ts if r.ts else '—' }}</td>
-        <td style="font-size:0.8rem;">
-          {% if r.channel %}
-          <div>{{ r.channel }}</div>
-          {% endif %}
-          {% if r.event_id %}
-          <div class="text-mono text-muted">EventID {{ r.event_id }}</div>
-          {% endif %}
-        </td>
-        <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.8rem;" title="{{ r.summary_hint }}">{{ r.summary_hint if r.summary_hint else '—' }}</td>
+        {% for cell in r.cells %}
+        <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.8rem;" title="{{ cell.value }}">{{ cell.value if cell.value else '—' }}</td>
+        {% endfor %}
         <td><a href="/ui/cases/{{ case_id }}/records/{{ r.id }}" class="btn btn-sm">Detail</a></td>
       </tr>
       {% endfor %}
@@ -125,10 +156,10 @@
   <div>Showing {{ records|length }} of {{ total }} records</div>
   <div class="flex gap-1">
     {% if offset > 0 %}
-    <a href="/ui/cases/{{ case_id }}/records?type={{ type_filter|default('') }}&channel={{ channel_filter|default('') }}&event_id={{ event_id_filter|default('') }}&q={{ search_q|default('') }}&offset={{ offset - limit }}" class="btn btn-sm">&laquo; Prev</a>
+    <a href="/ui/cases/{{ case_id }}/records?type={{ type_filter|default('') }}&channel={{ channel_filter|default('') }}&event_id={{ event_id_filter|default('') }}&q={{ search_q|default('') }}&columns={{ selected_columns_csv|default('') }}&offset={{ offset - limit }}" class="btn btn-sm">&laquo; Prev</a>
     {% endif %}
     {% if offset + limit < total %}
-    <a href="/ui/cases/{{ case_id }}/records?type={{ type_filter|default('') }}&channel={{ channel_filter|default('') }}&event_id={{ event_id_filter|default('') }}&q={{ search_q|default('') }}&offset={{ offset + limit }}" class="btn btn-sm">Next &raquo;</a>
+    <a href="/ui/cases/{{ case_id }}/records?type={{ type_filter|default('') }}&channel={{ channel_filter|default('') }}&event_id={{ event_id_filter|default('') }}&q={{ search_q|default('') }}&columns={{ selected_columns_csv|default('') }}&offset={{ offset + limit }}" class="btn btn-sm">Next &raquo;</a>
     {% endif %}
   </div>
 </div>

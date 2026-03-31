@@ -167,6 +167,16 @@ Use the filters at the top of the page to narrow the dataset before opening a re
 - **EventID** — search for a specific Windows event ID such as `4624`, `4625`, `4688`, or `4104`
 - **Search Raw Data** — free-text search across the record JSON for usernames, process names, command lines, IP addresses, and other indicators
 
+Use the **Visible Columns** control to expose additional evidence fields directly in the table for the current record type. For Windows events, this can include values such as:
+
+- `EventRecordID`
+- `Provider`
+- `Computer`
+- `EventData.TaskName`
+- `EventData.UserContext`
+- `EventData.Image`
+- `EventData.CommandLine`
+
 This page is the detailed evidence browser you use after hunting in Analytics. It is where you inspect a specific event closely enough to decide whether it should become a detection candidate.
 
 Common record types include:
