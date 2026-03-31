@@ -36,8 +36,26 @@
 <div class="alert alert-danger">{{ error }}</div>
 {% endif %}
 
+<style>
+.sigma-match-preview {
+  min-width: 20rem;
+  max-width: 26rem;
+}
+.sigma-match-preview summary {
+  cursor: pointer;
+  color: var(--text-primary);
+}
+.sigma-match-preview .preview-full {
+  margin-top: 0.35rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+</style>
+
 {% if test_result and test_result.rule_family == 'sigma' %}
-<div class="card mb-2" style="max-width:900px;">
+<div class="card mb-2">
   <h3>Sigma Test Result</h3>
   <p class="text-muted" style="font-size:0.9rem;">
     Deterministic test against Windows event records in the current case.
@@ -52,7 +70,7 @@
     </table>
   </div>
   {% if test_result.sample_matches %}
-  <div class="table-wrap" style="margin-top:0.75rem;">
+  <div class="table-wrap" style="margin-top:0.75rem;overflow-x:auto;">
     <div class="table-title">Sample Matches</div>
     <table>
       <thead><tr><th>Record</th><th>EventRecordID</th><th>Timestamp</th><th>Channel</th><th>EventID</th><th>Computer</th><th>EventData Preview</th></tr></thead>
@@ -65,9 +83,15 @@
           <td>{{ match.channel or match.record_type }}</td>
           <td class="text-mono">{{ match.event_id }}</td>
           <td class="text-mono">{{ match.computer }}</td>
-          <td style="max-width:28rem;white-space:pre-wrap;word-break:break-word;">
+          <td class="sigma-match-preview">
             {% if match.event_data_preview %}
-              {% if match.event_data_field %}<span class="text-muted">{{ match.event_data_field }}:</span> {% endif %}{{ match.event_data_preview }}
+              {% set preview_summary = ((match.event_data_field ~ ': ' if match.event_data_field else '') ~ match.event_data_preview) %}
+              <details>
+                <summary>{{ preview_summary[:100] }}{% if preview_summary|length > 100 %}...{% endif %}</summary>
+                <div class="preview-full">
+                  {% if match.event_data_field %}<span class="text-muted">{{ match.event_data_field }}:</span> {% endif %}{{ match.event_data_preview }}
+                </div>
+              </details>
             {% else %}
               <span class="text-muted">—</span>
             {% endif %}
@@ -124,7 +148,7 @@
       {% if probe.sample_matches %}
       <details style="margin-top:0.5rem;">
         <summary>Sample Probe Matches</summary>
-        <div class="table-wrap" style="margin-top:0.5rem;">
+        <div class="table-wrap" style="margin-top:0.5rem;overflow-x:auto;">
           <table>
             <thead><tr><th>Record</th><th>EventRecordID</th><th>Timestamp</th><th>Channel</th><th>EventID</th><th>Computer</th><th>EventData Preview</th></tr></thead>
             <tbody>
@@ -136,9 +160,15 @@
                 <td>{{ match.channel or match.record_type }}</td>
                 <td class="text-mono">{{ match.event_id }}</td>
                 <td class="text-mono">{{ match.computer }}</td>
-                <td style="max-width:28rem;white-space:pre-wrap;word-break:break-word;">
+                <td class="sigma-match-preview">
                   {% if match.event_data_preview %}
-                    {% if match.event_data_field %}<span class="text-muted">{{ match.event_data_field }}:</span> {% endif %}{{ match.event_data_preview }}
+                    {% set preview_summary = ((match.event_data_field ~ ': ' if match.event_data_field else '') ~ match.event_data_preview) %}
+                    <details>
+                      <summary>{{ preview_summary[:100] }}{% if preview_summary|length > 100 %}...{% endif %}</summary>
+                      <div class="preview-full">
+                        {% if match.event_data_field %}<span class="text-muted">{{ match.event_data_field }}:</span> {% endif %}{{ match.event_data_preview }}
+                      </div>
+                    </details>
                   {% else %}
                     <span class="text-muted">—</span>
                   {% endif %}
