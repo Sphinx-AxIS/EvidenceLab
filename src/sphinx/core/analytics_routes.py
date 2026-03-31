@@ -39,6 +39,7 @@ def _parse_filters(filters_json: str | None) -> list | None:
 
 
 _RULE_MATCH_FILTER_COLUMNS = {
+    "rule_id": "rule_id::text",
     "rule_title": "rule_title",
     "rule_type": "rule_type",
     "matched_record_id": "record_id::text",
@@ -93,6 +94,19 @@ def _build_rule_match_where(case_id: str, filters: list | None) -> tuple[str, li
             params.append(val_text)
 
     return " AND ".join(where_parts), params
+
+
+def _extract_rule_match_filter(filters: list | None, key: str) -> tuple[str | None, list]:
+    remaining = []
+    selected = None
+    for filt in filters or []:
+        if isinstance(filt, dict) and filt.get("col") == key and str(filt.get("op") or "eq") == "eq" and selected is None:
+            value = str(filt.get("val") or "").strip()
+            if value:
+                selected = value
+                continue
+        remaining.append(filt)
+    return selected, remaining
 
 
 @router.get("/summary")
@@ -300,6 +314,8 @@ async def analytics_rule_matches(
     sort_col: str | None = Query(default="timestamp"),
     sort_dir: str | None = Query(default="desc"),
 ):
+    from sphinx.core.sig_generator import _compile_sigma_rule_for_test
+
     sort_expr_map = {
         "rule_title": "rule_title",
         "rule_type": "rule_type",
@@ -310,6 +326,143 @@ async def analytics_rule_matches(
     }
     order_expr = sort_expr_map.get(sort_col or "timestamp", "ts")
     order_dir = "ASC" if sort_dir and sort_dir.lower() == "asc" else "DESC"
+
+    filters_data = _parse_filters(filters)
+    selected_rule_id, remaining_filters = _extract_rule_match_filter(filters_data, "rule_id")
+
+    if selected_rule_id:
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, title, rule_type, rule_content, compiled_sql, sid, status
+                FROM detection_rules
+                WHERE id = %s AND (case_id = %s OR case_id = '' OR case_id IS NULL)
+                """,
+                (selected_rule_id, case_id),
+            )
+            rule = cur.fetchone()
+
+        if not rule:
+            return {"error": "Selected rule was not found for this case."}
+
+        if rule["rule_type"] == "sigma":
+            compiled_sql = rule.get("compiled_sql") or ""
+            if not compiled_sql:
+                compiled_sql = _compile_sigma_rule_for_test(rule["rule_content"], rule)
+            if not compiled_sql:
+                return {"error": "Selected Sigma rule could not be compiled to SQL."}
+            subquery = f"""
+                SELECT
+                    {int(rule['id'])} AS rule_id,
+                    '{str(rule['title']).replace("'", "''")}' AS rule_title,
+                    'sigma' AS rule_type,
+                    id AS record_id,
+                    record_type,
+                    ts,
+                    COALESCE(raw->>'Channel', '') AS channel,
+                    COALESCE(raw->>'EventID', '') AS event_id
+                FROM ({compiled_sql}) AS matched_records
+                WHERE case_id = %s
+            """
+            base_params = [case_id]
+        else:
+            sid = rule.get("sid")
+            if not sid:
+                return {"error": "Selected Suricata rule does not have a SID, so it cannot be mapped to case alert records."}
+            subquery = f"""
+                SELECT
+                    {int(rule['id'])} AS rule_id,
+                    '{str(rule['title']).replace("'", "''")}' AS rule_title,
+                    'suricata' AS rule_type,
+                    id AS record_id,
+                    record_type,
+                    ts,
+                    '' AS channel,
+                    COALESCE(raw->'alert'->>'signature_id', '') AS event_id
+                FROM records
+                WHERE case_id = %s
+                  AND record_type = 'suricata_alert'
+                  AND raw->'alert'->>'signature_id' = %s
+            """
+            base_params = [case_id, str(sid)]
+
+        where, extra_params = _build_rule_match_where(case_id, remaining_filters)
+        if where == "case_id = %s":
+            where = "TRUE"
+            trailing_params: list = []
+        else:
+            where = where.replace("case_id = %s AND ", "", 1)
+            trailing_params = extra_params[1:]
+
+        with get_cursor() as cur:
+            cur.execute(
+                f"SELECT count(*) AS cnt FROM ({subquery}) AS rule_hits WHERE {where}",
+                base_params + trailing_params,
+            )
+            total = cur.fetchone()["cnt"]
+
+            cur.execute(
+                f"SELECT max(ts) AS latest_match FROM ({subquery}) AS rule_hits WHERE {where}",
+                base_params + trailing_params,
+            )
+            latest_match_row = cur.fetchone()
+
+            cur.execute(
+                f"""
+                SELECT
+                    rule_id,
+                    rule_title,
+                    rule_type,
+                    record_id,
+                    record_type,
+                    ts,
+                    channel,
+                    event_id
+                FROM ({subquery}) AS rule_hits
+                WHERE {where}
+                ORDER BY {order_expr} {order_dir} NULLS LAST, rule_title ASC
+                LIMIT %s OFFSET %s
+                """,
+                base_params + trailing_params + [limit, offset],
+            )
+            rows = cur.fetchall()
+
+        matches = []
+        for row in rows:
+            ts = row.get("ts")
+            matches.append({
+                "rule_id": row["rule_id"],
+                "rule_title": row["rule_title"],
+                "rule_type": row["rule_type"],
+                "matched_record_id": row["record_id"],
+                "record_type": row["record_type"],
+                "timestamp": ts.isoformat() if ts else None,
+                "channel": row.get("channel") or "",
+                "event_id": row.get("event_id") or "",
+            })
+
+        latest_match = latest_match_row.get("latest_match") if latest_match_row else None
+        latest_match_text = latest_match.isoformat() if latest_match else None
+        return {
+            "operation": "rule_matches",
+            "matches": matches,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "summary": {
+                "total_matches": total,
+                "unique_rules": 1,
+                "latest_match": latest_match_text,
+            },
+            "columns": [
+                "timestamp",
+                "rule_title",
+                "rule_type",
+                "matched_record_id",
+                "channel",
+                "event_id",
+            ],
+        }
 
     subquery = """
         SELECT
@@ -342,7 +495,6 @@ async def analytics_rule_matches(
         WHERE r.record_type = 'suricata_alert'
     """
 
-    filters_data = _parse_filters(filters)
     where, params = _build_rule_match_where(case_id, filters_data)
 
     with get_cursor() as cur:
@@ -421,4 +573,34 @@ async def analytics_rule_matches(
             "channel",
             "event_id",
         ],
+    }
+
+
+@router.get("/rule-match-metadata")
+async def analytics_rule_match_metadata(
+    case_id: str = Query(...),
+    user=Depends(_require_analyst),
+):
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT DISTINCT id AS rule_id, title AS rule_title, rule_type, status
+            FROM detection_rules
+            WHERE case_id = %s OR case_id = '' OR case_id IS NULL
+            ORDER BY title ASC
+            """,
+            (case_id,),
+        )
+        rules = cur.fetchall()
+
+    return {
+        "rules": [
+            {
+                "rule_id": row["rule_id"],
+                "rule_title": row["rule_title"],
+                "rule_type": row["rule_type"],
+                "status": row["status"],
+            }
+            for row in rules
+        ]
     }

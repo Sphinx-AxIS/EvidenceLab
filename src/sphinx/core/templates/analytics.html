@@ -21,7 +21,7 @@
   <li>Large field values such as Windows <strong>EventData</strong> JSON are rendered as literal escaped text in the results grid so clickable filter cells cannot leak HTML into the displayed evidence.</li>
   <li>If an Analytics results table is wider than the page, a fixed bottom scrollbar stays available so you can move across columns without jumping to the bottom of the results area.</li>
   <li>Use Browse, Value Counts, Relationships, or Time Series to understand what is rare, repeated, or suspicious.</li>
-  <li><strong>Rule Matches</strong> shows which deployed Sigma rules and managed Suricata signatures actually matched evidence in the current case, with pivots to both the underlying record and the rule review page.</li>
+  <li><strong>Rule Matches</strong> lets you select an existing Detection Rule and run it against the current case on demand, with pivots to both the underlying record and the rule review page.</li>
   <li>If you switch tabs or launch a new query before the previous one finishes, EvidenceLab now ignores stale results so an older Correlate search cannot overwrite a newer Browse query.</li>
   <li>Open a specific record from the results table to inspect it in context.</li>
   <li>Only after the event is understandable should you pivot into Sigma or Suricata authoring.</li>
@@ -310,7 +310,7 @@
 const CASE_ID = '{{ case_id }}';
 const ATTACK_PRESETS = {{ attack_windows_presets|tojson }};
 const RULE_MATCH_COLUMNS = [
-  { name: 'rule_title', label: 'Rule Title' },
+  { name: 'rule_id', label: 'Rule Title' },
   { name: 'rule_type', label: 'Rule Type' },
   { name: 'matched_record_id', label: 'Matched Record ID' },
   { name: 'timestamp', label: 'Timestamp' },
@@ -322,6 +322,7 @@ let currentType = null;
 let currentOffset = 0;
 let currentMode = 'browse';
 let typeColumns = [];
+let ruleMatchRuleOptions = [];
 let analyticsRequestSeq = 0;
 let activeAnalyticsRequest = null;
 
@@ -369,7 +370,61 @@ function refreshFilterInputs() {
     if (!Array.from(colSel.options).some(opt => opt.selected) && colSel.options.length > 0) {
       colSel.selectedIndex = 0;
     }
+    updateFilterValueControl(row);
   });
+}
+
+function ensureRuleMatchMetadata() {
+  if (ruleMatchRuleOptions.length > 0) {
+    return Promise.resolve(ruleMatchRuleOptions);
+  }
+  return apiFetch(`/api/analytics/rule-match-metadata?case_id=${CASE_ID}`).then(d => {
+    ruleMatchRuleOptions = d.rules || [];
+    return ruleMatchRuleOptions;
+  });
+}
+
+function updateFilterValueControl(row) {
+  const colSel = row.querySelector('.filter-col');
+  const opSel = row.querySelector('.filter-op');
+  const currentValEl = row.querySelector('.filter-val');
+  if (!colSel || !opSel || !currentValEl) return;
+
+  const currentValue = currentValEl.value || '';
+  const useRuleTitleSelect = currentMode === 'rule_matches' && colSel.value === 'rule_id';
+
+  if (useRuleTitleSelect && currentValEl.tagName !== 'SELECT') {
+    const valSelect = document.createElement('select');
+    valSelect.className = 'filter-val form-control';
+    row.replaceChild(valSelect, currentValEl);
+    ensureRuleMatchMetadata().then(options => {
+      valSelect.innerHTML = '<option value="">Select detection rule...</option>' + options.map(opt =>
+        `<option value="${escapeHtml(opt.rule_id)}">${escapeHtml(opt.rule_title)} (${escapeHtml(opt.rule_type)} | ${escapeHtml(opt.status)})</option>`
+      ).join('');
+      valSelect.value = currentValue;
+      toggleFilterValueVisibility(row);
+    });
+    return;
+  }
+
+  if (!useRuleTitleSelect && currentValEl.tagName !== 'INPUT') {
+    const valInput = document.createElement('input');
+    valInput.type = 'text';
+    valInput.className = 'filter-val form-control';
+    valInput.placeholder = 'Value...';
+    valInput.value = currentValue;
+    valInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); runAnalytics(); } });
+    row.replaceChild(valInput, currentValEl);
+  }
+
+  toggleFilterValueVisibility(row);
+}
+
+function toggleFilterValueVisibility(row) {
+  const opSel = row.querySelector('.filter-op');
+  const valEl = row.querySelector('.filter-val');
+  if (!opSel || !valEl) return;
+  valEl.style.display = (opSel.value === 'is_null' || opSel.value === 'not_null') ? 'none' : '';
 }
 
 function apiFetch(url) {
@@ -752,7 +807,7 @@ function addFilterRow(col, op, val) {
       if (op && o === op) opt.selected = true;
       opSel.appendChild(opt);
     }
-    toggleValInput();
+    toggleFilterValueVisibility(row);
   }
 
   let valInput = document.createElement('input');
@@ -760,12 +815,11 @@ function addFilterRow(col, op, val) {
   valInput.placeholder = 'Value...';
   if (val !== undefined) valInput.value = val;
 
-  function toggleValInput() {
-    valInput.style.display = (opSel.value === 'is_null' || opSel.value === 'not_null') ? 'none' : '';
-  }
-
-  colSel.addEventListener('change', populateOps);
-  opSel.addEventListener('change', toggleValInput);
+  colSel.addEventListener('change', () => {
+    populateOps();
+    updateFilterValueControl(row);
+  });
+  opSel.addEventListener('change', () => toggleFilterValueVisibility(row));
   valInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); runAnalytics(); } });
 
   let rmBtn = document.createElement('button');
@@ -776,6 +830,7 @@ function addFilterRow(col, op, val) {
   row.appendChild(valInput); row.appendChild(rmBtn);
   container.appendChild(row);
   populateOps();
+  updateFilterValueControl(row);
 }
 
 function collectFilters() {
@@ -800,7 +855,7 @@ function selectMode(btn, mode) {
   document.querySelectorAll('.op-controls').forEach(el => el.style.display = 'none');
   let map = { value_counts: 'vc-controls', relationships: 'rel-controls', time_series: 'ts-controls', top_n: 'topn-controls', correlate: 'corr-controls' };
   if (map[mode]) document.getElementById(map[mode]).style.display = '';
-  let sortShow = mode === 'browse' ? '' : 'none';
+  let sortShow = (mode === 'browse' || mode === 'rule_matches') ? '' : 'none';
   document.getElementById('sort-controls').style.display = sortShow;
   document.getElementById('sort-dir-control').style.display = sortShow;
   // Correlate has its own controls; hide filters panel
@@ -1182,11 +1237,24 @@ function renderRuleMatches(d) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  const initialParams = new URLSearchParams(window.location.search);
   initAttackSelector();
   document.getElementById('attack-tactic').addEventListener('change', onAttackTacticChange);
   document.getElementById('attack-technique').addEventListener('change', onAttackTechniqueChange);
   document.getElementById('attack-eventid').addEventListener('change', onAttackEventChange);
-  loadSummary();
+  loadSummary().then(() => {
+    if (initialParams.get('mode') === 'rule_matches') {
+      const ruleMatchesTab = Array.from(document.querySelectorAll('#mode-tabs button'))
+        .find(btn => btn.textContent.trim() === 'Rule Matches');
+      selectMode(ruleMatchesTab, 'rule_matches');
+      clearFilters(false);
+      const initialRuleId = initialParams.get('rule_id');
+      if (initialRuleId) {
+        addFilterRow('rule_id', 'eq', initialRuleId);
+      }
+      runAnalytics();
+    }
+  });
   refreshFilterInputs();
   window.addEventListener('resize', syncAnalyticsScrollbar);
 });

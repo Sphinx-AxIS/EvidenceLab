@@ -18,6 +18,7 @@
   <li><strong>Reject</strong> — Discard the rule (too broad, inaccurate, or not useful).</li>
   <li><strong>Deploy / Re-deploy</strong> — Make the rule active. Suricata rules are written to the rules file; Sigma rules are compiled to SQL for database matching.</li>
   <li><strong>Re-generate</strong> — Discard the current content and ask the LLM to generate a new version from the same finding and evidence.</li>
+  <li><strong>View Matching Records in Analytics</strong> — Open the Analytics `Rule Matches` tab with this rule preselected so you can inspect matching case records more flexibly.</li>
   <li><strong>Export</strong> — Download the rule as a file for use in external tools.</li>
 </ul>
 
@@ -131,6 +132,8 @@
           onsubmit="return confirm('Re-generate this rule? The current content will be replaced.');">
       <button type="submit" class="btn btn-sm">Re-generate</button>
     </form>
+
+    <a href="/ui/cases/{{ case_id }}/analytics?mode=rule_matches&rule_id={{ rule.id }}" class="btn btn-sm">View Matching Records in Analytics</a>
 
     <a href="/ui/cases/{{ case_id }}/detection-rules/{{ rule.id }}/export" class="btn btn-sm">Export / Download</a>
   </div>

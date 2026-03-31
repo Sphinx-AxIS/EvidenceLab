@@ -242,7 +242,7 @@ The Sigma builder now follows the same interactive pattern as the Suricata build
 - After opening the manual Sigma draft, the analyst can use **Test Against Current Case Events** to compile and run the draft against the current case before saving it.
 - If the Sigma draft returns zero matches, the tester also runs a small set of deterministic probe variants so the analyst can see whether fields like `Channel`, `EventID`, `logsource.service`, or multi-token `|contains` clauses are making the draft too strict.
 
-In **Analytics**, the new **Rule Matches** tab shows which deployed detections actually matched evidence in the current case. Use it when you want to review:
+In **Analytics**, the new **Rule Matches** tab lets you select an existing Detection Rule and run it against the current case on demand. Use it when you want to review:
 - `Rule Title`
 - `Rule Type`
 - matched `Record ID`
@@ -251,6 +251,7 @@ In **Analytics**, the new **Rule Matches** tab shows which deployed detections a
 - `EventID / SID`
 
 Each row links directly to both **Record Detail** and **Rule Review** so the analyst can inspect the evidence and then refine the rule without leaving the workflow.
+When filtering by **Rule Title**, EvidenceLab now offers a dropdown populated from the current case's available detection rules so the analyst can select a rule directly instead of typing the title manually. The **Rule Review** page also includes a direct pivot into **Analytics -> Rule Matches** for the current rule.
 
 ---
 
