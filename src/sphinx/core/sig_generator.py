@@ -666,27 +666,65 @@ def _basic_sigma_to_sql(rule_yaml: str, rule: dict) -> str:
     if not selection:
         return ""
 
+    def _sql_literal(value: Any) -> str:
+        return str(value).replace("'", "''")
+
+    def _jsonb_access(field_name: str) -> tuple[str, str]:
+        base_field, *modifiers = field_name.split("|")
+        if "." in base_field:
+            parts = base_field.split(".")
+            jsonb_path = "->".join(f"'{_sql_literal(p)}'" for p in parts[:-1])
+            access = f"raw->{jsonb_path}->>'{_sql_literal(parts[-1])}'"
+        else:
+            access = f"raw->>'{_sql_literal(base_field)}'"
+        return access, modifiers
+
+    def _build_value_clause(jsonb_access: str, modifiers: list[str], field_value: Any) -> str:
+        modifier_set = {m.lower() for m in modifiers}
+
+        if "contains" in modifier_set:
+            values = field_value if isinstance(field_value, list) else [field_value]
+            subclauses = [
+                f"LOWER(COALESCE({jsonb_access}, '')) LIKE '%{_sql_literal(str(v).lower())}%'"
+                for v in values
+                if str(v).strip()
+            ]
+            return "(" + " OR ".join(subclauses) + ")" if subclauses else ""
+
+        if "startswith" in modifier_set:
+            values = field_value if isinstance(field_value, list) else [field_value]
+            subclauses = [
+                f"LOWER(COALESCE({jsonb_access}, '')) LIKE '{_sql_literal(str(v).lower())}%'"
+                for v in values
+                if str(v).strip()
+            ]
+            return "(" + " OR ".join(subclauses) + ")" if subclauses else ""
+
+        if "endswith" in modifier_set:
+            values = field_value if isinstance(field_value, list) else [field_value]
+            subclauses = [
+                f"LOWER(COALESCE({jsonb_access}, '')) LIKE '%{_sql_literal(str(v).lower())}'"
+                for v in values
+                if str(v).strip()
+            ]
+            return "(" + " OR ".join(subclauses) + ")" if subclauses else ""
+
+        if isinstance(field_value, list):
+            vals = ", ".join(f"'{_sql_literal(v)}'" for v in field_value)
+            return f"{jsonb_access} IN ({vals})"
+
+        if isinstance(field_value, str) and ("*" in field_value or "?" in field_value):
+            like_val = _sql_literal(field_value.replace("*", "%").replace("?", "_"))
+            return f"{jsonb_access} ILIKE '{like_val}'"
+
+        return f"{jsonb_access} = '{_sql_literal(field_value)}'"
+
     clauses = []
     for field, value in selection.items():
-        # Map Sigma field names to JSONB access
-        # Handle EventData fields specially
-        if "." in field:
-            parts = field.split(".")
-            jsonb_path = "->".join(f"'{p}'" for p in parts[:-1])
-            jsonb_access = f"raw->{jsonb_path}->>'{parts[-1]}'"
-        else:
-            jsonb_access = f"raw->>'{field}'"
-
-        if isinstance(value, list):
-            # OR list
-            vals = ", ".join(f"'{v}'" for v in value)
-            clauses.append(f"{jsonb_access} IN ({vals})")
-        elif isinstance(value, str) and ("*" in value or "?" in value):
-            # Wildcard → ILIKE
-            like_val = value.replace("*", "%").replace("?", "_")
-            clauses.append(f"{jsonb_access} ILIKE '{like_val}'")
-        else:
-            clauses.append(f"{jsonb_access} = '{value}'")
+        jsonb_access, modifiers = _jsonb_access(field)
+        clause = _build_value_clause(jsonb_access, modifiers, value)
+        if clause:
+            clauses.append(clause)
 
     if not clauses:
         return ""
