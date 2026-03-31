@@ -55,15 +55,23 @@
   <div class="table-wrap" style="margin-top:0.75rem;">
     <div class="table-title">Sample Matches</div>
     <table>
-      <thead><tr><th>Record</th><th>Timestamp</th><th>Channel</th><th>EventID</th><th>Computer</th></tr></thead>
+      <thead><tr><th>Record</th><th>EventRecordID</th><th>Timestamp</th><th>Channel</th><th>EventID</th><th>Computer</th><th>EventData Preview</th></tr></thead>
       <tbody>
         {% for match in test_result.sample_matches %}
         <tr>
-          <td class="text-mono">{{ match.record_id }}</td>
+          <td class="text-mono"><a href="/ui/cases/{{ case_id }}/records/{{ match.record_id }}">{{ match.record_id }}</a></td>
+          <td class="text-mono">{{ match.event_record_id or '—' }}</td>
           <td class="text-mono" style="font-size:0.78rem;">{{ match.timestamp }}</td>
           <td>{{ match.channel or match.record_type }}</td>
           <td class="text-mono">{{ match.event_id }}</td>
           <td class="text-mono">{{ match.computer }}</td>
+          <td style="max-width:28rem;white-space:pre-wrap;word-break:break-word;">
+            {% if match.event_data_preview %}
+              {% if match.event_data_field %}<span class="text-muted">{{ match.event_data_field }}:</span> {% endif %}{{ match.event_data_preview }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </td>
         </tr>
         {% endfor %}
       </tbody>
@@ -118,15 +126,23 @@
         <summary>Sample Probe Matches</summary>
         <div class="table-wrap" style="margin-top:0.5rem;">
           <table>
-            <thead><tr><th>Record</th><th>Timestamp</th><th>Channel</th><th>EventID</th><th>Computer</th></tr></thead>
+            <thead><tr><th>Record</th><th>EventRecordID</th><th>Timestamp</th><th>Channel</th><th>EventID</th><th>Computer</th><th>EventData Preview</th></tr></thead>
             <tbody>
               {% for match in probe.sample_matches %}
               <tr>
-                <td class="text-mono">{{ match.record_id }}</td>
+                <td class="text-mono"><a href="/ui/cases/{{ case_id }}/records/{{ match.record_id }}">{{ match.record_id }}</a></td>
+                <td class="text-mono">{{ match.event_record_id or '—' }}</td>
                 <td class="text-mono" style="font-size:0.78rem;">{{ match.timestamp }}</td>
                 <td>{{ match.channel or match.record_type }}</td>
                 <td class="text-mono">{{ match.event_id }}</td>
                 <td class="text-mono">{{ match.computer }}</td>
+                <td style="max-width:28rem;white-space:pre-wrap;word-break:break-word;">
+                  {% if match.event_data_preview %}
+                    {% if match.event_data_field %}<span class="text-muted">{{ match.event_data_field }}:</span> {% endif %}{{ match.event_data_preview }}
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
               </tr>
               {% endfor %}
             </tbody>

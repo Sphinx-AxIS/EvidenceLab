@@ -853,13 +853,42 @@ def _sample_sigma_matches(hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
     sample_matches = []
     for hit in hits[:10]:
         raw = hit.get("raw") or {}
+        event_data = raw.get("EventData") or {}
+        preview_value = ""
+        preview_field = ""
+        if isinstance(event_data, dict):
+            preview_candidates = [
+                ("ScriptBlockText", event_data.get("ScriptBlockText")),
+                ("CommandLine", event_data.get("CommandLine")),
+                ("Image", event_data.get("Image")),
+                ("ParentImage", event_data.get("ParentImage")),
+                ("TaskName", event_data.get("TaskName")),
+                ("TargetUserName", event_data.get("TargetUserName")),
+                ("SubjectUserName", event_data.get("SubjectUserName")),
+                ("IpAddress", event_data.get("IpAddress")),
+            ]
+            for field_name, field_value in preview_candidates:
+                if isinstance(field_value, str) and field_value.strip():
+                    preview_field = field_name
+                    preview_value = field_value.strip()
+                    break
+            if not preview_value and event_data:
+                first_key = next(iter(event_data.keys()))
+                first_value = event_data.get(first_key)
+                preview_field = str(first_key)
+                preview_value = str(first_value or "").strip()
+        if len(preview_value) > 160:
+            preview_value = preview_value[:157] + "..."
         sample_matches.append({
             "record_id": hit["id"],
             "record_type": hit["record_type"],
             "timestamp": str(hit.get("ts") or ""),
             "channel": str(raw.get("Channel") or ""),
             "event_id": str(raw.get("EventID") or ""),
+            "event_record_id": str(raw.get("EventRecordID") or ""),
             "computer": str(raw.get("Computer") or ""),
+            "event_data_field": preview_field,
+            "event_data_preview": preview_value,
         })
     return sample_matches
 
