@@ -1,6 +1,6 @@
 # EvidenceLab
 
-A plugin-based incident response investigation platform that combines automated evidence parsing with LLM-driven analysis. Sphinx ingests PCAP captures, Windows Event Logs, and memory forensics output, stores everything in PostgreSQL, and provides a web dashboard for analysts to investigate incidents with AI assistance.
+A plugin-based incident response investigation platform that combines automated evidence parsing with optionsl LLM-driven analysis. EvidenceLab ingests PCAP captures, Windows Event Logs, and memory forensics output, stores everything in PostgreSQL, and provides a web dashboard for analysts to investigate incident evidence, compose signatures and test them against the ingested evidence. AI can be made available to analysts if enabled in the configuration.  AI is not required for the platform and key features to function.
 
 ## Architecture
 
