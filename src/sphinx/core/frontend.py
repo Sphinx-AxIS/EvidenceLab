@@ -522,6 +522,35 @@ def _build_sigma_builder_data(
     }
 
 
+# Column aliases for record types whose raw JSON uses non-standard field names.
+# When a canonical column (e.g. "src_ip") is absent from the raw record, fall
+# back to these literal flat-dotted keys. Zeek stores the 5-tuple under
+# "id.orig_h" / "id.resp_h" etc. as flat keys (not nested JSON).
+_RECORD_FIELD_ALIASES: dict[str, dict[str, tuple[str, ...]]] = {
+    "zeek_": {
+        "src_ip": ("id.orig_h",),
+        "dest_ip": ("id.resp_h",),
+        "src_port": ("id.orig_p",),
+        "dest_port": ("id.resp_p",),
+    },
+}
+
+
+def _aliased_raw_value(record_type: str, raw: dict[str, Any], column_key: str) -> Any:
+    """Resolve a column key from raw, using record-type aliases as fallback."""
+    value = raw.get(column_key) if isinstance(raw, dict) else None
+    if value not in (None, ""):
+        return value
+    for prefix, aliases in _RECORD_FIELD_ALIASES.items():
+        if not record_type.startswith(prefix):
+            continue
+        for alt_key in aliases.get(column_key, ()):
+            alt_value = raw.get(alt_key) if isinstance(raw, dict) else None
+            if alt_value not in (None, ""):
+                return alt_value
+    return value
+
+
 def _record_highlights(record_type: str, raw: dict[str, Any] | None) -> list[dict[str, str]]:
     raw = raw or {}
     highlights: list[dict[str, str]] = []
@@ -562,11 +591,11 @@ def _record_highlights(record_type: str, raw: dict[str, Any] | None) -> list[dic
             ("URI", "uri"),
             ("Method", "method"),
             ("Source IP", "src_ip"),
+            ("Source Port", "src_port"),
             ("Destination IP", "dest_ip"),
-            ("Orig Host", "id.orig_h"),
-            ("Resp Host", "id.resp_h"),
+            ("Destination Port", "dest_port"),
         ):
-            add(label, raw.get(key))
+            add(label, _aliased_raw_value(record_type, raw, key))
 
     return highlights[:10]
 
@@ -622,7 +651,7 @@ def _default_records_columns(record_type: str) -> list[str]:
     return ["summary_hint"]
 
 
-def _records_cell_value(column_key: str, raw: dict[str, Any], summary_hint: str) -> str:
+def _records_cell_value(column_key: str, raw: dict[str, Any], summary_hint: str, record_type: str = "") -> str:
     if column_key == "summary_hint":
         return summary_hint
     if column_key == "channel_event":
@@ -632,6 +661,8 @@ def _records_cell_value(column_key: str, raw: dict[str, Any], summary_hint: str)
             return f"{channel} | EventID {event_id}"
         return channel or (f"EventID {event_id}" if event_id else "")
     value = extract_column_value(raw, column_key)
+    if value in (None, "") and record_type:
+        value = _aliased_raw_value(record_type, raw, column_key)
     if value is None:
         return ""
     if isinstance(value, (dict, list)):
@@ -1814,7 +1845,7 @@ async def records_list(
             "cells": [],
         }
         for col_def in selected_column_defs:
-            value = _records_cell_value(col_def["key"], raw, summary_hint).strip()
+            value = _records_cell_value(col_def["key"], raw, summary_hint, row["record_type"]).strip()
             rendered["cells"].append({
                 "key": col_def["key"],
                 "label": col_def["label"],
