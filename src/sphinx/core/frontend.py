@@ -533,6 +533,12 @@ _RECORD_FIELD_ALIASES: dict[str, dict[str, tuple[str, ...]]] = {
         "src_port": ("id.orig_p",),
         "dest_port": ("id.resp_p",),
     },
+    "tshark_stream": {
+        "dest_ip": ("dst_ip", "server_ip"),
+        "dest_port": ("dst_port", "server_port"),
+        "src_ip": ("client_ip",),
+        "src_port": ("client_port",),
+    },
 }
 
 
@@ -660,7 +666,12 @@ def _record_summary_hint(record_type: str, raw: dict[str, Any] | None) -> str:
         return note or msg
 
     if record_type == "tshark_stream":
-        return first(raw.get("summary"), raw.get("label"), raw.get("stream_id"))
+        idx = s(raw.get("stream_index"))
+        server = first(raw.get("server_ip"), raw.get("dst_ip"))
+        server_port = first(raw.get("server_port"), raw.get("dst_port"))
+        target = f"{server}:{server_port}" if server and server_port else server
+        prefix = f"stream {idx}" if idx else "tcp stream"
+        return f"{prefix} -> {target}" if target else prefix
 
     # Generic network-flow fallback for zeek_conn, suricata_flow, and kin.
     dst_ip = first(raw.get("id.resp_h"), raw.get("dest_ip"))
