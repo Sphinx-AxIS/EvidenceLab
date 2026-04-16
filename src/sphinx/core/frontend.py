@@ -600,6 +600,85 @@ def _record_highlights(record_type: str, raw: dict[str, Any] | None) -> list[dic
     return highlights[:10]
 
 
+def _record_summary_hint(record_type: str, raw: dict[str, Any] | None) -> str:
+    """Return a short one-line hint identifying the record at a glance."""
+    if not isinstance(raw, dict):
+        return ""
+
+    def s(val: Any) -> str:
+        if val is None or isinstance(val, (dict, list)):
+            return ""
+        return str(val).strip()
+
+    def first(*vals: Any) -> str:
+        for v in vals:
+            text = s(v)
+            if text:
+                return text
+        return ""
+
+    if record_type.startswith("win_evt_"):
+        ed = raw.get("EventData") if isinstance(raw.get("EventData"), dict) else {}
+        return first(
+            ed.get("TargetUserName"), ed.get("SubjectUserName"),
+            ed.get("TaskName"), ed.get("UserContext"),
+            ed.get("Image"), ed.get("CommandLine"),
+            ed.get("ScriptBlockText"), ed.get("IpAddress"),
+        )
+
+    if record_type == "suricata_alert":
+        alert = raw.get("alert") if isinstance(raw.get("alert"), dict) else {}
+        sig = s(alert.get("signature"))
+        sev = s(alert.get("severity"))
+        return f"[{sev}] {sig}" if sig and sev else sig
+
+    if record_type in ("zeek_dns", "suricata_dns"):
+        return first(raw.get("query"), raw.get("rrname"))
+
+    if record_type in ("zeek_http", "suricata_http"):
+        method = first(raw.get("method"), raw.get("http_method"))
+        host = first(raw.get("host"), raw.get("hostname"))
+        uri = first(raw.get("uri"), raw.get("url"))
+        target = f"{host}{uri}" if (host or uri) else ""
+        return " ".join(p for p in (method, target) if p)
+
+    if record_type in ("zeek_ssl", "suricata_tls"):
+        return first(raw.get("server_name"), raw.get("sni"), raw.get("subject"))
+
+    if record_type == "zeek_files":
+        mime = s(raw.get("mime_type"))
+        name = s(raw.get("filename"))
+        if mime and name:
+            return f"{mime} {name}"
+        return mime or name
+
+    if record_type == "zeek_notice":
+        note = s(raw.get("note"))
+        msg = s(raw.get("msg"))
+        if note and msg:
+            return f"{note}: {msg}"
+        return note or msg
+
+    if record_type == "tshark_stream":
+        return first(raw.get("summary"), raw.get("label"), raw.get("stream_id"))
+
+    # Generic network-flow fallback for zeek_conn, suricata_flow, and kin.
+    dst_ip = first(raw.get("id.resp_h"), raw.get("dest_ip"))
+    dst_port = first(raw.get("id.resp_p"), raw.get("dest_port"))
+    if dst_ip:
+        label = first(raw.get("service"), raw.get("app_proto"), raw.get("proto"))
+        tail = f"{dst_ip}:{dst_port}" if dst_port else dst_ip
+        if label:
+            return f"{label} → {tail}"
+        src_ip = first(raw.get("id.orig_h"), raw.get("src_ip"))
+        return f"{src_ip} → {tail}" if src_ip else tail
+
+    return first(
+        raw.get("summary"), raw.get("description"),
+        raw.get("message"), raw.get("name"), raw.get("title"),
+    )
+
+
 def _records_column_options(record_type: str) -> list[dict[str, str]]:
     """Return optional Records-table columns for the selected evidence family."""
     if record_type.startswith("win_evt_"):
@@ -1793,25 +1872,7 @@ async def records_list(
         total = cur.fetchone()["n"]
 
         cur.execute(
-            f"""SELECT
-                    id,
-                    record_type,
-                    ts::text AS ts,
-                    raw,
-                    COALESCE(
-                        raw->'EventData'->>'TargetUserName',
-                        raw->'EventData'->>'SubjectUserName',
-                        raw->'EventData'->>'TaskName',
-                        raw->'EventData'->>'UserContext',
-                        raw->'EventData'->>'Image',
-                        raw->'EventData'->>'CommandLine',
-                        raw->'EventData'->>'ScriptBlockText',
-                        raw->'EventData'->>'IpAddress',
-                        raw->>'alert_signature',
-                        raw->>'query',
-                        raw->>'host',
-                        ''
-                    ) AS summary_hint
+            f"""SELECT id, record_type, ts::text AS ts, raw
                FROM records
                WHERE {where}
                ORDER BY ts DESC NULLS LAST
@@ -1837,7 +1898,7 @@ async def records_list(
     records = []
     for row in raw_rows:
         raw = row["raw"] if isinstance(row["raw"], dict) else (json.loads(row["raw"]) if row["raw"] else {})
-        summary_hint = row["summary_hint"] or ""
+        summary_hint = _record_summary_hint(row["record_type"], raw)
         rendered = {
             "id": row["id"],
             "record_type": row["record_type"],
